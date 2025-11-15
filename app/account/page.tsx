@@ -4,22 +4,17 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IconH1, IconLoader } from "@tabler/icons-react";
+import { IconLoader } from "@tabler/icons-react";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { authClient } from "@/lib/auth-client";
 
-import { useRouter } from "next/navigation";
-
 export default function Page() {
-  const router = useRouter();
-
   const [fullname, setFullname] = useState("");
   const [email, setEmail] = useState("");
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   async function getUser() {
     const { data: session } = await authClient.getSession();
@@ -39,12 +34,12 @@ export default function Page() {
 
   return !email ? (
     <div className="px-4 lg:px-6 lg:w-1/2 grid gap-4">
-      <Skeleton className="w-1/2 h-[20px] rounded-full" />
-      <Skeleton className="w-2/3 h-[20px] rounded-full" />
+      <Skeleton className="w-1/2 h-5 rounded-full" />
+      <Skeleton className="w-2/3 h-5 rounded-full" />
       <Separator className="mb-4" />
-      <Skeleton className="w-full h-[20px] rounded-full" />
+      <Skeleton className="w-full h-5 rounded-full" />
       <Skeleton className="w-full h-[30px] rounded-full" />
-      <Skeleton className="w-full h-[20px] rounded-full" />
+      <Skeleton className="w-full h-5 rounded-full" />
       <Skeleton className="w-full h-[30px] rounded-full" />
       <Skeleton className="w-full h-[30px] rounded-full" />
     </div>

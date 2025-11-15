@@ -1,5 +1,17 @@
-import { redirect } from "next/navigation";
+import { ChartAreaInteractive } from "@/components/chart-area-interactive";
+import { DataTable } from "@/components/data-table";
+import { SectionCards } from "@/components/section-cards";
 
-export default function HomePage() {
-  redirect("/dashboard");
+import data from "./data.json";
+
+export default async function HomePage() {
+  return (
+    <>
+      <SectionCards />
+      <div className="px-4 lg:px-6">
+        <ChartAreaInteractive />
+      </div>
+      <DataTable data={data} />
+    </>
+  );
 }

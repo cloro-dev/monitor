@@ -35,23 +35,23 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { user } from "@prisma/client";
+import type { User } from "better-auth/types";
 
 const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "/dashboard",
+      url: "/",
       icon: IconDashboard,
     },
     {
       title: "Account",
-      url: "/dashboard/account",
+      url: "/account",
       icon: IconUserCircle,
     },
     {
       title: "Setting",
-      url: "/dashboard/setting",
+      url: "/setting",
       icon: IconSettings,
     },
     // {
@@ -155,7 +155,7 @@ const data = {
 };
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  user: user;
+  user: User;
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
@@ -169,10 +169,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <a href="#">
-                <IconInnerShadowTop className="!size-5" />
+                <IconInnerShadowTop className="size-5!" />
                 <span className="text-base font-semibold">Dashboard</span>
               </a>
             </SidebarMenuButton>

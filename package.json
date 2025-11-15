@@ -15,7 +15,8 @@
     "db:migrate": "dotenv -e .env -- npx prisma migrate dev",
     "db:generate": "dotenv -e .env -- npx prisma generate",
     "db:pull": "dotenv -e .env -- npx prisma db pull",
-    "db:push": "dotenv -e .env -- npx prisma db push"
+    "db:push": "dotenv -e .env -- npx prisma db push",
+    "prepare": "husky"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -63,6 +64,7 @@
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.3",
+    "husky": "^9.1.7",
     "prisma": "^6.18.0",
     "tailwindcss": "^4",
     "tsx": "^4.19.3",

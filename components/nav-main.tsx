@@ -1,61 +1,177 @@
-"use client";
+'use client'
 
-import { IconCirclePlusFilled, IconMail, type Icon } from "@tabler/icons-react";
-
-import { Button } from "@/components/ui/button";
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { ChevronRight } from 'lucide-react'
+import { Icon } from '@/components/ui/icon'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   SidebarGroup,
-  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import Link from "next/link";
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from '@/components/ui/sidebar'
+import { NavbarItem } from '@/components/app-sidebar'
+import { cn } from '@/lib/utils'
+import { useSidebarCollapsible } from '@/hooks/use-sidebar-collapsible'
 
 export function NavMain({
-  items,
+  sections,
 }: {
-  items: {
-    title: string;
-    url: string;
-    icon?: Icon;
-  }[];
+  sections: { title: string; items: NavbarItem[] }[]
 }) {
+  const pathname = usePathname()
+  const { openItems, toggleItem: toggleItemState } = useSidebarCollapsible()
+
+  const isPathActive = (itemUrl: string) => {
+    // Handle root path specially to avoid matching all routes
+    if (itemUrl === '/') {
+      return pathname === '/'
+    }
+    // Check if current path starts with the item's URL
+    return pathname.startsWith(itemUrl)
+  }
+
+  const toggleItem = (itemTitle: string, e?: React.MouseEvent) => {
+    // Prevent toggle when clicking on the chevron
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    toggleItemState(itemTitle)
+  }
+
   return (
-    <SidebarGroup>
-      <SidebarGroupContent className="flex flex-col gap-2">
-        <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2">
-            <SidebarMenuButton
-              tooltip="Quick Create"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground min-w-8 duration-200 ease-linear"
-            >
-              <IconCirclePlusFilled />
-              <span>Quick Create</span>
-            </SidebarMenuButton>
-            <Button
-              size="icon"
-              className="size-8 group-data-[collapsible=icon]:opacity-0"
-              variant="outline"
-            >
-              <IconMail />
-              <span className="sr-only">Inbox</span>
-            </Button>
-          </SidebarMenuItem>
-        </SidebarMenu>
-        <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <Link href={item.url}>
-                <SidebarMenuButton tooltip={item.title}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  );
+    <>
+      {sections.map((section) => (
+        <SidebarGroup key={section.title}>
+          {!!section.title && (
+            <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+          )}
+          <SidebarMenu>
+            {section.items.map((item) => {
+              const isActive = isPathActive(item.url)
+              const hasSubItems = item.items && item.items.length > 0
+              const isOpen = openItems[item.title] ?? false
+
+              if (item.isCollapsible) {
+                return (
+                  <Collapsible
+                    key={item.title}
+                    open={isOpen}
+                    onOpenChange={() => toggleItem(item.title)}
+                  >
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip={
+                          item.disabled
+                            ? `${item.title} (Coming Soon)`
+                            : item.title
+                        }
+                        isActive={isActive}
+                      >
+                        <Link
+                          href={item.url}
+                          className="flex w-full items-center justify-between"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Icon name={item.icon} />
+                            <span>{item.title}</span>
+                          </span>
+                          <CollapsibleTrigger
+                            asChild
+                            onClick={(e) => toggleItem(item.title, e)}
+                          >
+                            <ChevronRight
+                              className={cn(
+                                'h-4 w-4 transition-transform hover:bg-sidebar-accent rounded',
+                                isOpen && 'rotate-90',
+                              )}
+                            />
+                          </CollapsibleTrigger>
+                        </Link>
+                      </SidebarMenuButton>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {hasSubItems ? (
+                            item.items?.map((subItem) => (
+                              <SidebarMenuSubItem key={subItem.url}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  size="sm"
+                                  className="h-5 py-0.5 px-1.5"
+                                >
+                                  <Link href={subItem.url}>
+                                    <span className="truncate text-xs">
+                                      {subItem.title}
+                                    </span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))
+                          ) : (
+                            <SidebarMenuSubItem>
+                              <span className="text-xs text-muted-foreground px-2">
+                                No recent items
+                              </span>
+                            </SidebarMenuSubItem>
+                          )}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )
+              }
+
+              return (
+                <Collapsible
+                  key={item.title}
+                  asChild
+                  defaultOpen={item.isActive}
+                >
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={
+                        item.disabled
+                          ? `${item.title} (Coming Soon)`
+                          : item.title
+                      }
+                      isActive={isActive}
+                    >
+                      {item.disabled ? (
+                        <div
+                          className={cn(
+                            'flex items-center gap-2 px-3 py-2 rounded-md cursor-not-allowed opacity-50',
+                            isActive && 'bg-accent',
+                          )}
+                        >
+                          <Icon name={item.icon} />
+                          <span>{item.title}</span>
+                        </div>
+                      ) : (
+                        <Link href={item.url}>
+                          <Icon name={item.icon} />
+                          <span>{item.title}</span>
+                        </Link>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+      ))}
+    </>
+  )
 }

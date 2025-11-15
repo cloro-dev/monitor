@@ -34,7 +34,7 @@ This is a Next.js 16 application using the App Router architecture with:
 
 ### Key Directory Structure
 
-```
+```json
 ├── app/                  # Next.js App Router
 │   ├── (dashboard)/     # Protected route group (requires auth)
 │   ├── api/             # API routes

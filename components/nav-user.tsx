@@ -24,10 +24,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { User } from "better-auth/types";
+import { user } from "@prisma/client";
 import LogoutButton from "./auth/logout-button";
 
-export function NavUser({ user }: { user: User }) {
+export function NavUser({ user }: { user: user }) {
   const { isMobile } = useSidebar();
 
   return (

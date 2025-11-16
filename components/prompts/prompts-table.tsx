@@ -29,6 +29,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useDeletePrompt } from "@/hooks/use-prompts";
+import { toast } from "sonner";
 
 interface Prompt {
   id: string;
@@ -42,26 +44,14 @@ interface PromptsTableProps {
   data: Prompt[];
 }
 
-export function PromptsTable({
-  data,
-  onPromptSaved,
-  onPromptDeleted
-}: PromptsTableProps & {
-  onPromptSaved?: (prompt: Prompt) => void;
-  onPromptDeleted?: (promptId: string) => void;
-}) {
+export function PromptsTable({ data }: PromptsTableProps) {
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const { deletePrompt } = useDeletePrompt();
 
-  const handlePromptSaved = (savedPrompt: Prompt) => {
-    if (editingPrompt) {
-      // Update existing prompt - let parent handle state update
-      onPromptSaved?.(savedPrompt);
-    } else {
-      // Add new prompt - let parent handle state update
-      onPromptSaved?.(savedPrompt);
-    }
+  const handlePromptSaved = () => {
+    // SWR handles cache updates automatically via the hooks in PromptDialog
     setEditingPrompt(null);
   };
 
@@ -69,22 +59,12 @@ export function PromptsTable({
     if (!deletingPrompt) return;
 
     try {
-      const response = await fetch(`/api/prompts/${deletingPrompt.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete prompt");
-      }
-
-      // Remove prompt from the list - let parent handle state update
-      onPromptDeleted?.(deletingPrompt.id);
+      await deletePrompt(deletingPrompt.id);
+      toast.success("Prompt deleted successfully");
       setDeletingPrompt(null);
       setIsDeleteDialogOpen(false);
     } catch (error) {
-      console.error("Error deleting prompt:", error);
-      // You could add a toast notification here
+      toast.error(error instanceof Error ? error.message : "Failed to delete prompt");
     }
   };
 
@@ -176,7 +156,6 @@ export function PromptsTable({
       {/* Edit Dialog */}
       <PromptDialog
         prompt={editingPrompt || undefined}
-        onSuccess={handlePromptSaved}
         open={!!editingPrompt}
         onOpenChange={(open) => !open && setEditingPrompt(null)}
       />

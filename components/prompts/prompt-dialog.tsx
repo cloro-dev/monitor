@@ -21,6 +21,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { countries } from "@/lib/countries";
 import { Loader2, Plus } from "lucide-react";
+import { useCreatePrompt, useUpdatePrompt } from "@/hooks/use-prompts";
+import { toast } from "sonner";
 
 interface Prompt {
   id: string;
@@ -33,7 +35,6 @@ interface Prompt {
 interface PromptDialogProps {
   trigger?: React.ReactNode;
   prompt?: Prompt;
-  onSuccess?: (prompt: Prompt) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -41,7 +42,6 @@ interface PromptDialogProps {
 export function PromptDialog({
   trigger,
   prompt,
-  onSuccess,
   open,
   onOpenChange,
 }: PromptDialogProps) {
@@ -52,6 +52,9 @@ export function PromptDialog({
     country: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { createPrompt } = useCreatePrompt();
+  const { updatePrompt } = useUpdatePrompt();
 
   const isEditing = Boolean(prompt);
 
@@ -94,27 +97,17 @@ export function PromptDialog({
     }
 
     try {
-      const url = isEditing && prompt ? `/api/prompts/${prompt.id}` : "/api/prompts";
-      const method = isEditing ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save prompt");
+      if (isEditing && prompt) {
+        await updatePrompt(prompt.id, formData);
+        toast.success("Prompt updated successfully");
+      } else {
+        await createPrompt(formData);
+        toast.success("Prompt created successfully");
       }
 
-      const savedPrompt = await response.json();
-
       setIsOpen(false);
-      onSuccess?.(savedPrompt);
       setFormData({ text: "", country: "" });
+      onOpenChange?.(false);
     } catch (error) {
       setErrors({
         submit: error instanceof Error ? error.message : "An error occurred",
@@ -238,7 +231,7 @@ export function PromptDialog({
 }
 
 // Default trigger button component
-export function AddPromptButton({ onSuccess }: { onSuccess?: (prompt: Prompt) => void }) {
+export function AddPromptButton() {
   return (
     <PromptDialog
       trigger={
@@ -247,7 +240,6 @@ export function AddPromptButton({ onSuccess }: { onSuccess?: (prompt: Prompt) =>
           Add Prompt
         </Button>
       }
-      onSuccess={onSuccess}
     />
   );
 }

@@ -1,61 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { PromptsTable } from "@/components/prompts/prompts-table";
 import { AddPromptButton } from "@/components/prompts/prompt-dialog";
 import { Layout } from "@/components/layout";
-
-interface Prompt {
-  id: string;
-  text: string;
-  country: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { usePrompts } from "@/hooks/use-prompts";
 
 // Force dynamic rendering for authentication
 export const dynamic = "force-dynamic";
 
 export default function PromptsPage() {
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  async function fetchPrompts() {
-    try {
-      const response = await fetch("/api/prompts");
-      if (response.ok) {
-        const data = await response.json();
-        setPrompts(data);
-      }
-    } catch (error) {
-      console.error("Error fetching prompts:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchPrompts();
-  }, []);
-
-  const handlePromptUpdated = (updatedPrompt: Prompt) => {
-    // Handle both new prompts and updated prompts
-    setPrompts((prev) => {
-      const existingIndex = prev.findIndex((p) => p.id === updatedPrompt.id);
-      if (existingIndex >= 0) {
-        // Update existing prompt
-        return prev.map((p) => (p.id === updatedPrompt.id ? updatedPrompt : p));
-      } else {
-        // Add new prompt to the beginning
-        return [updatedPrompt, ...prev];
-      }
-    });
-  };
-
-  const handlePromptDeleted = (deletedPromptId: string) => {
-    // Remove the deleted prompt from the state
-    setPrompts((prev) => prev.filter((p) => p.id !== deletedPromptId));
-  };
+  const { prompts, error } = usePrompts();
 
   return (
     <Layout breadcrumbs={[{ label: "Prompts" }]}>
@@ -65,21 +19,22 @@ export default function PromptsPage() {
             <p className="text-muted-foreground">Manage your AI prompts</p>
           </div>
           <div className="flex items-center space-x-2">
-            <AddPromptButton onSuccess={handlePromptUpdated} />
+            <AddPromptButton />
           </div>
         </div>
 
         <div className="border rounded-lg bg-card">
-          {isLoading ? (
+          {error ? (
             <div className="flex items-center justify-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="text-center">
+                <p className="text-destructive mb-2">Failed to load prompts</p>
+                <p className="text-muted-foreground text-sm">
+                  {error.message || "Please try again later"}
+                </p>
+              </div>
             </div>
           ) : (
-            <PromptsTable
-              data={prompts}
-              onPromptSaved={handlePromptUpdated}
-              onPromptDeleted={handlePromptDeleted}
-            />
+            <PromptsTable data={prompts} />
           )}
         </div>
       </div>

@@ -16,119 +16,60 @@ import { Building2, Users } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { IconLoader } from "@tabler/icons-react";
 import { Layout } from "@/components/layout";
-
-interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string;
-  createdAt: string;
-  members: Array<{
-    id: string;
-    user: {
-      name: string;
-      email: string;
-    };
-    role: string;
-  }>;
-}
+import { toast } from "sonner";
+import {
+  useActiveOrganization,
+  useUpdateOrganization,
+} from "@/hooks/use-organizations";
 
 export default function SettingsPage() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
 
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { activeOrganization, hasOrganizations } = useActiveOrganization();
+  const { updateOrganization } = useUpdateOrganization();
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Form state
   const [name, setName] = useState("");
   const [logo, setLogo] = useState("");
 
+  // Initialize form when organization data loads
   useEffect(() => {
-    const fetchOrganization = async () => {
-      try {
-        const response = await fetch("/api/organizations");
-        if (response.ok) {
-          const data = await response.json();
-          const activeOrg =
-            session && "activeOrganizationId" in session
-              ? data.organizations.find(
-                  (org: any) => org.id === (session as any).activeOrganizationId
-                )
-              : data.organizations[0];
-
-          if (activeOrg) {
-            setOrganization(activeOrg);
-            setName(activeOrg.name);
-            setLogo(activeOrg.logo || "");
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching organization:", error);
-        setError("Failed to load organization data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrganization();
-  }, [session]);
+    if (activeOrganization) {
+      setName(activeOrganization.name);
+      setLogo(activeOrganization.logo || "");
+    }
+  }, [activeOrganization]);
 
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
-    setSuccess("");
+
+    if (!activeOrganization) return;
 
     try {
-      const response = await fetch(`/api/organizations/${organization?.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, logo }),
+      await updateOrganization({
+        organizationId: activeOrganization.id,
+        name,
+        logo,
       });
 
-      if (response.ok) {
-        setSuccess("Organization updated successfully");
-        // Refresh organization data
-        try {
-          const orgResponse = await fetch("/api/organizations");
-          if (orgResponse.ok) {
-            const data = await orgResponse.json();
-            const activeOrg =
-              session && "activeOrganizationId" in session
-                ? data.organizations.find(
-                    (org: any) =>
-                      org.id === (session as any).activeOrganizationId
-                  )
-                : data.organizations[0];
-
-            if (activeOrg) {
-              setOrganization(activeOrg);
-              setName(activeOrg.name);
-              setLogo(activeOrg.logo || "");
-            }
-          }
-        } catch (error) {
-          console.error("Error refreshing organization data:", error);
-        }
-      } else {
-        const data = await response.json();
-        setError(data.error || "Failed to update organization");
-      }
+      toast.success("Organization updated successfully");
     } catch (error) {
-      console.error("Error updating organization:", error);
-      setError("Failed to update organization");
+      setError(
+        error instanceof Error ? error.message : "Failed to update organization"
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  // Handle loading state while organization data is being fetched
+  if (!activeOrganization && !session) {
     return (
       <Layout breadcrumbs={[{ label: "Settings" }]}>
         <div className="flex items-center justify-center h-64">
@@ -138,7 +79,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (!organization) {
+  if (!activeOrganization && hasOrganizations === false) {
     return (
       <Layout breadcrumbs={[{ label: "Settings" }]}>
         <div className="space-y-6">
@@ -156,18 +97,23 @@ export default function SettingsPage() {
     );
   }
 
+  if (!activeOrganization) {
+    // Still loading
+    return (
+      <Layout breadcrumbs={[{ label: "Settings" }]}>
+        <div className="flex items-center justify-center h-64">
+          <IconLoader className="animate-spin h-8 w-8" />
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout breadcrumbs={[{ label: "Settings" }]}>
       <div className="px-4 lg:px-6 space-y-6">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert>
-            <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
 
@@ -232,7 +178,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {organization.members.map((member) => (
+                {activeOrganization.members.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center justify-between p-3 rounded-lg border"
@@ -251,7 +197,7 @@ export default function SettingsPage() {
                   </div>
                 ))}
 
-                {organization.members.length === 0 && (
+                {activeOrganization.members.length === 0 && (
                   <p className="text-center text-muted-foreground py-4">
                     No members found
                   </p>

@@ -72,7 +72,7 @@ export default function SettingsPage() {
   if (!activeOrganization && !session) {
     return (
       <Layout breadcrumbs={[{ label: "Settings" }]}>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex flex-1 items-center justify-center p-6 pt-0">
           <IconLoader className="animate-spin h-8 w-8" />
         </div>
       </Layout>
@@ -82,7 +82,7 @@ export default function SettingsPage() {
   if (!activeOrganization && hasOrganizations === false) {
     return (
       <Layout breadcrumbs={[{ label: "Settings" }]}>
-        <div className="space-y-6">
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0 overflow-auto space-y-4">
           <Alert>
             <Building2 className="h-4 w-4" />
             <AlertDescription>
@@ -101,7 +101,7 @@ export default function SettingsPage() {
     // Still loading
     return (
       <Layout breadcrumbs={[{ label: "Settings" }]}>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex flex-1 items-center justify-center p-4 pt-0">
           <IconLoader className="animate-spin h-8 w-8" />
         </div>
       </Layout>
@@ -110,7 +110,7 @@ export default function SettingsPage() {
 
   return (
     <Layout breadcrumbs={[{ label: "Settings" }]}>
-      <div className="px-4 lg:px-6 space-y-6">
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0 overflow-auto space-y-6">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

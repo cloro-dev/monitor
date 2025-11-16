@@ -93,8 +93,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const supportSecondaryItems = [
     {
-      title: "Organization",
-      url: "/dashboard/settings/organization",
+      title: "Settings",
+      url: "/dashboard/settings",
       icon: "Building2" as IconName,
     },
     {

@@ -12,15 +12,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Building2,
-  Users,
-  Settings as SettingsIcon,
-  ArrowLeft,
-} from "lucide-react";
+import { Building2, Users } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { IconLoader } from "@tabler/icons-react";
-import Link from "next/link";
 
 interface Organization {
   id: string;
@@ -38,7 +32,7 @@ interface Organization {
   }>;
 }
 
-export default function OrganizationSettingsPage() {
+export default function SettingsPage() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
 
@@ -50,7 +44,6 @@ export default function OrganizationSettingsPage() {
 
   // Form state
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
   const [logo, setLogo] = useState("");
 
   useEffect(() => {
@@ -69,7 +62,6 @@ export default function OrganizationSettingsPage() {
           if (activeOrg) {
             setOrganization(activeOrg);
             setName(activeOrg.name);
-            setSlug(activeOrg.slug);
             setLogo(activeOrg.logo || "");
           }
         }
@@ -96,7 +88,7 @@ export default function OrganizationSettingsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, slug, logo }),
+        body: JSON.stringify({ name, logo }),
       });
 
       if (response.ok) {
@@ -117,7 +109,6 @@ export default function OrganizationSettingsPage() {
             if (activeOrg) {
               setOrganization(activeOrg);
               setName(activeOrg.name);
-              setSlug(activeOrg.slug);
               setLogo(activeOrg.logo || "");
             }
           }
@@ -162,21 +153,6 @@ export default function OrganizationSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold">Organization Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your organization details and members
-          </p>
-        </div>
-      </div>
-
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -212,20 +188,6 @@ export default function OrganizationSettingsPage() {
                   placeholder="Enter organization name"
                   required
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="slug">Organization Slug</Label>
-                <Input
-                  id="slug"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  placeholder="organization-slug"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  This will be used in URLs and must be unique.
-                </p>
               </div>
 
               <div className="space-y-2">

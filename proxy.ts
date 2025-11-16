@@ -8,7 +8,7 @@ const publicRoutes = ["/", "/login", "/signup", "/reset-password", "/reset-passw
 // Define static assets that should be accessible
 const staticRoutes = ["/_next", "/favicon", "/images", "/fonts"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip middleware for static assets

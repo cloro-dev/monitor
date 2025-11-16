@@ -75,6 +75,8 @@ export function OrganizationCreationModal({
 
   const handleSuccess = () => {
     onOpenChange(false);
+    // Refresh the page to show the updated content
+    window.location.reload();
   };
 
   // Prevent closing the modal unless organization is successfully created

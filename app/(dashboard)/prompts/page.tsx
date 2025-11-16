@@ -2,8 +2,14 @@
 
 import { PromptsTable } from "@/components/prompts/prompts-table";
 import { AddPromptButton } from "@/components/prompts/prompt-dialog";
-import { Layout } from "@/components/layout";
 import { usePrompts } from "@/hooks/use-prompts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 // Force dynamic rendering for authentication
 export const dynamic = "force-dynamic";
@@ -12,18 +18,20 @@ export default function PromptsPage() {
   const { prompts, error } = usePrompts();
 
   return (
-    <Layout breadcrumbs={[{ label: "Prompts" }]}>
-      <div className="flex flex-1 flex-col gap-4 p-6 overflow-auto space-y-4">
-        <div className="flex items-center justify-between space-y-2">
-          <div>
-            <p className="text-muted-foreground">Manage your AI prompts</p>
-          </div>
-          <div className="flex items-center space-x-2">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>AI Prompts</CardTitle>
+              <CardDescription>
+                Create and manage your prompt templates
+              </CardDescription>
+            </div>
             <AddPromptButton />
           </div>
-        </div>
-
-        <div className="border rounded-lg bg-card">
+        </CardHeader>
+        <CardContent>
           {error ? (
             <div className="flex items-center justify-center py-16">
               <div className="text-center">
@@ -36,8 +44,8 @@ export default function PromptsPage() {
           ) : (
             <PromptsTable data={prompts} />
           )}
-        </div>
-      </div>
-    </Layout>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

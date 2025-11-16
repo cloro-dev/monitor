@@ -83,11 +83,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           icon: "MessageSquare" as IconName,
         },
         {
-          title: "Prompts",
-          url: "/dashboard/prompts",
-          icon: "MessageSquare" as IconName,
-        },
-        {
           title: "API keys",
           url: "/dashboard/api-keys",
           icon: "Key" as IconName,

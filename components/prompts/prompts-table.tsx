@@ -42,21 +42,25 @@ interface PromptsTableProps {
   data: Prompt[];
 }
 
-export function PromptsTable({ data }: PromptsTableProps) {
+export function PromptsTable({
+  data,
+  onPromptSaved,
+  onPromptDeleted
+}: PromptsTableProps & {
+  onPromptSaved?: (prompt: Prompt) => void;
+  onPromptDeleted?: (promptId: string) => void;
+}) {
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [prompts, setPrompts] = useState<Prompt[]>(data);
 
   const handlePromptSaved = (savedPrompt: Prompt) => {
     if (editingPrompt) {
-      // Update existing prompt
-      setPrompts(prev =>
-        prev.map(p => p.id === savedPrompt.id ? savedPrompt : p)
-      );
+      // Update existing prompt - let parent handle state update
+      onPromptSaved?.(savedPrompt);
     } else {
-      // Add new prompt to the beginning
-      setPrompts(prev => [savedPrompt, ...prev]);
+      // Add new prompt - let parent handle state update
+      onPromptSaved?.(savedPrompt);
     }
     setEditingPrompt(null);
   };
@@ -74,8 +78,8 @@ export function PromptsTable({ data }: PromptsTableProps) {
         throw new Error(errorData.error || "Failed to delete prompt");
       }
 
-      // Remove prompt from the list
-      setPrompts(prev => prev.filter(p => p.id !== deletingPrompt.id));
+      // Remove prompt from the list - let parent handle state update
+      onPromptDeleted?.(deletingPrompt.id);
       setDeletingPrompt(null);
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -94,7 +98,7 @@ export function PromptsTable({ data }: PromptsTableProps) {
     });
   };
 
-  if (prompts.length === 0) {
+  if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <div className="text-center">
@@ -120,7 +124,7 @@ export function PromptsTable({ data }: PromptsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {prompts.map((prompt) => (
+            {data.map((prompt) => (
               <TableRow key={prompt.id}>
                 <TableCell className="font-medium">
                   <div className="max-w-md truncate" title={prompt.text}>

@@ -33,12 +33,17 @@ export interface NavbarItem {
   className?: string;
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: session, isPending } = authClient.useSession();
-  const pathname = usePathname();
-  const { isMobile, state } = useSidebar();
+export function AppSidebar({
+  session: serverSession,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { session?: any }) {
+  const { data: clientSession, isPending } = authClient.useSession();
+  const { state } = useSidebar();
   const [mounted, setMounted] = React.useState(false);
   const { activeOrganization } = useActiveOrganization();
+
+  // Use server session if provided, otherwise fall back to client session
+  const session = serverSession || clientSession;
 
   React.useEffect(() => {
     setMounted(true);

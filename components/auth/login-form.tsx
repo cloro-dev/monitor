@@ -15,15 +15,18 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Alert, AlertDescription } from "../ui/alert";
 import { Terminal } from "lucide-react";
 
 import { IconLoader } from "@tabler/icons-react";
 
 export function LoginForm({
   className,
+  redirectTo,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & {
+  redirectTo?: string;
+}) {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -35,7 +38,7 @@ export function LoginForm({
   async function handleSubmit(e: any) {
     e.preventDefault();
 
-    const { data, error } = await authClient.signIn.email(
+    await authClient.signIn.email(
       {
         /**
          * The user email
@@ -45,10 +48,6 @@ export function LoginForm({
          * The user password
          */
         password,
-        /**
-         * a url to redirect to after the user verifies their email (optional)
-         */
-        callbackURL: "/dashboard",
         /**
          * remember the user session after the browser is closed.
          * @default true
@@ -60,8 +59,10 @@ export function LoginForm({
           setLoading(true);
         },
         onSuccess: (ctx) => {
-          // redirect to the dashboard
-          //alert("Logged in successfully");
+          setLoading(false);
+          // Better Auth's redirect might not be working as expected, use manual redirect
+          const finalRedirectUrl = redirectTo || "/dashboard";
+          window.location.href = finalRedirectUrl;
         },
         onError: (ctx) => {
           // display the error message

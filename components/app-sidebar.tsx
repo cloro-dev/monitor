@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { usePathname } from 'next/navigation'
 import { IconName } from '@/components/ui/icon'
 import { authClient } from '@/lib/auth-client'
@@ -31,9 +32,14 @@ export interface NavbarItem {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: session } = authClient.useSession()
+  const { data: session, isPending } = authClient.useSession()
   const pathname = usePathname()
   const { isMobile, state } = useSidebar()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const mainSections: { title: string; items: NavbarItem[] }[] = [
     {
@@ -76,6 +82,35 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
   ]
 
+  // Ensure consistent user data for hydration
+  const user = {
+    name: (mounted ? session?.user?.name : 'User') || 'User',
+    email: (mounted ? session?.user?.email : '') || '',
+    avatar: (mounted ? session?.user?.image : '') || '',
+  }
+
+  // Don't render user-specific content while loading or during hydration
+  if (isPending || !mounted) {
+    return (
+      <Sidebar collapsible="icon" {...props}>
+        <SidebarHeader>
+          <div className={`flex items-center gap-2 py-1 ${state === "collapsed" ? "" : "px-2"}`}>
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <span className="text-sm font-bold">M</span>
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold">Monitor</span>
+            </div>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <NavMain sections={mainSections} />
+          <NavSecondary items={supportSecondaryItems} className="mt-auto" />
+        </SidebarContent>
+      </Sidebar>
+    )
+  }
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -93,13 +128,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={supportSecondaryItems} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
-          user={{
-            name: session?.user?.name ?? 'User',
-            email: session?.user?.email ?? '',
-            avatar: session?.user?.image ?? '',
-          }}
-        />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )

@@ -15,6 +15,22 @@ export const auth = betterAuth({
     requireEmailVerification: false,
     minPasswordLength: 8,
     maxPasswordLength: 128,
+    sendResetPassword: async ({ user, url, token }, request) => {
+      // In development, just log the URL. In production, you'd send an email.
+      console.log(`Password reset link for ${user.email}: ${url}`);
+      console.log(`Token: ${token}`);
+
+      // TODO: In production, integrate with your email service
+      // Example:
+      // await sendEmail({
+      //   to: user.email,
+      //   subject: "Reset your password",
+      //   text: `Click the link to reset your password: ${url}`,
+      // });
+    },
+    onPasswordReset: async ({ user }, request) => {
+      console.log(`Password for user ${user.email} has been reset.`);
+    },
   },
   database: prismaAdapter(prisma, {
     provider: "postgresql",

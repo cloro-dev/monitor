@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 // Define public routes that don't require authentication
-const publicRoutes = ["/", "/login", "/signup", "/api/auth"];
+const publicRoutes = ["/", "/login", "/signup", "/reset-password", "/reset-password/confirm", "/api/auth"];
 
 // Define static assets that should be accessible
 const staticRoutes = ["/_next", "/favicon", "/images", "/fonts"];

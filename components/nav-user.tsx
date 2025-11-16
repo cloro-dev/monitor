@@ -47,10 +47,7 @@ export function NavUser({
     })
   }
 
-  const handleAccountClick = () => {
-    router.push('/dashboard/account')
-  }
-
+  
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -93,13 +90,6 @@ export function NavUser({
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={handleAccountClick}>
-                <Icon name="BadgeCheck" />
-                Account
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <Icon name="LogOut" />

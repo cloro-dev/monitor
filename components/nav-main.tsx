@@ -65,7 +65,7 @@ export function NavMain({
               if (item.isCollapsible) {
                 return (
                   <Collapsible
-                    key={item.title}
+                    key={`${item.title}-${item.url}`}
                     open={isOpen}
                     onOpenChange={() => toggleItem(item.title)}
                   >
@@ -104,7 +104,7 @@ export function NavMain({
                         <SidebarMenuSub>
                           {hasSubItems ? (
                             item.items?.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.url}>
+                              <SidebarMenuSubItem key={`${subItem.title}-${subItem.url}`}>
                                 <SidebarMenuSubButton
                                   asChild
                                   size="sm"
@@ -134,7 +134,7 @@ export function NavMain({
 
               return (
                 <Collapsible
-                  key={item.title}
+                  key={`${item.title}-${item.url}`}
                   asChild
                   defaultOpen={item.isActive}
                 >

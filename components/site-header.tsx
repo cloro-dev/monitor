@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment } from "react";
-import { usePathname } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,8 +11,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
 import Link from "next/link";
 
 interface BreadcrumbItem {
@@ -21,35 +18,11 @@ interface BreadcrumbItem {
   href?: string;
 }
 
-export function SiteHeader() {
-  const pathname = usePathname();
+interface SiteHeaderProps {
+  breadcrumbs?: BreadcrumbItem[];
+}
 
-  const getBreadcrumbs = (): BreadcrumbItem[] => {
-    if (pathname === "/dashboard/settings") {
-      return [
-        { label: "Dashboard", href: "/dashboard" },
-        { label: "Settings" },
-      ];
-    }
-    if (pathname === "/dashboard") {
-      return [{ label: "Dashboard" }];
-    }
-    if (pathname.startsWith("/dashboard/api-keys")) {
-      return [
-        { label: "Dashboard", href: "/dashboard" },
-        { label: "API Keys" },
-      ];
-    }
-    if (pathname.startsWith("/dashboard/logs")) {
-      return [{ label: "Dashboard", href: "/dashboard" }, { label: "Logs" }];
-    }
-    if (pathname.startsWith("/dashboard/account")) {
-      return [{ label: "Dashboard", href: "/dashboard" }, { label: "Account" }];
-    }
-    return [{ label: "Dashboard" }];
-  };
-
-  const breadcrumbs = getBreadcrumbs();
+export function SiteHeader({ breadcrumbs = [{ label: "Dashboard" }] }: SiteHeaderProps) {
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 justify-between px-4">

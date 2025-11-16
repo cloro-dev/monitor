@@ -7,6 +7,7 @@ import { authClient } from '@/lib/auth-client'
 import { NavMain } from '@/components/nav-main'
 import { NavSecondary } from '@/components/nav-secondary'
 import { NavUser } from '@/components/nav-user'
+import { OrganizationSwitcher } from '@/components/organization-switcher'
 import {
   Sidebar,
   SidebarContent,
@@ -114,14 +115,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <div className={`flex items-center gap-2 py-1 ${state === "collapsed" ? "" : "px-2"}`}>
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="text-sm font-bold">M</span>
+        {state === "collapsed" ? (
+          <div className="flex items-center gap-2 py-1">
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <span className="text-sm font-bold">M</span>
+            </div>
           </div>
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">Monitor</span>
-          </div>
-        </div>
+        ) : (
+          <OrganizationSwitcher />
+        )}
       </SidebarHeader>
       <SidebarContent>
         <NavMain sections={mainSections} />

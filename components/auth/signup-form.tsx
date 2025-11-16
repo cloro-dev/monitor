@@ -23,8 +23,11 @@ import { IconLoader } from "@tabler/icons-react";
 
 export function SignupForm({
   className,
+  onSuccess,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & {
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
 
   const [fullname, setFullname] = useState("");
@@ -58,9 +61,13 @@ export function SignupForm({
           setLoading(true);
         },
         onSuccess: (ctx) => {
-          // redirect to the dashboard
-          //alert("Logged in successfully");
-          router.push("/dashboard");
+          // Show organization creation modal
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            // Fallback to dashboard redirect
+            router.push("/dashboard");
+          }
         },
         onError: (ctx) => {
           // display the error message

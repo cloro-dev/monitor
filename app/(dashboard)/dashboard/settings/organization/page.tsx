@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +12,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Building2, Users, Settings as SettingsIcon, ArrowLeft } from "lucide-react";
+import {
+  Building2,
+  Users,
+  Settings as SettingsIcon,
+  ArrowLeft,
+} from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { IconLoader } from "@tabler/icons-react";
 import Link from "next/link";
@@ -35,8 +40,6 @@ interface Organization {
 
 export default function OrganizationSettingsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const action = searchParams.get("action");
   const { data: session } = authClient.useSession();
 
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -51,38 +54,35 @@ export default function OrganizationSettingsPage() {
   const [logo, setLogo] = useState("");
 
   useEffect(() => {
-    fetchOrganization();
+    const fetchOrganization = async () => {
+      try {
+        const response = await fetch("/api/organizations");
+        if (response.ok) {
+          const data = await response.json();
+          const activeOrg =
+            session && "activeOrganizationId" in session
+              ? data.organizations.find(
+                  (org: any) => org.id === (session as any).activeOrganizationId
+                )
+              : data.organizations[0];
 
-    // Check if we should show create modal
-    if (action === "create") {
-      // Redirect to create organization flow
-      router.push("/signup");
-    }
-  }, [action, router, session]);
-
-  const fetchOrganization = async () => {
-    try {
-      const response = await fetch("/api/organizations");
-      if (response.ok) {
-        const data = await response.json();
-        const activeOrg = session && 'activeOrganizationId' in session
-          ? data.organizations.find((org: any) => org.id === (session as any).activeOrganizationId)
-          : data.organizations[0];
-
-        if (activeOrg) {
-          setOrganization(activeOrg);
-          setName(activeOrg.name);
-          setSlug(activeOrg.slug);
-          setLogo(activeOrg.logo || "");
+          if (activeOrg) {
+            setOrganization(activeOrg);
+            setName(activeOrg.name);
+            setSlug(activeOrg.slug);
+            setLogo(activeOrg.logo || "");
+          }
         }
+      } catch (error) {
+        console.error("Error fetching organization:", error);
+        setError("Failed to load organization data");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching organization:", error);
-      setError("Failed to load organization data");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchOrganization();
+  }, [session]);
 
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +101,29 @@ export default function OrganizationSettingsPage() {
 
       if (response.ok) {
         setSuccess("Organization updated successfully");
-        await fetchOrganization(); // Refresh data
+        // Refresh organization data
+        try {
+          const orgResponse = await fetch("/api/organizations");
+          if (orgResponse.ok) {
+            const data = await orgResponse.json();
+            const activeOrg =
+              session && "activeOrganizationId" in session
+                ? data.organizations.find(
+                    (org: any) =>
+                      org.id === (session as any).activeOrganizationId
+                  )
+                : data.organizations[0];
+
+            if (activeOrg) {
+              setOrganization(activeOrg);
+              setName(activeOrg.name);
+              setSlug(activeOrg.slug);
+              setLogo(activeOrg.logo || "");
+            }
+          }
+        } catch (error) {
+          console.error("Error refreshing organization data:", error);
+        }
       } else {
         const data = await response.json();
         setError(data.error || "Failed to update organization");
@@ -238,17 +260,20 @@ export default function OrganizationSettingsPage() {
               <Users className="h-5 w-5" />
               Members
             </CardTitle>
-            <CardDescription>
-              Manage organization members
-            </CardDescription>
+            <CardDescription>Manage organization members</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {organization.members.map((member) => (
-                <div key={member.id} className="flex items-center justify-between p-3 rounded-lg border">
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between p-3 rounded-lg border"
+                >
                   <div>
                     <p className="font-medium">{member.user.name}</p>
-                    <p className="text-sm text-muted-foreground">{member.user.email}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {member.user.email}
+                    </p>
                   </div>
                   <div className="text-sm">
                     <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">

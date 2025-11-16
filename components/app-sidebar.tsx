@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { usePathname } from "next/navigation";
 import { IconName } from "@/components/ui/icon";
 import { authClient } from "@/lib/auth-client";
@@ -129,7 +129,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="pt-4">
         <NavMain sections={mainSections} />
         <NavSecondary items={supportSecondaryItems} className="mt-auto" />
       </SidebarContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { IconName } from "@/components/ui/icon";
 import { authClient } from "@/lib/auth-client";
@@ -14,6 +14,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import Image from "next/image";
 
 export interface NavbarItem {
   title: string;
@@ -36,10 +37,36 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const { isMobile, state } = useSidebar();
   const [mounted, setMounted] = React.useState(false);
+  const [organization, setOrganization] = useState<any>(null);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const fetchOrganization = async () => {
+      if (!session?.user) return;
+
+      try {
+        const response = await fetch("/api/organizations");
+        if (response.ok) {
+          const data = await response.json();
+          const activeOrg =
+            session && "activeOrganizationId" in session
+              ? data.organizations.find(
+                  (org: any) => org.id === (session as any).activeOrganizationId
+                )
+              : data.organizations[0];
+
+          setOrganization(activeOrg);
+        }
+      } catch (error) {
+        console.error("Error fetching organization:", error);
+      }
+    };
+
+    fetchOrganization();
+  }, [session]);
 
   const mainSections: { title: string; items: NavbarItem[] }[] = [
     {
@@ -123,11 +150,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             state === "collapsed" ? "" : "px-2"
           }`}
         >
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="text-sm font-bold">M</span>
-          </div>
+          {/* Show organization logo or fallback icon */}
+          {organization?.logo ? (
+            <Image
+              src={organization.logo}
+              alt={organization.name}
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
+          ) : (
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <span className="text-sm font-bold">
+                {organization?.name?.charAt(0)?.toUpperCase() || "M"}
+              </span>
+            </div>
+          )}
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">Monitor</span>
+            <span className="truncate font-semibold">
+              {organization?.name || "Monitor"}
+            </span>
           </div>
         </div>
       </SidebarHeader>

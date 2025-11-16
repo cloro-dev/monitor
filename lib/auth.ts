@@ -3,7 +3,7 @@ import { env } from "process";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-
+import { organization } from "better-auth/plugins";
 const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
@@ -54,4 +54,5 @@ export const auth = betterAuth({
       enabled: false,
     },
   },
+  plugins: [organization()],
 });

@@ -25,8 +25,6 @@ export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const router = useRouter();
-
   const [fullname, setFullname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +35,7 @@ export function SignupForm({
   async function handleSubmit(e: any) {
     e.preventDefault();
 
-    const { data, error } = await authClient.signUp.email(
+    await authClient.signUp.email(
       {
         /**
          * The user email
@@ -58,9 +56,9 @@ export function SignupForm({
           setLoading(true);
         },
         onSuccess: (ctx) => {
-          // redirect to the dashboard
-          //alert("Logged in successfully");
-          router.push("/dashboard");
+          // Always redirect to dashboard after successful signup
+          // The dashboard will show the organization creation modal if needed
+          window.location.href = "/dashboard";
         },
         onError: (ctx) => {
           // display the error message

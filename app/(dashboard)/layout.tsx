@@ -1,7 +1,7 @@
-import { Layout } from "@/components/layout"
-import { auth } from "@/lib/auth"
-import { headers } from "next/headers"
-import { redirect } from "next/navigation"
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { DashboardWrapper } from "./dashboard-wrapper";
 
 export default async function DashboardLayout({
   children,
@@ -16,11 +16,5 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  return (
-    <Layout>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        {children}
-      </div>
-    </Layout>
-  );
+  return <DashboardWrapper>{children}</DashboardWrapper>;
 }

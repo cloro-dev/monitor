@@ -11,12 +11,14 @@
     "db:up": "docker-compose -f .docker-compose/dev.yaml up -d",
     "db:down": "docker-compose -f .docker-compose/dev.yaml down",
     "db:logs": "docker-compose -f .docker-compose/dev.yaml logs -f",
-    "db:reset": "docker-compose -f .docker-compose/dev.yaml down -v && docker-compose -f .docker-compose/dev.yaml up -d",
+    "db:compose": "docker-compose -f .docker-compose/dev.yaml down -v && docker-compose -f .docker-compose/dev.yaml up -d",
+    "db:reset": "dotenv -e .env -- prisma db push --force-reset && dotenv -e .env -- prisma db seed",
     "db:studio": "dotenv -e .env -- prisma studio",
     "db:migrate": "dotenv -e .env -- prisma migrate dev",
     "db:generate": "dotenv -e .env -- prisma generate",
     "db:pull": "dotenv -e .env -- prisma db pull",
     "db:push": "dotenv -e .env -- prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
     "prepare": "husky"
   },
   "dependencies": {

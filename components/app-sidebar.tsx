@@ -73,24 +73,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       title: "",
       items: [
         {
-          title: "Dashboard",
-          url: "/dashboard",
-          icon: "BarChart3" as IconName,
-        },
-        {
           title: "Prompts",
-          url: "/dashboard/prompts",
+          url: "/prompts",
           icon: "MessageSquare" as IconName,
-        },
-        {
-          title: "API keys",
-          url: "/dashboard/api-keys",
-          icon: "Key" as IconName,
-        },
-        {
-          title: "Logs",
-          url: "/dashboard/logs",
-          icon: "Activity" as IconName,
         },
       ],
     },
@@ -99,18 +84,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const supportSecondaryItems = [
     {
       title: "Settings",
-      url: "/dashboard/settings",
+      url: "/settings",
       icon: "Building2" as IconName,
-    },
-    {
-      title: "Account",
-      url: "/dashboard/account",
-      icon: "User" as IconName,
-    },
-    {
-      title: "Support",
-      url: "https://cloro.dev/contact/",
-      icon: "LifeBuoy" as IconName,
     },
   ];
 

@@ -56,9 +56,8 @@ export function SignupForm({
           setLoading(true);
         },
         onSuccess: (ctx) => {
-          // Always redirect to dashboard after successful signup
-          // The dashboard will show the organization creation modal if needed
-          window.location.href = "/dashboard";
+          // Always redirect to prompts after successful signup
+          window.location.href = "/prompts";
         },
         onError: (ctx) => {
           // display the error message

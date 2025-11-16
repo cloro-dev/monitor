@@ -62,7 +62,7 @@ export function LoginForm({
         onSuccess: (ctx) => {
           setLoading(false);
           // Better Auth's redirect might not be working as expected, use manual redirect
-          const finalRedirectUrl = redirectTo || "/dashboard";
+          const finalRedirectUrl = redirectTo || "/prompts";
           window.location.href = finalRedirectUrl;
         },
         onError: (ctx) => {

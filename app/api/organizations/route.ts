@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
 // GET: Fetch user's organizations
 export async function GET(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Fetch organizations where the user is a member
@@ -40,10 +40,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ organizations });
   } catch (error) {
-    console.error("Error fetching organizations:", error);
+    console.error('Error fetching organizations:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!name || !slug) {
       return NextResponse.json(
-        { error: "Name and slug are required" },
-        { status: 400 }
+        { error: 'Name and slug are required' },
+        { status: 400 },
       );
     }
 
@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
 
     if (existingOrg) {
       return NextResponse.json(
-        { error: "Organization slug already exists" },
-        { status: 409 }
+        { error: 'Organization slug already exists' },
+        { status: 409 },
       );
     }
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         data: {
           userId: session.user.id,
           organizationId: newOrg.id,
-          role: "owner",
+          role: 'owner',
         },
       });
 
@@ -118,10 +118,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ organization });
   } catch (error) {
-    console.error("Error creating organization:", error);
+    console.error('Error creating organization:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }
@@ -134,7 +134,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -142,8 +142,8 @@ export async function PATCH(request: NextRequest) {
 
     if (!organizationId) {
       return NextResponse.json(
-        { error: "Organization ID is required" },
-        { status: 400 }
+        { error: 'Organization ID is required' },
+        { status: 400 },
       );
     }
 
@@ -152,14 +152,14 @@ export async function PATCH(request: NextRequest) {
       where: {
         userId: session.user.id,
         organizationId: organizationId,
-        role: { in: ["owner", "admin"] }, // Only owners and admins can update
+        role: { in: ['owner', 'admin'] }, // Only owners and admins can update
       },
     });
 
     if (!membership) {
       return NextResponse.json(
         { error: "You don't have permission to update this organization" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -174,8 +174,8 @@ export async function PATCH(request: NextRequest) {
 
       if (existingOrg) {
         return NextResponse.json(
-          { error: "Organization slug already exists" },
-          { status: 409 }
+          { error: 'Organization slug already exists' },
+          { status: 409 },
         );
       }
     }
@@ -192,10 +192,10 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ organization: updatedOrganization });
   } catch (error) {
-    console.error("Error updating organization:", error);
+    console.error('Error updating organization:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }

@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import { fetchDomainInfo, isValidDomain } from "@/lib/domain-fetcher";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { fetchDomainInfo, isValidDomain } from '@/lib/domain-fetcher';
+import { z } from 'zod';
 
 // Validation schema
 const createBrandSchema = z.object({
-  domain: z.string().min(1, "Domain is required").refine(isValidDomain, {
-    message: "Please enter a valid domain name (e.g., example.com)",
+  domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
+    message: 'Please enter a valid domain name (e.g., example.com)',
   }),
-  organizationId: z.string().min(1, "Organization ID is required"),
+  organizationId: z.string().min(1, 'Organization ID is required'),
 });
 
 const updateBrandSchema = z.object({
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get user's active organization from session
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Use active organization if available, otherwise use first organization
     const activeOrganization = userSession.activeOrganizationId
       ? userSession.user.members.find(
-          (m) => m.organizationId === userSession.activeOrganizationId
+          (m) => m.organizationId === userSession.activeOrganizationId,
         )?.organization
       : userSession.user.members[0]?.organization;
 
@@ -67,16 +67,16 @@ export async function GET(request: NextRequest) {
         organizationId: activeOrganization.id,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
     return NextResponse.json({ brands });
   } catch (error) {
-    console.error("Error fetching brands:", error);
+    console.error('Error fetching brands:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         {
           error: "You don't have permission to add brands to this organization",
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
 
     if (existingBrand) {
       return NextResponse.json(
-        { error: "Brand with this domain already exists" },
-        { status: 409 }
+        { error: 'Brand with this domain already exists' },
+        { status: 409 },
       );
     }
 
@@ -139,18 +139,18 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ brand });
   } catch (error) {
-    console.error("Error creating brand:", error);
+    console.error('Error creating brand:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid input", details: error.errors },
-        { status: 400 }
+        { error: 'Invalid input', details: error.errors },
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }
@@ -163,7 +163,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -171,8 +171,8 @@ export async function PATCH(request: NextRequest) {
 
     if (!brandId) {
       return NextResponse.json(
-        { error: "Brand ID is required" },
-        { status: 400 }
+        { error: 'Brand ID is required' },
+        { status: 400 },
       );
     }
 
@@ -185,21 +185,21 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (!brand) {
-      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
     }
 
     const membership = await prisma.member.findFirst({
       where: {
         userId: session.user.id,
         organizationId: brand.organizationId,
-        role: { in: ["owner", "admin"] },
+        role: { in: ['owner', 'admin'] },
       },
     });
 
     if (!membership) {
       return NextResponse.json(
         { error: "You don't have permission to update this brand" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -211,18 +211,18 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ brand: updatedBrand });
   } catch (error) {
-    console.error("Error updating brand:", error);
+    console.error('Error updating brand:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid input", details: error.errors },
-        { status: 400 }
+        { error: 'Invalid input', details: error.errors },
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }
@@ -235,16 +235,16 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const url = new URL(request.url);
-    const brandId = url.searchParams.get("brandId");
+    const brandId = url.searchParams.get('brandId');
 
     if (!brandId) {
       return NextResponse.json(
-        { error: "Brand ID is required" },
-        { status: 400 }
+        { error: 'Brand ID is required' },
+        { status: 400 },
       );
     }
 
@@ -255,21 +255,21 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!brand) {
-      return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
     }
 
     const membership = await prisma.member.findFirst({
       where: {
         userId: session.user.id,
         organizationId: brand.organizationId,
-        role: { in: ["owner", "admin"] },
+        role: { in: ['owner', 'admin'] },
       },
     });
 
     if (!membership) {
       return NextResponse.json(
         { error: "You don't have permission to delete this brand" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -280,10 +280,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting brand:", error);
+    console.error('Error deleting brand:', error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: 'Internal server error' },
+      { status: 500 },
     );
   }
 }

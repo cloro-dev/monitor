@@ -1,8 +1,8 @@
-'use client'
+'use client';
 
-import { AppSidebar } from './app-sidebar'
-import { SidebarInset, SidebarProvider } from './ui/sidebar'
-import { SiteHeader } from './site-header'
+import { AppSidebar } from './app-sidebar';
+import { SidebarInset, SidebarProvider } from './ui/sidebar';
+import { SiteHeader } from './site-header';
 
 export interface BreadcrumbItem {
   label: string;
@@ -23,5 +23,5 @@ export function Layout({ children, breadcrumbs }: LayoutProps) {
         {children}
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }

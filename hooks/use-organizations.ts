@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import useSWR, { mutate } from "swr";
-import { useAuth } from "./use-auth";
-import { post, patch, del } from "@/lib/fetcher";
+import useSWR, { mutate } from 'swr';
+import { useAuth } from './use-auth';
+import { post, patch, del } from '@/lib/fetcher';
 
 // Type definitions based on the API response
 export interface User {
@@ -16,7 +16,7 @@ export interface Member {
   id: string;
   userId: string;
   organizationId: string;
-  role: "owner" | "admin" | "member";
+  role: 'owner' | 'admin' | 'member';
   user: User;
 }
 
@@ -60,13 +60,13 @@ export function useOrganizations() {
   const { isAuthenticated } = useAuth();
 
   const { data, error, isLoading, mutate } = useSWR<OrganizationsResponse>(
-    isAuthenticated ? "/api/organizations" : null,
+    isAuthenticated ? '/api/organizations' : null,
     {
       // Don't refetch on focus for organizations (changes are rare)
       revalidateOnFocus: false,
       // Cache for 5 minutes
       dedupingInterval: 5 * 60 * 1000,
-    }
+    },
   );
 
   return {
@@ -84,9 +84,9 @@ export function useActiveOrganization() {
   const { session } = useAuth();
   const { organizations } = useOrganizations();
 
-  const activeOrganization = organizations.find(
-    (org) => org.id === session?.activeOrganizationId
-  ) || organizations[0]; // Fallback to first organization
+  const activeOrganization =
+    organizations.find((org) => org.id === session?.activeOrganizationId) ||
+    organizations[0]; // Fallback to first organization
 
   return {
     activeOrganization,
@@ -99,12 +99,14 @@ export function useActiveOrganization() {
  */
 export function useSlugAvailability(slug: string) {
   const { data, error, isLoading } = useSWR<{ exists: boolean }>(
-    slug && slug.length > 2 ? `/api/organizations/check-slug?slug=${slug}` : null,
+    slug && slug.length > 2
+      ? `/api/organizations/check-slug?slug=${slug}`
+      : null,
     {
       // Don't cache slug checks for too long
       dedupingInterval: 30 * 1000,
       revalidateOnFocus: false,
-    }
+    },
   );
 
   return {
@@ -122,7 +124,10 @@ export function useCreateOrganization() {
 
   const createOrganization = async (data: CreateOrganizationData) => {
     try {
-      const response = await post<OrganizationResponse>("/api/organizations", data);
+      const response = await post<OrganizationResponse>(
+        '/api/organizations',
+        data,
+      );
 
       // Invalidate the organizations cache to trigger a refetch
       await globalMutate();
@@ -144,7 +149,10 @@ export function useUpdateOrganization() {
 
   const updateOrganization = async (data: UpdateOrganizationData) => {
     try {
-      const response = await patch<OrganizationResponse>("/api/organizations", data);
+      const response = await patch<OrganizationResponse>(
+        '/api/organizations',
+        data,
+      );
 
       // Update the cache with the new data
       await globalMutate((currentData: OrganizationsResponse | undefined) => {
@@ -154,7 +162,7 @@ export function useUpdateOrganization() {
           organizations: currentData.organizations.map((org) =>
             org.id === data.organizationId
               ? { ...org, ...response.organization }
-              : org
+              : org,
           ),
         };
       }, false); // Don't revalidate, we already have the latest data
@@ -194,7 +202,7 @@ export function useOrganizationUtils() {
 
   const canManageOrganization = (organizationId: string) => {
     const role = getUserRole(organizationId);
-    return role === "owner" || role === "admin";
+    return role === 'owner' || role === 'admin';
   };
 
   return {

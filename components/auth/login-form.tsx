@@ -1,39 +1,39 @@
-"use client";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+'use client';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-import { authClient } from "@/lib/auth-client";
-import { Alert, AlertDescription } from "../ui/alert";
-import { Terminal } from "lucide-react";
+import { authClient } from '@/lib/auth-client';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Terminal } from 'lucide-react';
 
-import { IconLoader } from "@tabler/icons-react";
+import { IconLoader } from '@tabler/icons-react';
 
 export function LoginForm({
   className,
   redirectTo,
   ...props
-}: React.ComponentProps<"div"> & {
+}: React.ComponentProps<'div'> & {
   redirectTo?: string;
 }) {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: any) {
@@ -62,7 +62,7 @@ export function LoginForm({
         onSuccess: (ctx) => {
           setLoading(false);
           // Better Auth's redirect might not be working as expected, use manual redirect
-          const finalRedirectUrl = redirectTo || "/prompts";
+          const finalRedirectUrl = redirectTo || '/prompts';
           window.location.href = finalRedirectUrl;
         },
         onError: (ctx) => {
@@ -70,12 +70,12 @@ export function LoginForm({
           setError(ctx.error.message);
           setLoading(false);
         },
-      }
+      },
     );
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card>
         <CardHeader>
           <CardTitle>Login to your account</CardTitle>
@@ -109,9 +109,9 @@ export function LoginForm({
                   <Link
                     href="/reset-password"
                     className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                >
-                  Forgot your password?
-                </Link>
+                  >
+                    Forgot your password?
+                  </Link>
                 </div>
                 <Input
                   onChange={(e) => setPassword(e.target.value)}
@@ -126,13 +126,13 @@ export function LoginForm({
                   {loading ? (
                     <IconLoader className="animate-spin" stroke={2} />
                   ) : (
-                    "Login"
+                    'Login'
                   )}
                 </Button>
               </div>
             </div>
             <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
+              Don&apos;t have an account?{' '}
               <Link href="/signup" className="underline underline-offset-4">
                 Sign up
               </Link>

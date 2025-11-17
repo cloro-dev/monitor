@@ -9,9 +9,9 @@ export interface RouteConfig {
 }
 
 export const ROUTES: Record<string, RouteConfig> = {
-  "/": { title: "Dashboard", icon: "LayoutDashboard" },
-  "/prompts": { title: "Prompts", icon: "MessageSquare" },
-  "/settings": { title: "Settings", icon: "Building2" },
+  '/': { title: 'Dashboard', icon: 'LayoutDashboard' },
+  '/prompts': { title: 'Prompts', icon: 'MessageSquare' },
+  '/settings': { title: 'Settings', icon: 'Building2' },
 };
 
 /**
@@ -19,8 +19,8 @@ export const ROUTES: Record<string, RouteConfig> = {
  */
 export function getRouteTitle(path: string): string {
   // Remove trailing slash for consistent matching
-  const normalizedPath = path.replace(/\/$/, "");
-  return ROUTES[normalizedPath]?.title || "Dashboard";
+  const normalizedPath = path.replace(/\/$/, '');
+  return ROUTES[normalizedPath]?.title || 'Dashboard';
 }
 
 /**
@@ -28,7 +28,7 @@ export function getRouteTitle(path: string): string {
  */
 export function getNavigationRoutes() {
   return Object.entries(ROUTES)
-    .filter(([path]) => path !== "/")
+    .filter(([path]) => path !== '/')
     .map(([path, config]) => ({
       title: config.title,
       url: path,

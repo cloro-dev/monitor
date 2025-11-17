@@ -25,6 +25,7 @@
    npm install
    ```
 3. Set up the local database with Docker:
+
    ```sh
    npm run db:up
    ```
@@ -36,6 +37,7 @@
    ```
 
    Fill in the necessary values in the `.env.local` file. For local development, you can use:
+
    ```
    DATABASE_URL="postgresql://monitor_user:monitor_password@localhost:5438/monitor_db"
    BETTER_AUTH_SECRET="your-secret-key-here"
@@ -60,26 +62,31 @@ The application includes Docker Compose configuration for easy local development
 - **PostgreSQL**: Database server running on port 5438
 
 To start the services:
+
 ```bash
 npm run db:up
 ```
 
 To stop the services:
+
 ```bash
 npm run db:down
 ```
 
 To view logs:
+
 ```bash
 npm run db:logs
 ```
 
 To reset the database:
+
 ```bash
 npm run db:reset
 ```
 
 Database connection details:
+
 - **Host**: localhost
 - **Port**: 5438
 - **Database**: monitor_db

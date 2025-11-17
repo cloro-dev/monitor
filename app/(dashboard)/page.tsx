@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   Card,
@@ -6,9 +6,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { BarChart3, MessageSquare, Users, TrendingUp } from "lucide-react";
-import { useActiveOrganization } from "@/hooks/use-organizations";
+} from '@/components/ui/card';
+import { BarChart3, MessageSquare, Users, TrendingUp } from 'lucide-react';
+import { useActiveOrganization } from '@/hooks/use-organizations';
 
 export default function DashboardPage() {
   const { activeOrganization } = useActiveOrganization();
@@ -18,8 +18,8 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back! Here&apos;s an overview of your{" "}
-          {activeOrganization?.name || "organization"}.
+          Welcome back! Here&apos;s an overview of your{' '}
+          {activeOrganization?.name || 'organization'}.
         </p>
       </div>
 
@@ -48,8 +48,8 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               {activeOrganization?.members?.length === 1
-                ? "Just you"
-                : "Team members"}
+                ? 'Just you'
+                : 'Team members'}
             </p>
           </CardContent>
         </Card>
@@ -136,7 +136,7 @@ export default function DashboardPage() {
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Name</span>
                 <span className="text-sm text-muted-foreground">
-                  {activeOrganization?.name || "Loading..."}
+                  {activeOrganization?.name || 'Loading...'}
                 </span>
               </div>
               <div className="flex justify-between">

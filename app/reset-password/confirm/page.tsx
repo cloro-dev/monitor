@@ -1,4 +1,4 @@
-import { ResetPasswordConfirmForm } from "@/components/auth/reset-password-confirm-form";
+import { ResetPasswordConfirmForm } from '@/components/auth/reset-password-confirm-form';
 
 export default function Page({
   searchParams,

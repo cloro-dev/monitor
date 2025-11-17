@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -9,16 +9,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { PromptDialog } from "./prompt-dialog";
-import { MoreHorizontal, Edit, Trash2 } from "lucide-react";
+} from '@/components/ui/dropdown-menu';
+import { PromptDialog } from './prompt-dialog';
+import { MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,9 +28,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useDeletePrompt } from "@/hooks/use-prompts";
-import { toast } from "sonner";
+} from '@/components/ui/alert-dialog';
+import { useDeletePrompt } from '@/hooks/use-prompts';
+import { toast } from 'sonner';
 
 interface Prompt {
   id: string;
@@ -60,21 +60,23 @@ export function PromptsTable({ data }: PromptsTableProps) {
 
     try {
       await deletePrompt(deletingPrompt.id);
-      toast.success("Prompt deleted successfully");
+      toast.success('Prompt deleted successfully');
       setDeletingPrompt(null);
       setIsDeleteDialogOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete prompt");
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete prompt',
+      );
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -82,8 +84,8 @@ export function PromptsTable({ data }: PromptsTableProps) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <div className="text-center">
-          <h3 className="text-lg font-medium mb-2">No prompts yet</h3>
-          <p className="text-muted-foreground mb-4">
+          <h3 className="mb-2 text-lg font-medium">No prompts yet</h3>
+          <p className="mb-4 text-muted-foreground">
             Create your first prompt to get started
           </p>
         </div>
@@ -118,10 +120,7 @@ export function PromptsTable({ data }: PromptsTableProps) {
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                      >
+                      <Button variant="ghost" className="h-8 w-8 p-0">
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -169,8 +168,10 @@ export function PromptsTable({ data }: PromptsTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the prompt &quot;{deletingPrompt?.text.substring(0, 50)}
-              {deletingPrompt && deletingPrompt.text.length > 50 ? "..." : ""}&quot;. This action cannot be undone.
+              This will permanently delete the prompt &quot;
+              {deletingPrompt?.text.substring(0, 50)}
+              {deletingPrompt && deletingPrompt.text.length > 50 ? '...' : ''}
+              &quot;. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

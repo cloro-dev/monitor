@@ -1,43 +1,43 @@
-"use client";
-import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+'use client';
+import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-import { IconLoader } from "@tabler/icons-react";
-import { authClient } from "@/lib/auth-client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { IconLoader } from '@tabler/icons-react';
+import { authClient } from '@/lib/auth-client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 
 export function ResetPasswordConfirmForm({
   className,
   searchParams,
   ...props
-}: React.ComponentProps<"div"> & {
+}: React.ComponentProps<'div'> & {
   searchParams: Promise<{ token?: string; email?: string }>;
 }) {
-  const [token, setToken] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [token, setToken] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const loadParams = async () => {
       const params = await searchParams;
-      setToken(params.token || "");
-      setEmail(params.email || "");
+      setToken(params.token || '');
+      setEmail(params.email || '');
     };
     loadParams();
   }, [searchParams]);
@@ -45,16 +45,16 @@ export function ResetPasswordConfirmForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError("");
+    setError('');
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       setLoading(false);
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters long");
+      setError('Password must be at least 8 characters long');
       setLoading(false);
       return;
     }
@@ -66,7 +66,7 @@ export function ResetPasswordConfirmForm({
       });
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message || "Failed to reset password. Please try again.");
+      setError(err.message || 'Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -74,7 +74,7 @@ export function ResetPasswordConfirmForm({
 
   if (!token) {
     return (
-      <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className={cn('flex flex-col gap-6', className)} {...props}>
         <Card>
           <CardHeader>
             <CardTitle className="text-center">Invalid reset link</CardTitle>
@@ -96,10 +96,10 @@ export function ResetPasswordConfirmForm({
 
   if (success) {
     return (
-      <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className={cn('flex flex-col gap-6', className)} {...props}>
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-center mb-4">
+            <div className="mb-4 flex items-center justify-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
@@ -122,7 +122,7 @@ export function ResetPasswordConfirmForm({
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card>
         <CardHeader>
           <CardTitle>Set new password</CardTitle>
@@ -168,7 +168,7 @@ export function ResetPasswordConfirmForm({
                   {loading ? (
                     <IconLoader className="animate-spin" stroke={2} />
                   ) : (
-                    "Reset password"
+                    'Reset password'
                   )}
                 </Button>
               </div>

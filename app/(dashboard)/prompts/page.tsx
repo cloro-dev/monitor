@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { PromptsTable } from "@/components/prompts/prompts-table";
-import { AddPromptButton } from "@/components/prompts/prompt-dialog";
-import { usePrompts } from "@/hooks/use-prompts";
+import { PromptsTable } from '@/components/prompts/prompts-table';
+import { AddPromptButton } from '@/components/prompts/prompt-dialog';
+import { usePrompts } from '@/hooks/use-prompts';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 
 // Force dynamic rendering for authentication
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export default function PromptsPage() {
   const { prompts, error } = usePrompts();
@@ -35,9 +35,9 @@ export default function PromptsPage() {
           {error ? (
             <div className="flex items-center justify-center py-16">
               <div className="text-center">
-                <p className="text-destructive mb-2">Failed to load prompts</p>
-                <p className="text-muted-foreground text-sm">
-                  {error.message || "Please try again later"}
+                <p className="mb-2 text-destructive">Failed to load prompts</p>
+                <p className="text-sm text-muted-foreground">
+                  {error.message || 'Please try again later'}
                 </p>
               </div>
             </div>

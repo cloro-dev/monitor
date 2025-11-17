@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Fragment } from "react";
-import { usePathname } from "next/navigation";
+import { Fragment } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -9,11 +9,11 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import Link from "next/link";
-import { getRouteTitle } from "@/lib/routes";
+} from '@/components/ui/breadcrumb';
+import { Separator } from '@/components/ui/separator';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import Link from 'next/link';
+import { getRouteTitle } from '@/lib/routes';
 
 interface BreadcrumbItem {
   label: string;
@@ -37,8 +37,8 @@ export function SiteHeader({ breadcrumbs }: SiteHeaderProps) {
   const finalBreadcrumbs = breadcrumbs || autoBreadcrumbs;
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 justify-between px-4">
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <SidebarTrigger className="-ml-1 shrink-0" />
         <Separator orientation="vertical" className="mr-2 h-4 shrink-0" />
         <Breadcrumb className="min-w-0 flex-1">
@@ -58,7 +58,7 @@ export function SiteHeader({ breadcrumbs }: SiteHeaderProps) {
               </Fragment>
             ))}
             <BreadcrumbItem className="min-w-0">
-              <BreadcrumbPage className="truncate max-w-[200px] sm:max-w-none">
+              <BreadcrumbPage className="max-w-[200px] truncate sm:max-w-none">
                 {finalBreadcrumbs.at(-1)?.label}
               </BreadcrumbPage>
             </BreadcrumbItem>

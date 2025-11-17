@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { SWRConfig } from "swr";
-import { fetcher } from "@/lib/fetcher";
-import { ReactNode } from "react";
+import { SWRConfig } from 'swr';
+import { fetcher } from '@/lib/fetcher';
+import { ReactNode } from 'react';
 
 interface SWRProviderProps {
   children: ReactNode;

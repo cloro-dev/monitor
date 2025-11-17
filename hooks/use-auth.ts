@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { authClient } from "@/lib/auth-client";
+import { authClient } from '@/lib/auth-client';
 
 // Type definitions for Better Auth session
 export interface User {

@@ -42,3 +42,7 @@ next-env.d.ts
 
 # local files
 screenshots
+
+# IDE
+.vscode/settings.json
+.vscode/extensions.json

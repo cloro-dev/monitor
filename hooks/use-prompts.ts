@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import useSWR, { mutate } from "swr";
-import { useAuth } from "./use-auth";
-import { post, put, del } from "@/lib/fetcher";
+import useSWR, { mutate } from 'swr';
+import { useAuth } from './use-auth';
+import { post, put, del } from '@/lib/fetcher';
 
 // Type definitions based on the API response
 export interface Prompt {
@@ -30,7 +30,7 @@ export function usePrompts() {
   const { isAuthenticated } = useAuth();
 
   const { data, error, isLoading, mutate } = useSWR<Prompt[]>(
-    isAuthenticated ? "/api/prompts" : null,
+    isAuthenticated ? '/api/prompts' : null,
     {
       // Revalidate on focus to get the latest prompts
       revalidateOnFocus: true,
@@ -38,7 +38,7 @@ export function usePrompts() {
       dedupingInterval: 2 * 60 * 1000,
       // Refresh every 5 minutes in background
       refreshInterval: 5 * 60 * 1000,
-    }
+    },
   );
 
   return {
@@ -60,7 +60,7 @@ export function usePrompt(id: string | null) {
     {
       revalidateOnFocus: false, // Don't auto-refresh individual prompts
       dedupingInterval: 5 * 60 * 1000, // Cache for 5 minutes
-    }
+    },
   );
 
   return {
@@ -79,7 +79,7 @@ export function useCreatePrompt() {
 
   const createPrompt = async (data: CreatePromptData) => {
     try {
-      const newPrompt = await post<Prompt>("/api/prompts", data);
+      const newPrompt = await post<Prompt>('/api/prompts', data);
 
       // Optimistically update the cache
       await globalMutate((currentPrompts: Prompt[] | undefined) => {
@@ -116,7 +116,7 @@ export function useUpdatePrompt() {
         if (!currentPrompts) return currentPrompts;
 
         return currentPrompts.map((prompt) =>
-          prompt.id === id ? updatedPrompt : prompt
+          prompt.id === id ? updatedPrompt : prompt,
         );
       }, false); // Don't revalidate, we already have the latest data
 
@@ -184,14 +184,17 @@ export function usePromptUtils() {
     return prompts.filter(
       (prompt) =>
         prompt.text.toLowerCase().includes(lowercaseQuery) ||
-        prompt.country.toLowerCase().includes(lowercaseQuery)
+        prompt.country.toLowerCase().includes(lowercaseQuery),
     );
   };
 
   const getRecentPrompts = (limit: number = 5) => {
     return prompts
       .slice()
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
       .slice(0, limit);
   };
 

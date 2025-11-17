@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import React from "react";
-import { usePathname } from "next/navigation";
-import { IconName } from "@/components/ui/icon";
-import { authClient } from "@/lib/auth-client";
-import { NavMain } from "@/components/nav-main";
-import { NavSecondary } from "@/components/nav-secondary";
-import { NavUser } from "@/components/nav-user";
+import React from 'react';
+import { usePathname } from 'next/navigation';
+import { IconName } from '@/components/ui/icon';
+import { authClient } from '@/lib/auth-client';
+import { NavMain } from '@/components/nav-main';
+import { NavSecondary } from '@/components/nav-secondary';
+import { NavUser } from '@/components/nav-user';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   useSidebar,
-} from "@/components/ui/sidebar";
-import Image from "next/image";
-import { useActiveOrganization } from "@/hooks/use-organizations";
-import { getNavigationRoutes } from "@/lib/routes";
+} from '@/components/ui/sidebar';
+import Image from 'next/image';
+import { useActiveOrganization } from '@/hooks/use-organizations';
+import { getNavigationRoutes } from '@/lib/routes';
 
 export interface NavbarItem {
   title: string;
@@ -30,7 +30,7 @@ export interface NavbarItem {
     url: string;
   }[];
   isCollapsible?: boolean;
-  variant?: "default" | "outline";
+  variant?: 'default' | 'outline';
   className?: string;
 }
 
@@ -55,10 +55,10 @@ export function AppSidebar({
   // Split routes into main sections and secondary items
   const mainSections: { title: string; items: NavbarItem[] }[] = [
     {
-      title: "",
+      title: '',
       items: navigationRoutes
-        .filter(route => route.url === "/prompts") // Currently only Prompts is main
-        .map(route => ({
+        .filter((route) => route.url === '/prompts') // Currently only Prompts is main
+        .map((route) => ({
           title: route.title,
           url: route.url,
           icon: route.icon as IconName,
@@ -67,8 +67,8 @@ export function AppSidebar({
   ];
 
   const supportSecondaryItems = navigationRoutes
-    .filter(route => route.url === "/settings") // Currently only Settings is secondary
-    .map(route => ({
+    .filter((route) => route.url === '/settings') // Currently only Settings is secondary
+    .map((route) => ({
       title: route.title,
       url: route.url,
       icon: route.icon as IconName,
@@ -76,9 +76,9 @@ export function AppSidebar({
 
   // Ensure consistent user data for hydration
   const user = {
-    name: (mounted ? session?.user?.name : "User") || "User",
-    email: (mounted ? session?.user?.email : "") || "",
-    avatar: (mounted ? session?.user?.image : "") || "",
+    name: (mounted ? session?.user?.name : 'User') || 'User',
+    email: (mounted ? session?.user?.email : '') || '',
+    avatar: (mounted ? session?.user?.image : '') || '',
   };
 
   // Don't render user-specific content while loading or during hydration
@@ -87,9 +87,7 @@ export function AppSidebar({
       <Sidebar collapsible="icon" {...props}>
         <SidebarHeader>
           <div
-            className={`flex items-center gap-2 py-1 ${
-              state === "collapsed" ? "" : "px-2"
-            }`}
+            className={`flex items-center gap-2 py-1 ${state === 'collapsed' ? '' : 'px-2'}`}
           >
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <span className="text-sm font-bold">M</span>
@@ -111,9 +109,7 @@ export function AppSidebar({
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <div
-          className={`flex items-center gap-2 py-1 ${
-            state === "collapsed" ? "" : "px-2"
-          }`}
+          className={`flex items-center gap-2 py-1 ${state === 'collapsed' ? '' : 'px-2'}`}
         >
           {/* Show organization logo or fallback icon */}
           {activeOrganization?.logo ? (
@@ -127,13 +123,13 @@ export function AppSidebar({
           ) : (
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <span className="text-sm font-bold">
-                {activeOrganization?.name?.charAt(0)?.toUpperCase() || "M"}
+                {activeOrganization?.name?.charAt(0)?.toUpperCase() || 'M'}
               </span>
             </div>
           )}
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">
-              {activeOrganization?.name || "Monitor"}
+              {activeOrganization?.name || 'Monitor'}
             </span>
           </div>
         </div>

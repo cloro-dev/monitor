@@ -9,6 +9,6 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: db
     ports:
-      - "5438:5432"
+      - '5438:5432'
     volumes:
       - ~/apps/monitor-postgres:/var/lib/postgresql/data

@@ -1,4 +1,4 @@
-import { authClient } from "./auth-client";
+import { authClient } from './auth-client';
 
 // Type for API response with optional error handling
 export interface ApiResponse<T = any> {
@@ -10,7 +10,7 @@ export interface ApiResponse<T = any> {
 // Generic fetcher for SWR that includes authentication
 export async function fetcher<JSON = any>(
   input: RequestInfo,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<JSON> {
   try {
     // Get the current session to include authentication
@@ -44,7 +44,8 @@ export async function fetcher<JSON = any>(
     // Handle different response types
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error || errorData.message || response.statusText;
+      const errorMessage =
+        errorData.error || errorData.message || response.statusText;
       throw new Error(errorMessage);
     }
 

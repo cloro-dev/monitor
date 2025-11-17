@@ -1,12 +1,12 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { DashboardErrorBoundary } from "@/components/error/dashboard-error-boundary";
-import { OrganizationRequiredLayout } from "@/components/auth/organization-required-layout";
-import { headers } from "next/headers";
-import prisma from "@/lib/prisma";
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { AppSidebar } from '@/components/app-sidebar';
+import { SiteHeader } from '@/components/site-header';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { DashboardErrorBoundary } from '@/components/error/dashboard-error-boundary';
+import { OrganizationRequiredLayout } from '@/components/auth/organization-required-layout';
+import { headers } from 'next/headers';
+import prisma from '@/lib/prisma';
 
 export default async function DashboardLayout({
   children,
@@ -17,7 +17,7 @@ export default async function DashboardLayout({
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user?.id) {
-    redirect("/login");
+    redirect('/login');
   }
 
   // Check if user has any organizations
@@ -33,7 +33,7 @@ export default async function DashboardLayout({
       },
     });
   } catch (error) {
-    console.error("Error fetching organizations:", error);
+    console.error('Error fetching organizations:', error);
     // Continue without organizations check - let client handle it
     userOrganizations = [];
   }
@@ -48,11 +48,7 @@ export default async function DashboardLayout({
         <SiteHeader />
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           <DashboardErrorBoundary>
-            {needsOrganization ? (
-              <OrganizationRequiredLayout />
-            ) : (
-              children
-            )}
+            {needsOrganization ? <OrganizationRequiredLayout /> : children}
           </DashboardErrorBoundary>
         </div>
       </SidebarInset>

@@ -1,4 +1,4 @@
-declare module "favicon-fetch" {
+declare module 'favicon-fetch' {
   function faviconFetch(options?: {
     hostname?: string;
     uri?: string;

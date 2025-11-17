@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { IconLoader, IconWorld, IconPlus } from "@tabler/icons-react";
-import { isValidDomain } from "@/lib/domain-fetcher";
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { IconLoader, IconWorld, IconPlus } from '@tabler/icons-react';
+import { isValidDomain } from '@/lib/domain-fetcher';
 
 const addBrandSchema = z.object({
-  domain: z.string().min(1, "Domain is required").refine(isValidDomain, {
-    message: "Please enter a valid domain name (e.g., example.com)",
+  domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
+    message: 'Please enter a valid domain name (e.g., example.com)',
   }),
 });
 
@@ -25,7 +25,7 @@ interface AddBrandFormProps {
 }
 
 export function AddBrandForm({ onSubmit, isLoading }: AddBrandFormProps) {
-  const [previewDomain, setPreviewDomain] = useState<string>("");
+  const [previewDomain, setPreviewDomain] = useState<string>('');
 
   const {
     register,
@@ -37,7 +37,7 @@ export function AddBrandForm({ onSubmit, isLoading }: AddBrandFormProps) {
     resolver: zodResolver(addBrandSchema),
   });
 
-  const domainValue = watch("domain", "");
+  const domainValue = watch('domain', '');
 
   // Update preview as user types
   if (domainValue !== previewDomain && isValidDomain(domainValue)) {
@@ -48,7 +48,7 @@ export function AddBrandForm({ onSubmit, isLoading }: AddBrandFormProps) {
     try {
       await onSubmit(data.domain);
       reset();
-      setPreviewDomain("");
+      setPreviewDomain('');
     } catch (error) {
       // Error handling is done by the parent component
     }
@@ -71,11 +71,11 @@ export function AddBrandForm({ onSubmit, isLoading }: AddBrandFormProps) {
                 id="domain"
                 type="text"
                 placeholder="example.com"
-                {...register("domain")}
+                {...register('domain')}
                 className="pr-10"
                 disabled={isLoading}
               />
-              <IconWorld className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <IconWorld className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             </div>
             {errors.domain ? (
               <p className="text-sm text-destructive">
@@ -90,15 +90,15 @@ export function AddBrandForm({ onSubmit, isLoading }: AddBrandFormProps) {
 
           {/* Preview */}
           {previewDomain && isValidDomain(previewDomain) && !errors.domain && (
-            <div className="p-3 rounded-lg bg-muted/50 border">
+            <div className="rounded-lg border bg-muted/50 p-3">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                  <IconWorld className="w-4 h-4 text-muted-foreground" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <IconWorld className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">
-                    {previewDomain.split(".")[0].charAt(0).toUpperCase() +
-                      previewDomain.split(".")[0].slice(1)}
+                    {previewDomain.split('.')[0].charAt(0).toUpperCase() +
+                      previewDomain.split('.')[0].slice(1)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {previewDomain}
@@ -111,12 +111,12 @@ export function AddBrandForm({ onSubmit, isLoading }: AddBrandFormProps) {
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <>
-                <IconLoader className="h-4 w-4 mr-2 animate-spin" />
+                <IconLoader className="mr-2 h-4 w-4 animate-spin" />
                 Adding Brand...
               </>
             ) : (
               <>
-                <IconPlus className="h-4 w-4 mr-2" />
+                <IconPlus className="mr-2 h-4 w-4" />
                 Add Brand
               </>
             )}

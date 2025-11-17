@@ -1,5 +1,5 @@
-import useSWR from "swr";
-import { post, patch, del } from "@/lib/fetcher";
+import useSWR from 'swr';
+import { post, patch, del } from '@/lib/fetcher';
 
 interface Brand {
   id: string;
@@ -16,7 +16,7 @@ interface BrandsResponse {
 }
 
 export function useBrands() {
-  const { data, error, mutate } = useSWR<BrandsResponse>("/api/brands");
+  const { data, error, mutate } = useSWR<BrandsResponse>('/api/brands');
 
   const createBrand = async (domain: string) => {
     // Get organization ID from the current brands or fetch it
@@ -24,10 +24,10 @@ export function useBrands() {
       data?.brands?.[0]?.organizationId || (await getCurrentOrganizationId());
 
     if (!organizationId) {
-      throw new Error("No organization found");
+      throw new Error('No organization found');
     }
 
-    const response = await post<BrandsResponse>("/api/brands", {
+    const response = await post<BrandsResponse>('/api/brands', {
       domain,
       organizationId,
     });
@@ -37,7 +37,7 @@ export function useBrands() {
   };
 
   const updateBrand = async (brandId: string, data: Partial<Brand>) => {
-    const response = await patch<BrandsResponse>("/api/brands", {
+    const response = await patch<BrandsResponse>('/api/brands', {
       brandId,
       ...data,
     });
@@ -65,7 +65,7 @@ export function useBrands() {
 // Helper function to get current organization ID
 async function getCurrentOrganizationId(): Promise<string | null> {
   try {
-    const response = await fetch("/api/organizations");
+    const response = await fetch('/api/organizations');
     const data = await response.json();
 
     if (data.organizations?.length > 0) {
@@ -76,7 +76,7 @@ async function getCurrentOrganizationId(): Promise<string | null> {
 
     return null;
   } catch (error) {
-    console.error("Error fetching organization:", error);
+    console.error('Error fetching organization:', error);
     return null;
   }
 }

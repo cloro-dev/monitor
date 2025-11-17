@@ -1,48 +1,48 @@
-"use client";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+'use client';
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Building2, Users, Globe } from "lucide-react";
-import { IconLoader } from "@tabler/icons-react";
-import { toast } from "sonner";
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Building2, Users, Globe } from 'lucide-react';
+import { IconLoader } from '@tabler/icons-react';
+import { toast } from 'sonner';
 import {
   useActiveOrganization,
   useUpdateOrganization,
-} from "@/hooks/use-organizations";
-import { BrandManagement } from "@/components/brands/brand-management";
+} from '@/hooks/use-organizations';
+import { BrandManagement } from '@/components/brands/brand-management';
 
 export default function SettingsPage() {
   const { activeOrganization } = useActiveOrganization();
   const { updateOrganization } = useUpdateOrganization();
 
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   // Form state
-  const [name, setName] = useState("");
-  const [logo, setLogo] = useState("");
+  const [name, setName] = useState('');
+  const [logo, setLogo] = useState('');
 
   // Initialize form when organization data loads
   useEffect(() => {
     if (activeOrganization) {
       setName(activeOrganization.name);
-      setLogo(activeOrganization.logo || "");
+      setLogo(activeOrganization.logo || '');
     }
   }, [activeOrganization]);
 
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError("");
+    setError('');
 
     if (!activeOrganization) return;
 
@@ -53,10 +53,12 @@ export default function SettingsPage() {
         logo,
       });
 
-      toast.success("Organization updated successfully");
+      toast.success('Organization updated successfully');
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "Failed to update organization"
+        error instanceof Error
+          ? error.message
+          : 'Failed to update organization',
       );
     } finally {
       setSaving(false);
@@ -67,7 +69,7 @@ export default function SettingsPage() {
   if (!activeOrganization) {
     return (
       <div className="flex items-center justify-center">
-        <IconLoader className="animate-spin h-8 w-8" />
+        <IconLoader className="h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -119,11 +121,11 @@ export default function SettingsPage() {
               <Button type="submit" disabled={saving} className="w-full">
                 {saving ? (
                   <>
-                    <IconLoader className="animate-spin h-4 w-4 mr-2" />
+                    <IconLoader className="mr-2 h-4 w-4 animate-spin" />
                     Saving...
                   </>
                 ) : (
-                  "Save Changes"
+                  'Save Changes'
                 )}
               </Button>
             </form>
@@ -144,7 +146,7 @@ export default function SettingsPage() {
               {activeOrganization.members.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-2 rounded-lg border"
+                  className="flex items-center justify-between rounded-lg border p-2"
                 >
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{member.user.name}</span>
@@ -153,7 +155,7 @@ export default function SettingsPage() {
                     </span>
                   </div>
                   <div className="text-sm">
-                    <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">
+                    <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">
                       {member.role}
                     </span>
                   </div>
@@ -161,13 +163,13 @@ export default function SettingsPage() {
               ))}
 
               {activeOrganization.members.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">
+                <p className="py-4 text-center text-muted-foreground">
                   No members found
                 </p>
               )}
             </div>
 
-            <Button variant="outline" className="w-full mt-4" disabled>
+            <Button variant="outline" className="mt-4 w-full" disabled>
               Invite Members (Coming Soon)
             </Button>
           </CardContent>

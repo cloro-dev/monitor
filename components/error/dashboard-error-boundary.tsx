@@ -1,9 +1,15 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import React from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface DashboardErrorBoundaryState {
   hasError: boolean;
@@ -29,7 +35,11 @@ export class DashboardErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Dashboard Error Boundary caught an error:", error, errorInfo);
+    console.error(
+      'Dashboard Error Boundary caught an error:',
+      error,
+      errorInfo,
+    );
   }
 
   render() {
@@ -39,18 +49,18 @@ export class DashboardErrorBoundary extends React.Component<
       }
 
       return (
-        <div className="flex items-center justify-center min-h-[400px] p-4">
+        <div className="flex min-h-[400px] items-center justify-center p-4">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
-              <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-destructive" />
               <CardTitle className="text-xl">Something went wrong</CardTitle>
               <CardDescription>
                 An unexpected error occurred while loading the dashboard.
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-center space-y-4">
-              {process.env.NODE_ENV === "development" && this.state.error && (
-                <div className="text-xs text-muted-foreground text-left p-3 bg-muted rounded">
+            <CardContent className="space-y-4 text-center">
+              {process.env.NODE_ENV === 'development' && this.state.error && (
+                <div className="rounded bg-muted p-3 text-left text-xs text-muted-foreground">
                   <strong>Error details:</strong>
                   <br />
                   {this.state.error.message}
@@ -63,7 +73,7 @@ export class DashboardErrorBoundary extends React.Component<
                 }}
                 className="w-full"
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="mr-2 h-4 w-4" />
                 Try Again
               </Button>
             </CardContent>

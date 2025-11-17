@@ -1,28 +1,28 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { countries } from "@/lib/countries";
-import { Loader2, Plus } from "lucide-react";
-import { useCreatePrompt, useUpdatePrompt } from "@/hooks/use-prompts";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { countries } from '@/lib/countries';
+import { Loader2, Plus } from 'lucide-react';
+import { useCreatePrompt, useUpdatePrompt } from '@/hooks/use-prompts';
+import { toast } from 'sonner';
 
 interface Prompt {
   id: string;
@@ -48,8 +48,8 @@ export function PromptDialog({
   const [isOpen, setIsOpen] = useState(open || false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    text: "",
-    country: "",
+    text: '',
+    country: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -66,8 +66,8 @@ export function PromptDialog({
       });
     } else {
       setFormData({
-        text: "",
-        country: "",
+        text: '',
+        country: '',
       });
     }
     setErrors({});
@@ -81,13 +81,13 @@ export function PromptDialog({
     // Validation
     const newErrors: Record<string, string> = {};
     if (formData.text.length < 10) {
-      newErrors.text = "Prompt must be at least 10 characters";
+      newErrors.text = 'Prompt must be at least 10 characters';
     }
     if (formData.text.length > 200) {
-      newErrors.text = "Prompt must be at most 200 characters";
+      newErrors.text = 'Prompt must be at most 200 characters';
     }
     if (!formData.country) {
-      newErrors.country = "Please select a country";
+      newErrors.country = 'Please select a country';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -99,18 +99,18 @@ export function PromptDialog({
     try {
       if (isEditing && prompt) {
         await updatePrompt(prompt.id, formData);
-        toast.success("Prompt updated successfully");
+        toast.success('Prompt updated successfully');
       } else {
         await createPrompt(formData);
-        toast.success("Prompt created successfully");
+        toast.success('Prompt created successfully');
       }
 
       setIsOpen(false);
-      setFormData({ text: "", country: "" });
+      setFormData({ text: '', country: '' });
       onOpenChange?.(false);
     } catch (error) {
       setErrors({
-        submit: error instanceof Error ? error.message : "An error occurred",
+        submit: error instanceof Error ? error.message : 'An error occurred',
       });
     } finally {
       setIsLoading(false);
@@ -131,7 +131,7 @@ export function PromptDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Edit Prompt" : "Add New Prompt"}
+            {isEditing ? 'Edit Prompt' : 'Add New Prompt'}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -140,12 +140,14 @@ export function PromptDialog({
             <Textarea
               id="text"
               value={formData.text}
-              onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, text: e.target.value })
+              }
               placeholder="Enter your prompt (10-200 characters)"
               className={`min-h-[100px] resize-none ${
                 !isCharacterCountValid && formData.text.length > 0
-                  ? "border-red-500 focus:border-red-500"
-                  : ""
+                  ? 'border-red-500 focus:border-red-500'
+                  : ''
               }`}
               disabled={isLoading}
             />
@@ -154,9 +156,7 @@ export function PromptDialog({
                 {characterCount}/200 characters
               </span>
               {formData.text.length > 0 && !isCharacterCountValid && (
-                <span className="text-red-500">
-                  Must be 10-200 characters
-                </span>
+                <span className="text-red-500">Must be 10-200 characters</span>
               )}
             </div>
             {errors.text && (
@@ -168,13 +168,13 @@ export function PromptDialog({
             <Label htmlFor="country">Country</Label>
             <Select
               value={formData.country}
-              onValueChange={(value) => setFormData({ ...formData, country: value })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, country: value })
+              }
               disabled={isLoading}
             >
               <SelectTrigger
-                className={`${
-                  errors.country ? "border-red-500 focus:border-red-500" : ""
-                }`}
+                className={`${errors.country ? 'border-red-500 focus:border-red-500' : ''}`}
               >
                 <SelectValue placeholder="Select a country" />
               </SelectTrigger>
@@ -210,17 +210,17 @@ export function PromptDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || !isCharacterCountValid || !formData.country}
+              disabled={
+                isLoading || !isCharacterCountValid || !formData.country
+              }
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isEditing ? "Updating..." : "Creating..."}
+                  {isEditing ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
-                <>
-                  {isEditing ? "Update Prompt" : "Create Prompt"}
-                </>
+                <>{isEditing ? 'Update Prompt' : 'Create Prompt'}</>
               )}
             </Button>
           </div>

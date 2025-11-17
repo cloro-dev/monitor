@@ -1,45 +1,45 @@
-"use client";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+'use client';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-import { IconLoader } from "@tabler/icons-react";
-import { authClient } from "@/lib/auth-client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, Mail } from "lucide-react";
+import { IconLoader } from '@tabler/icons-react';
+import { authClient } from '@/lib/auth-client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle, Mail } from 'lucide-react';
 
 export function ResetPasswordForm({
   className,
   ...props
-}: React.ComponentProps<"div">) {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
+}: React.ComponentProps<'div'>) {
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
       await authClient.requestPasswordReset({
         email,
-        redirectTo: "/reset-password/confirm",
+        redirectTo: '/reset-password/confirm',
       });
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message || "Failed to send reset email. Please try again.");
+      setError(err.message || 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -47,10 +47,10 @@ export function ResetPasswordForm({
 
   if (success) {
     return (
-      <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className={cn('flex flex-col gap-6', className)} {...props}>
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-center mb-4">
+            <div className="mb-4 flex items-center justify-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                 <Mail className="h-6 w-6 text-green-600" />
               </div>
@@ -82,7 +82,7 @@ export function ResetPasswordForm({
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card>
         <CardHeader>
           <CardTitle>Reset your password</CardTitle>
@@ -117,13 +117,13 @@ export function ResetPasswordForm({
                   {loading ? (
                     <IconLoader className="animate-spin" stroke={2} />
                   ) : (
-                    "Send reset link"
+                    'Send reset link'
                   )}
                 </Button>
               </div>
             </div>
             <div className="mt-4 text-center text-sm">
-              Remember your password?{" "}
+              Remember your password?{' '}
               <Link
                 href="/login"
                 className="underline underline-offset-4 hover:text-primary"

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Brand } from "@/hooks/use-brands";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Brand } from '@/hooks/use-brands';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,15 +13,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import {
   IconLoader,
   IconTrash,
   IconEdit,
   IconWorld,
   IconBuildingStore,
-} from "@tabler/icons-react";
-import Image from "next/image";
+} from '@tabler/icons-react';
+import Image from 'next/image';
 
 interface BrandListProps {
   brands: Brand[];
@@ -40,9 +40,9 @@ export function BrandList({
 }: BrandListProps) {
   if (brands.length === 0) {
     return (
-      <div className="text-center py-8">
-        <IconBuildingStore className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium text-muted-foreground mb-2">
+      <div className="py-8 text-center">
+        <IconBuildingStore className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+        <h3 className="mb-2 text-lg font-medium text-muted-foreground">
           No brands yet
         </h3>
         <p className="text-sm text-muted-foreground">
@@ -55,12 +55,12 @@ export function BrandList({
   return (
     <div className="space-y-3">
       {brands.map((brand) => (
-        <Card key={brand.id} className="hover:shadow-sm transition-shadow">
+        <Card key={brand.id} className="transition-shadow hover:shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Favicon */}
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                   {brand.faviconUrl ? (
                     <Image
                       src={brand.faviconUrl}
@@ -70,24 +70,24 @@ export function BrandList({
                       className="object-cover"
                       onError={(e) => {
                         // Fallback to default icon if favicon fails to load
-                        e.currentTarget.style.display = "none";
+                        e.currentTarget.style.display = 'none';
                         e.currentTarget.nextElementSibling?.classList.remove(
-                          "hidden"
+                          'hidden',
                         );
                       }}
                     />
                   ) : null}
-                  <IconWorld className="w-4 h-4 text-muted-foreground hidden" />
+                  <IconWorld className="hidden h-4 w-4 text-muted-foreground" />
                 </div>
 
                 {/* Brand Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium text-sm truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-2">
+                    <h4 className="truncate text-sm font-medium">
                       {brand.brandName || brand.domain}
                     </h4>
                     {brand.brandName && brand.brandName !== brand.domain && (
-                      <span className="text-xs text-muted-foreground truncate">
+                      <span className="truncate text-xs text-muted-foreground">
                         ({brand.domain})
                       </span>
                     )}
@@ -99,7 +99,7 @@ export function BrandList({
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex flex-shrink-0 items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"

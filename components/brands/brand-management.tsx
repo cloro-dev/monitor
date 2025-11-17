@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import { useBrands } from "@/hooks/use-brands";
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { useBrands } from '@/hooks/use-brands';
 import {
   IconLoader,
   IconWorld,
   IconTrash,
   IconPlus,
-} from "@tabler/icons-react";
-import Image from "next/image";
-import { isValidDomain } from "@/lib/domain-fetcher";
+} from '@tabler/icons-react';
+import Image from 'next/image';
+import { isValidDomain } from '@/lib/domain-fetcher';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,11 +26,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 
 const addBrandSchema = z.object({
-  domain: z.string().min(1, "Domain is required").refine(isValidDomain, {
-    message: "Please enter a valid domain name (e.g., example.com)",
+  domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
+    message: 'Please enter a valid domain name (e.g., example.com)',
   }),
 });
 
@@ -58,8 +58,8 @@ export function BrandManagement() {
       toast.success(`Successfully added brand: ${data.domain}`);
       reset();
     } catch (error: any) {
-      console.error("Error adding brand:", error);
-      toast.error(error.message || "Failed to add brand");
+      console.error('Error adding brand:', error);
+      toast.error(error.message || 'Failed to add brand');
       throw error; // Re-throw to prevent form from clearing on error
     } finally {
       setIsSubmitting(false);
@@ -71,10 +71,10 @@ export function BrandManagement() {
     setDeletingBrandId(brandId);
     try {
       await deleteBrand(brandId);
-      toast.success("Brand deleted successfully");
+      toast.success('Brand deleted successfully');
     } catch (error: any) {
-      console.error("Error deleting brand:", error);
-      toast.error(error.message || "Failed to delete brand");
+      console.error('Error deleting brand:', error);
+      toast.error(error.message || 'Failed to delete brand');
     } finally {
       setIsDeleting(false);
       setDeletingBrandId(null);
@@ -95,11 +95,11 @@ export function BrandManagement() {
       {brands.map((brand) => (
         <div
           key={brand.id}
-          className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+          className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
         >
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {/* Favicon */}
-            <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
               {brand.faviconUrl ? (
                 <Image
                   src={brand.faviconUrl}
@@ -108,28 +108,28 @@ export function BrandManagement() {
                   height={24}
                   className="object-cover"
                   onError={(e) => {
-                    e.currentTarget.style.display = "none";
+                    e.currentTarget.style.display = 'none';
                     e.currentTarget.nextElementSibling?.classList.remove(
-                      "hidden"
+                      'hidden',
                     );
                   }}
                 />
               ) : null}
-              <IconWorld className="w-4 h-4 text-muted-foreground hidden" />
+              <IconWorld className="hidden h-4 w-4 text-muted-foreground" />
             </div>
 
             {/* Brand Info */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-medium truncate">
+                <span className="truncate font-medium">
                   {brand.brandName || brand.domain}
                 </span>
                 {brand.brandName && brand.brandName !== brand.domain && (
-                  <span className="text-sm text-muted-foreground truncate">
+                  <span className="truncate text-sm text-muted-foreground">
                     ({brand.domain})
                   </span>
                 )}
-                <span className="text-xs text-muted-foreground whitespace-nowrap ml-auto">
+                <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
                   Added {new Date(brand.createdAt).toLocaleDateString()}
                 </span>
               </div>
@@ -178,9 +178,9 @@ export function BrandManagement() {
 
       {/* Empty State */}
       {brands.length === 0 && (
-        <div className="text-center py-8">
-          <IconWorld className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium text-muted-foreground mb-2">
+        <div className="py-8 text-center">
+          <IconWorld className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+          <h3 className="mb-2 text-lg font-medium text-muted-foreground">
             No brands yet
           </h3>
           <p className="text-sm text-muted-foreground">
@@ -192,15 +192,15 @@ export function BrandManagement() {
       {/* Add Brand Input Row */}
       <form onSubmit={handleSubmit(handleAddBrand)} className="pt-2">
         <div className="flex gap-2">
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <Input
               type="text"
               placeholder="example.com"
-              {...register("domain")}
+              {...register('domain')}
               className="pr-10"
               disabled={isSubmitting}
             />
-            <IconWorld className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <IconWorld className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
@@ -211,11 +211,11 @@ export function BrandManagement() {
           </Button>
         </div>
         {errors.domain ? (
-          <p className="text-sm text-destructive mt-1">
+          <p className="mt-1 text-sm text-destructive">
             {errors.domain.message}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             Enter a domain name to track its brand information
           </p>
         )}

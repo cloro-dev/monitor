@@ -1,18 +1,18 @@
-"use client";
-import { useState } from "react";
+'use client';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "../ui/alert";
-import { Terminal } from "lucide-react";
-import { IconLoader } from "@tabler/icons-react";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Terminal } from 'lucide-react';
+import { IconLoader } from '@tabler/icons-react';
 
 interface OrganizationCreationModalProps {
   open: boolean;
@@ -23,21 +23,21 @@ export function OrganizationCreationModal({
   open,
   onOpenChange,
 }: OrganizationCreationModalProps) {
-  const [name, setName] = useState("");
-  const [logo, setLogo] = useState("");
-  const [error, setError] = useState("");
+  const [name, setName] = useState('');
+  const [logo, setLogo] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Auto-generate unique slug from name
   const generateUniqueSlug = async (value: string) => {
     if (!value.trim()) {
-      return "";
+      return '';
     }
 
     let baseSlug = value
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
 
     let finalSlug = baseSlug;
     let counter = 1;
@@ -46,7 +46,7 @@ export function OrganizationCreationModal({
     while (true) {
       try {
         const response = await fetch(
-          `/api/organizations/check-slug?slug=${encodeURIComponent(finalSlug)}`
+          `/api/organizations/check-slug?slug=${encodeURIComponent(finalSlug)}`,
         );
 
         if (response.ok) {
@@ -58,7 +58,7 @@ export function OrganizationCreationModal({
         }
       } catch (error) {
         // If API fails, just use the generated slug
-        console.error("Error checking slug availability:", error);
+        console.error('Error checking slug availability:', error);
         return finalSlug;
       }
 
@@ -76,7 +76,7 @@ export function OrganizationCreationModal({
   const handleSuccess = () => {
     onOpenChange(false);
     // Redirect to dashboard after successful organization creation
-    window.location.href = "/";
+    window.location.href = '/';
   };
 
   // Prevent closing the modal unless organization is successfully created
@@ -91,16 +91,16 @@ export function OrganizationCreationModal({
   async function handleSubmit(e: any) {
     e.preventDefault();
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
       // Generate unique slug when submitting
       const generatedSlug = await generateUniqueSlug(name);
 
-      const response = await fetch("/api/organizations", {
-        method: "POST",
+      const response = await fetch('/api/organizations', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name,
@@ -114,11 +114,11 @@ export function OrganizationCreationModal({
       if (response.ok) {
         handleSuccess();
       } else {
-        setError(data.error || "Failed to create organization");
+        setError(data.error || 'Failed to create organization');
         setLoading(false);
       }
     } catch (error) {
-      setError("Failed to create organization");
+      setError('Failed to create organization');
       setLoading(false);
     }
   }
@@ -174,7 +174,7 @@ export function OrganizationCreationModal({
                   {loading ? (
                     <IconLoader className="animate-spin" stroke={2} />
                   ) : (
-                    "Create Organization"
+                    'Create Organization'
                   )}
                 </Button>
               </div>

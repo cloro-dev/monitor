@@ -48,7 +48,12 @@ function extractBrandName(domain: string): string {
   const parts = domain.split('.');
 
   // Handle common TLDs like .co.uk, .com.au, etc.
-  if (parts.length >= 3 && ['co', 'com', 'org', 'net', 'gov', 'edu', 'ac'].includes(parts[parts.length - 2])) {
+  if (
+    parts.length >= 3 &&
+    ['co', 'com', 'org', 'net', 'gov', 'edu', 'ac'].includes(
+      parts[parts.length - 2],
+    )
+  ) {
     return parts[parts.length - 3];
   }
 
@@ -64,7 +69,10 @@ function normalizeDomain(domain: string): string {
     // If domain already has protocol, use URL constructor
     if (domain.startsWith('http')) {
       const url = new URL(domain);
-      return url.hostname.replace(/^www\./, '').toLowerCase().trim();
+      return url.hostname
+        .replace(/^www\./, '')
+        .toLowerCase()
+        .trim();
     }
 
     // Otherwise, just clean up the string
@@ -92,10 +100,13 @@ export function isValidDomain(domain: string): boolean {
   const normalizedDomain = normalizeDomain(domain);
 
   // Basic domain regex
-  const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])*$/;
+  const domainRegex =
+    /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])*$/;
 
-  return domainRegex.test(normalizedDomain) &&
-         normalizedDomain.length <= 253 &&
-         !normalizedDomain.startsWith('.') &&
-         !normalizedDomain.endsWith('.');
+  return (
+    domainRegex.test(normalizedDomain) &&
+    normalizedDomain.length <= 253 &&
+    !normalizedDomain.startsWith('.') &&
+    !normalizedDomain.endsWith('.')
+  );
 }

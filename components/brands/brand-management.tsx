@@ -162,8 +162,7 @@ export function BrandManagement() {
                   <br />
                   <br />
                   <strong className="text-destructive">
-                    All prompts associated with this brand will also be
-                    deleted.
+                    All prompts associated with this brand will also be deleted.
                   </strong>
                 </AlertDialogDescription>
               </AlertDialogHeader>

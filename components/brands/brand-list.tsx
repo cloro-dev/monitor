@@ -129,8 +129,8 @@ export function BrandList({
                       <AlertDialogTitle>Delete Brand</AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to delete &quot;
-                        {brand.name || brand.domain}&quot;? This action
-                        cannot be undone.
+                        {brand.name || brand.domain}&quot;? This action cannot
+                        be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

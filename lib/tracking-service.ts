@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { trackPrompt } from './cloro';
 import { countries } from './countries';
+import { analyzeBrandMetrics } from './ai-service';
 
 export async function trackAllPrompts() {
   const prompts = await prisma.prompt.findMany({
@@ -72,49 +73,28 @@ export async function trackPromptById(promptId: string) {
       },
     });
 
-    // --- Visibility Calculation Logic ---
-    let visibility = 0;
-    let extractedEntities: any[] = [];
-
+    // --- LLM-based Metrics Calculation ---
     const responseData = apiResponse as any;
-    const brandName = prompt.brand.name?.toLowerCase();
-    const brandDomain = prompt.brand.domain.toLowerCase();
+    const brandName = prompt.brand.name || prompt.brand.domain;
 
-    // Step 1: Prioritize the entities field
-    if (
-      responseData?.result?.entities &&
-      Array.isArray(responseData.result.entities) &&
-      responseData.result.entities.length > 0
-    ) {
-      extractedEntities = responseData.result.entities;
-      const brandEntity = extractedEntities.find(
-        (entity) =>
-          entity.name?.toLowerCase() === brandName ||
-          entity.domain?.toLowerCase() === brandDomain,
+    if (responseData?.result?.text) {
+      const metrics = await analyzeBrandMetrics(
+        responseData.result.text,
+        brandName,
       );
 
-      if (brandEntity) {
-        visibility = brandEntity.visibility_score || 100;
-      }
-    } else if (responseData?.result?.text) {
-      // Step 2: Fallback to Text Inspection
-      const responseText = responseData.result.text.toLowerCase();
-      if (
-        (brandName && responseText.includes(brandName)) ||
-        responseText.includes(brandDomain)
-      ) {
-        visibility = 100;
-      }
+      await prisma.brandMetrics.create({
+        data: {
+          sentiment: metrics.sentiment,
+          position: metrics.position,
+          competitors: (metrics.competitors ?? []) as Prisma.InputJsonValue,
+          trackingResultId: updatedTrackingResult.id,
+        },
+      });
+    } else {
+      // Handle cases where the Cloro response has no text
+      throw new Error('No text found in Cloro API response to analyze.');
     }
-
-    // Step 3: Store the Results in BrandMetrics
-    await prisma.brandMetrics.create({
-      data: {
-        visibility,
-        entities: extractedEntities as Prisma.InputJsonValue,
-        trackingResultId: updatedTrackingResult.id,
-      },
-    });
   } catch (error) {
     console.error(`Failed to track prompt ${prompt.id}:`, error);
     if (trackingResult) {

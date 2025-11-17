@@ -153,8 +153,9 @@ model TrackingResult {
 
 model BrandMetrics {
   id               String         @id @default(cuid())
-  visibility       Float
-  entities         Json?
+  sentiment        String
+  position         Int
+  competitors      Json
   trackingResult   TrackingResult @relation(fields: [trackingResultId], references: [id], onDelete: Cascade)
   trackingResultId String         @unique
   createdAt        DateTime       @default(now())

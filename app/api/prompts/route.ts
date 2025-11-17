@@ -9,6 +9,7 @@ const createPromptSchema = z.object({
     .min(10, 'Prompt must be at least 10 characters')
     .max(200, 'Prompt must be at most 200 characters'),
   country: z.string().min(1, 'Country is required'),
+  brandId: z.string().min(1, 'Brand is required'),
 });
 
 export async function GET(request: NextRequest) {
@@ -19,9 +20,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const brandId = searchParams.get('brandId');
+
     const prompts = await prisma.prompt.findMany({
       where: {
         userId: session.user.id,
+        ...(brandId && { brandId }),
       },
       orderBy: {
         createdAt: 'desc',
@@ -32,6 +37,13 @@ export async function GET(request: NextRequest) {
         country: true,
         createdAt: true,
         updatedAt: true,
+        brand: {
+          select: {
+            id: true,
+            domain: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -60,6 +72,7 @@ export async function POST(request: NextRequest) {
       data: {
         text: validatedData.text,
         country: validatedData.country,
+        brandId: validatedData.brandId,
         userId: session.user.id,
       },
       select: {

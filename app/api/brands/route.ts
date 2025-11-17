@@ -13,7 +13,7 @@ const createBrandSchema = z.object({
 });
 
 const updateBrandSchema = z.object({
-  brandName: z.string().optional(),
+  name: z.string().optional(),
   faviconUrl: z.string().url().optional(),
 });
 
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     const brand = await prisma.brand.create({
       data: {
         domain: domainInfo.domain,
-        brandName: domainInfo.brandName,
+        name: domainInfo.name,
         faviconUrl: domainInfo.faviconUrl,
         organizationId,
       },
@@ -167,7 +167,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brandId, brandName, faviconUrl } = body;
+    const { brandId, name, faviconUrl } = body;
 
     if (!brandId) {
       return NextResponse.json(
@@ -176,7 +176,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updateData = updateBrandSchema.parse({ brandName, faviconUrl });
+    const updateData = updateBrandSchema.parse({ name, faviconUrl });
 
     // Verify user is a member of the organization that owns the brand
     const brand = await prisma.brand.findUnique({

@@ -64,7 +64,7 @@ export function BrandList({
                   {brand.faviconUrl ? (
                     <Image
                       src={brand.faviconUrl}
-                      alt={`${brand.brandName || brand.domain} favicon`}
+                      alt={`${brand.name || brand.domain} favicon`}
                       width={24}
                       height={24}
                       className="object-cover"
@@ -84,9 +84,9 @@ export function BrandList({
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex items-center gap-2">
                     <h4 className="truncate text-sm font-medium">
-                      {brand.brandName || brand.domain}
+                      {brand.name || brand.domain}
                     </h4>
-                    {brand.brandName && brand.brandName !== brand.domain && (
+                    {brand.name && brand.name !== brand.domain && (
                       <span className="truncate text-xs text-muted-foreground">
                         ({brand.domain})
                       </span>
@@ -129,7 +129,7 @@ export function BrandList({
                       <AlertDialogTitle>Delete Brand</AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to delete &quot;
-                        {brand.brandName || brand.domain}&quot;? This action
+                        {brand.name || brand.domain}&quot;? This action
                         cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>

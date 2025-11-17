@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -22,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { countries } from '@/lib/countries';
 import { Loader2, Plus } from 'lucide-react';
 import { useCreatePrompt, useUpdatePrompt } from '@/hooks/use-prompts';
+import { useBrands } from '@/hooks/use-brands';
 import { toast } from 'sonner';
 
 interface Prompt {
@@ -30,6 +30,11 @@ interface Prompt {
   country: string;
   createdAt: string;
   updatedAt: string;
+  brand?: {
+    id: string;
+    domain: string;
+    name?: string;
+  };
 }
 
 interface PromptDialogProps {
@@ -50,8 +55,11 @@ export function PromptDialog({
   const [formData, setFormData] = useState({
     text: '',
     country: '',
+    brandId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { brands, isLoading: isLoadingBrands } = useBrands();
 
   const { createPrompt } = useCreatePrompt();
   const { updatePrompt } = useUpdatePrompt();
@@ -63,11 +71,13 @@ export function PromptDialog({
       setFormData({
         text: prompt.text,
         country: prompt.country,
+        brandId: prompt.brand?.id || '',
       });
     } else {
       setFormData({
         text: '',
         country: '',
+        brandId: '',
       });
     }
     setErrors({});
@@ -89,6 +99,9 @@ export function PromptDialog({
     if (!formData.country) {
       newErrors.country = 'Please select a country';
     }
+    if (!formData.brandId) {
+      newErrors.brandId = 'Please select a brand';
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -106,7 +119,7 @@ export function PromptDialog({
       }
 
       setIsOpen(false);
-      setFormData({ text: '', country: '' });
+      setFormData({ text: '', country: '', brandId: '' });
       onOpenChange?.(false);
     } catch (error) {
       setErrors({
@@ -136,7 +149,7 @@ export function PromptDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="text">Prompt Text</Label>
+            <Label htmlFor="text">Prompt text</Label>
             <Textarea
               id="text"
               value={formData.text}
@@ -164,33 +177,64 @@ export function PromptDialog({
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="country">Country</Label>
-            <Select
-              value={formData.country}
-              onValueChange={(value) =>
-                setFormData({ ...formData, country: value })
-              }
-              disabled={isLoading}
-            >
-              <SelectTrigger
-                className={`${errors.country ? 'border-red-500 focus:border-red-500' : ''}`}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Select
+                value={formData.country}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, country: value })
+                }
+                disabled={isLoading}
               >
-                <SelectValue placeholder="Select a country" />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="max-h-[200px] overflow-y-auto">
-                  {countries.map((country) => (
-                    <SelectItem key={country.value} value={country.label}>
-                      {country.label}
-                    </SelectItem>
-                  ))}
-                </div>
-              </SelectContent>
-            </Select>
-            {errors.country && (
-              <p className="text-sm text-red-500">{errors.country}</p>
-            )}
+                <SelectTrigger
+                  className={`${errors.country ? 'border-red-500 focus:border-red-500' : ''}`}
+                >
+                  <SelectValue placeholder="Select a country" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {countries.map((country) => (
+                      <SelectItem key={country.value} value={country.label}>
+                        {country.label}
+                      </SelectItem>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+              {errors.country && (
+                <p className="text-sm text-red-500">{errors.country}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="brand">Brand</Label>
+              <Select
+                value={formData.brandId}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, brandId: value })
+                }
+                disabled={isLoading || isLoadingBrands}
+              >
+                <SelectTrigger
+                  className={`${errors.brandId ? 'border-red-500 focus:border-red-500' : ''}`}
+                >
+                  <SelectValue placeholder="Select a brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {brands?.map((brand) => (
+                      <SelectItem key={brand.id} value={brand.id}>
+                        {brand.domain}
+                      </SelectItem>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+              {errors.brandId && (
+                <p className="text-sm text-red-500">{errors.brandId}</p>
+              )}
+            </div>
           </div>
 
           {errors.submit && (
@@ -211,7 +255,10 @@ export function PromptDialog({
             <Button
               type="submit"
               disabled={
-                isLoading || !isCharacterCountValid || !formData.country
+                isLoading ||
+                !isCharacterCountValid ||
+                !formData.country ||
+                !formData.brandId
               }
             >
               {isLoading ? (

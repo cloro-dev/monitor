@@ -38,6 +38,11 @@ interface Prompt {
   country: string;
   createdAt: string;
   updatedAt: string;
+  brand?: {
+    id: string;
+    domain: string;
+    name?: string;
+  };
 }
 
 interface PromptsTableProps {
@@ -101,6 +106,7 @@ export function PromptsTable({ data }: PromptsTableProps) {
             <TableRow>
               <TableHead>Prompt</TableHead>
               <TableHead>Country</TableHead>
+              <TableHead>Brand</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -114,6 +120,9 @@ export function PromptsTable({ data }: PromptsTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>{prompt.country}</TableCell>
+                <TableCell>
+                  {prompt.brand?.name || prompt.brand?.domain || 'N/A'}
+                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(prompt.createdAt)}
                 </TableCell>

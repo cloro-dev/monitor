@@ -4,7 +4,7 @@ import { post, patch, del } from '@/lib/fetcher';
 interface Brand {
   id: string;
   domain: string;
-  brandName: string | null;
+  name: string | null;
   faviconUrl: string | null;
   organizationId: string;
   createdAt: string;

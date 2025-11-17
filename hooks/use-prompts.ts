@@ -11,32 +11,52 @@ export interface Prompt {
   country: string;
   createdAt: string;
   updatedAt: string;
+  brand?: {
+    id: string;
+    domain: string;
+    name?: string;
+  };
 }
 
 interface CreatePromptData {
   text: string;
   country: string;
+  brandId: string;
 }
 
 interface UpdatePromptData {
   text: string;
   country: string;
+  brandId: string;
 }
 
 /**
  * Hook to fetch user's prompts
  */
-export function usePrompts() {
+export function usePrompts(brandId?: string | null) {
   const { isAuthenticated } = useAuth();
 
+  const getKey = () => {
+    if (!isAuthenticated) return null;
+    const key = '/api/prompts';
+    if (brandId) {
+      return [key, brandId];
+    }
+    return key;
+  };
+
   const { data, error, isLoading, mutate } = useSWR<Prompt[]>(
-    isAuthenticated ? '/api/prompts' : null,
+    getKey,
+    (url: string | [string, string]) => {
+      if (Array.isArray(url)) {
+        const [endpoint, id] = url;
+        return fetch(`${endpoint}?brandId=${id}`).then((res) => res.json());
+      }
+      return fetch(url).then((res) => res.json());
+    },
     {
-      // Revalidate on focus to get the latest prompts
       revalidateOnFocus: true,
-      // Cache for 2 minutes (prompts might change frequently)
       dedupingInterval: 2 * 60 * 1000,
-      // Refresh every 5 minutes in background
       refreshInterval: 5 * 60 * 1000,
     },
   );

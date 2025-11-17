@@ -2,7 +2,7 @@ import faviconFetch from 'favicon-fetch';
 
 export interface DomainInfo {
   domain: string;
-  brandName: string | null;
+  name: string | null;
   faviconUrl: string | null;
 }
 
@@ -18,11 +18,11 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
     const faviconUrl = faviconFetch({ hostname: normalizedDomain, size: 64 });
 
     // Extract brand name from the domain
-    const brandName = extractBrandName(normalizedDomain);
+    const name = extractBrandName(normalizedDomain);
 
     return {
       domain: normalizedDomain,
-      brandName,
+      name,
       faviconUrl,
     };
   } catch (error) {
@@ -30,11 +30,11 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
 
     // Fallback: use domain name and generic favicon
     const normalizedDomain = normalizeDomain(domain);
-    const brandName = extractBrandName(normalizedDomain);
+    const name = extractBrandName(normalizedDomain);
 
     return {
       domain: normalizedDomain,
-      brandName,
+      name,
       faviconUrl: null,
     };
   }
@@ -45,6 +45,7 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
  */
 function extractBrandName(domain: string): string {
   // Remove subdomains and extract the main domain
+  let name = '';
   const parts = domain.split('.');
 
   // Handle common TLDs like .co.uk, .com.au, etc.
@@ -54,11 +55,14 @@ function extractBrandName(domain: string): string {
       parts[parts.length - 2],
     )
   ) {
-    return parts[parts.length - 3];
+    name = parts[parts.length - 3];
+  } else {
+    // For regular domains, use the second-level domain
+    name = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
   }
 
-  // For regular domains, use the second-level domain
-  return parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+  // Capitalize the first letter
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 /**

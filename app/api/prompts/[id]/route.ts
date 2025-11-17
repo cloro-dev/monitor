@@ -9,6 +9,7 @@ const updatePromptSchema = z.object({
     .min(10, 'Prompt must be at least 10 characters')
     .max(200, 'Prompt must be at most 200 characters'),
   country: z.string().min(1, 'Country is required'),
+  brandId: z.string().min(1, 'Brand is required'),
 });
 
 export async function PUT(
@@ -45,6 +46,7 @@ export async function PUT(
       data: {
         text: validatedData.text,
         country: validatedData.country,
+        brandId: validatedData.brandId,
       },
       select: {
         id: true,

@@ -103,7 +103,7 @@ export function BrandManagement() {
               {brand.faviconUrl ? (
                 <Image
                   src={brand.faviconUrl}
-                  alt={`${brand.brandName || brand.domain} favicon`}
+                  alt={`${brand.name || brand.domain} favicon`}
                   width={24}
                   height={24}
                   className="object-cover"
@@ -122,9 +122,9 @@ export function BrandManagement() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-medium">
-                  {brand.brandName || brand.domain}
+                  {brand.name || brand.domain}
                 </span>
-                {brand.brandName && brand.brandName !== brand.domain && (
+                {brand.name && brand.name !== brand.domain && (
                   <span className="truncate text-sm text-muted-foreground">
                     ({brand.domain})
                   </span>
@@ -157,8 +157,14 @@ export function BrandManagement() {
                 <AlertDialogTitle>Delete Brand</AlertDialogTitle>
                 <AlertDialogDescription>
                   Are you sure you want to delete &quot;
-                  {brand.brandName || brand.domain}&quot;? This action cannot be
+                  {brand.name || brand.domain}&quot;? This action cannot be
                   undone.
+                  <br />
+                  <br />
+                  <strong className="text-destructive">
+                    All prompts associated with this brand will also be
+                    deleted.
+                  </strong>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

@@ -153,7 +153,7 @@ model TrackingResult {
 
 model BrandMetrics {
   id               String         @id @default(cuid())
-  sentiment        String
+  sentiment        Float
   position         Int
   competitors      Json
   trackingResult   TrackingResult @relation(fields: [trackingResultId], references: [id], onDelete: Cascade)

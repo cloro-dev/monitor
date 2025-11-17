@@ -6,9 +6,11 @@ import { z } from 'zod';
 // Define the schema for the structured object we want the LLM to return.
 const brandMetricsSchema = z.object({
   sentiment: z
-    .enum(['positive', 'negative', 'neutral'])
+    .number()
+    .min(0)
+    .max(100)
     .describe(
-      'The overall sentiment of the text concerning the primary brand. Must be one of: positive, negative, or neutral.',
+      'A score from 0-100 representing the sentiment of the text concerning the primary brand. 0 is very negative, 50 is neutral, and 100 is very positive.',
     ),
   position: z
     .number()
@@ -59,10 +61,13 @@ export async function analyzeBrandMetrics(text: string, brandName: string) {
       Please perform the following analysis:
       1.  Identify all brands mentioned in the text, including "${brandName}".
       2.  Rank these brands based on their prominence and context. The most important or central brand should be rank 1.
-      3.  Determine the overall sentiment towards "${brandName}".
+      3.  Determine the sentiment towards "${brandName}" on a scale of 0-100. Use the following rules for the score:
+          - Positive indicators (score towards 100): Words like “trusted,” “reliable,” “innovative,” “leading,” “expert.”
+          - Neutral indicators (score around 50): Factual language with little emotional tone.
+          - Negative indicators (score towards 0): Critical language, concerns, or negative associations.
 
       Return a JSON object with the following structure:
-      - sentiment: The sentiment towards "${brandName}" (must be 'positive', 'negative', or 'neutral').
+      - sentiment: The numerical sentiment score (0-100) towards "${brandName}".
       - position: The specific integer rank of "${brandName}".
       - competitors: A simple JSON array of ALL brand names you identified, ordered by their rank.
 

@@ -88,7 +88,7 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              Organization Details
+              Organization
             </CardTitle>
             <CardDescription>
               Update your organization information

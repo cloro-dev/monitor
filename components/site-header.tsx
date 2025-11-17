@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import { usePathname } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,6 +13,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import Link from "next/link";
+import { getRouteTitle } from "@/lib/routes";
 
 interface BreadcrumbItem {
   label: string;
@@ -22,7 +24,17 @@ interface SiteHeaderProps {
   breadcrumbs?: BreadcrumbItem[];
 }
 
-export function SiteHeader({ breadcrumbs = [{ label: "Dashboard" }] }: SiteHeaderProps) {
+export function SiteHeader({ breadcrumbs }: SiteHeaderProps) {
+  const pathname = usePathname();
+
+  // Auto-generate breadcrumbs based on route if not provided
+  const autoBreadcrumbs: BreadcrumbItem[] = (() => {
+    const title = getRouteTitle(pathname);
+    return [{ label: title }];
+  })();
+
+  // Use provided breadcrumbs or auto-generated ones
+  const finalBreadcrumbs = breadcrumbs || autoBreadcrumbs;
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 justify-between px-4">
@@ -31,7 +43,7 @@ export function SiteHeader({ breadcrumbs = [{ label: "Dashboard" }] }: SiteHeade
         <Separator orientation="vertical" className="mr-2 h-4 shrink-0" />
         <Breadcrumb className="min-w-0 flex-1">
           <BreadcrumbList>
-            {breadcrumbs.slice(0, -1).map((breadcrumb, index) => (
+            {finalBreadcrumbs.slice(0, -1).map((breadcrumb, index) => (
               <Fragment key={`breadcrumb-${index}`}>
                 <BreadcrumbItem className="hidden md:block">
                   {breadcrumb.href ? (
@@ -47,7 +59,7 @@ export function SiteHeader({ breadcrumbs = [{ label: "Dashboard" }] }: SiteHeade
             ))}
             <BreadcrumbItem className="min-w-0">
               <BreadcrumbPage className="truncate max-w-[200px] sm:max-w-none">
-                {breadcrumbs.at(-1)?.label}
+                {finalBreadcrumbs.at(-1)?.label}
               </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>

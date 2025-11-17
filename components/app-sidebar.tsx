@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import Image from "next/image";
 import { useActiveOrganization } from "@/hooks/use-organizations";
+import { getNavigationRoutes } from "@/lib/routes";
 
 export interface NavbarItem {
   title: string;
@@ -49,26 +50,29 @@ export function AppSidebar({
     setMounted(true);
   }, []);
 
+  const navigationRoutes = getNavigationRoutes();
+
+  // Split routes into main sections and secondary items
   const mainSections: { title: string; items: NavbarItem[] }[] = [
     {
       title: "",
-      items: [
-        {
-          title: "Prompts",
-          url: "/prompts",
-          icon: "MessageSquare" as IconName,
-        },
-      ],
+      items: navigationRoutes
+        .filter(route => route.url === "/prompts") // Currently only Prompts is main
+        .map(route => ({
+          title: route.title,
+          url: route.url,
+          icon: route.icon as IconName,
+        })),
     },
   ];
 
-  const supportSecondaryItems = [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: "Building2" as IconName,
-    },
-  ];
+  const supportSecondaryItems = navigationRoutes
+    .filter(route => route.url === "/settings") // Currently only Settings is secondary
+    .map(route => ({
+      title: route.title,
+      url: route.url,
+      icon: route.icon as IconName,
+    }));
 
   // Ensure consistent user data for hydration
   const user = {

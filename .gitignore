@@ -46,3 +46,4 @@ screenshots
 # IDE
 .vscode/settings.json
 .vscode/extensions.json
+.claude

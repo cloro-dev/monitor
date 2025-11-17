@@ -21,7 +21,9 @@
     "db:pull": "dotenv -e .env -- prisma db pull",
     "db:push": "dotenv -e .env -- prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "clean": "rm -rf node_modules pnpm-lock.yaml",
+    "reinstall": "pnpm clean && pnpm install"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

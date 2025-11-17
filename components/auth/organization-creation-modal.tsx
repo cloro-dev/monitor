@@ -160,7 +160,7 @@ export function OrganizationCreationModal({
                 />
               </div>
               <div className="grid gap-3">
-                <Label htmlFor="org-logo">Logo URL (Optional)</Label>
+                <Label htmlFor="org-logo">Logo URL (optional)</Label>
                 <Input
                   onChange={(e) => setLogo(e.target.value)}
                   value={logo}

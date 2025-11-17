@@ -105,7 +105,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="logo">Logo URL (Optional)</Label>
+                <Label htmlFor="logo">Logo URL (optional)</Label>
                 <Input
                   id="logo"
                   type="url"
@@ -139,17 +139,17 @@ export default function SettingsPage() {
             <CardDescription>Manage organization members</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {activeOrganization.members.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-3 rounded-lg border"
+                  className="flex items-center justify-between p-2 rounded-lg border"
                 >
-                  <div>
-                    <p className="font-medium">{member.user.name}</p>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">{member.user.name}</span>
+                    <span className="text-sm text-muted-foreground">
                       {member.user.email}
-                    </p>
+                    </span>
                   </div>
                   <div className="text-sm">
                     <span className="px-2 py-1 rounded-full bg-primary/10 text-primary">

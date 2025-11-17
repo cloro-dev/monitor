@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { trackPromptById } from '@/lib/tracking-service';
 
 const createPromptSchema = z.object({
   text: z
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createPromptSchema.parse(body);
 
-    const prompt = await prisma.prompt.create({
+    const newPrompt = await prisma.prompt.create({
       data: {
         text: validatedData.text,
         country: validatedData.country,
@@ -84,7 +85,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(prompt, { status: 201 });
+    // Don't await, let it run in the background
+    trackPromptById(newPrompt.id);
+
+    return NextResponse.json(newPrompt, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

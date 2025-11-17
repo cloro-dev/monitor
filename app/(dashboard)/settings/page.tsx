@@ -11,13 +11,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Building2, Users } from "lucide-react";
+import { Building2, Users, Globe } from "lucide-react";
 import { IconLoader } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
   useActiveOrganization,
   useUpdateOrganization,
 } from "@/hooks/use-organizations";
+import { BrandManagement } from "@/components/brands/brand-management";
 
 export default function SettingsPage() {
   const { activeOrganization } = useActiveOrganization();
@@ -172,6 +173,21 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Brands
+          </CardTitle>
+          <CardDescription>
+            Manage brands and domains for tracking
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BrandManagement />
+        </CardContent>
+      </Card>
     </div>
   );
 }

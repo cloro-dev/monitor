@@ -85,6 +85,21 @@ model organization {
   createdAt   DateTime     @default(now())
   members     member[]
   invitations invitation[]
+  brands      brand[]
+}
+
+model brand {
+  id             String       @id @default(cuid())
+  domain         String       @unique
+  brandName      String?
+  faviconUrl     String?
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([domain])
 }
 
 model member {

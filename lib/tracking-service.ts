@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { trackPrompt } from './cloro';
 import { countries } from './countries';
@@ -58,7 +57,7 @@ export async function trackPromptById(promptId: string) {
         status: 'FAILED',
         response: {
           error: `Invalid country name: ${prompt.country}`,
-        } as Prisma.InputJsonValue,
+        },
       },
     });
     return;

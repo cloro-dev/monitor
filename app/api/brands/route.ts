@@ -9,7 +9,6 @@ const createBrandSchema = z.object({
   domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
     message: 'Please enter a valid domain name (e.g., example.com)',
   }),
-  organizationId: z.string().min(1, 'Organization ID is required'),
 });
 
 const updateBrandSchema = z.object({
@@ -28,7 +27,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's active organization from session
+    // Get user's active organization from session (same approach as competitors API)
     const userSession = await prisma.session.findFirst({
       where: {
         userId: session.user.id,
@@ -50,12 +49,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ brands: [] });
     }
 
-    // Use active organization if available, otherwise use first organization
-    const activeOrganization = userSession.activeOrganizationId
-      ? userSession.user.members.find(
-          (m) => m.organizationId === userSession.activeOrganizationId,
-        )?.organization
-      : userSession.user.members[0]?.organization;
+    // Require active organization to be set
+    if (!userSession.activeOrganizationId) {
+      return NextResponse.json({ brands: [] });
+    }
+
+    const activeOrganization = userSession.user.members.find(
+      (m: any) => m.organizationId === userSession.activeOrganizationId,
+    )?.organization;
 
     if (!activeOrganization) {
       return NextResponse.json({ brands: [] });
@@ -93,26 +94,53 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { domain, organizationId } = createBrandSchema.parse(body);
+    const { domain } = createBrandSchema.parse(body);
 
-    // Verify user is a member of the organization
-    const membership = await prisma.member.findFirst({
+    // Get user's active organization from session
+    const userSession = await prisma.session.findFirst({
       where: {
         userId: session.user.id,
-        organizationId,
+      },
+      include: {
+        user: {
+          include: {
+            members: {
+              include: {
+                organization: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    if (!membership) {
+    if (!userSession?.user.members.length) {
       return NextResponse.json(
-        {
-          error: "You don't have permission to add brands to this organization",
-        },
+        { error: "You don't have any organizations" },
         { status: 403 },
       );
     }
 
-    // Check if domain already exists
+    // Require active organization to be set
+    if (!userSession.activeOrganizationId) {
+      return NextResponse.json(
+        { error: 'No active organization selected' },
+        { status: 403 },
+      );
+    }
+
+    const activeOrganization = userSession.user.members.find(
+      (m: any) => m.organizationId === userSession.activeOrganizationId,
+    )?.organization;
+
+    if (!activeOrganization) {
+      return NextResponse.json(
+        { error: 'Active organization not found' },
+        { status: 403 },
+      );
+    }
+
+    // Check if domain already exists (within the user's organization)
     const existingBrand = await prisma.brand.findUnique({
       where: { domain },
     });
@@ -127,13 +155,13 @@ export async function POST(request: NextRequest) {
     // Fetch domain information including brand name and favicon
     const domainInfo = await fetchDomainInfo(domain);
 
-    // Create brand with fetched information
+    // Create brand with fetched information using active organization
     const brand = await prisma.brand.create({
       data: {
         domain: domainInfo.domain,
         name: domainInfo.name,
         faviconUrl: domainInfo.faviconUrl,
-        organizationId,
+        organizationId: activeOrganization.id,
       },
     });
 

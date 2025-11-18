@@ -34,12 +34,14 @@ export async function GET(req: Request) {
     return NextResponse.json([]);
   }
 
-  // Use active organization if available, otherwise use first organization
-  const activeOrganization = userSession.activeOrganizationId
-    ? userSession.user.members.find(
-        (m: any) => m.organizationId === userSession.activeOrganizationId,
-      )?.organization
-    : userSession.user.members[0]?.organization;
+  // Require active organization to be set
+  if (!userSession.activeOrganizationId) {
+    return NextResponse.json([]);
+  }
+
+  const activeOrganization = userSession.user.members.find(
+    (m: any) => m.organizationId === userSession.activeOrganizationId,
+  )?.organization;
 
   if (!activeOrganization) {
     return NextResponse.json([]);

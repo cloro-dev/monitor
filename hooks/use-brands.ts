@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import { post, patch, del } from '@/lib/fetcher';
+import { useAuth } from './use-auth';
 
 interface Brand {
   id: string;
@@ -16,23 +17,23 @@ interface BrandsResponse {
 }
 
 export function useBrands() {
-  const { data, error, mutate } = useSWR<BrandsResponse>('/api/brands');
+  const { session } = useAuth();
+
+  const { data, error, mutate } = useSWR<BrandsResponse>(
+    session ? '/api/brands' : null,
+  );
 
   const createBrand = async (domain: string) => {
-    // Get organization ID from the current brands or fetch it
-    const organizationId =
-      data?.brands?.[0]?.organizationId || (await getCurrentOrganizationId());
-
-    if (!organizationId) {
-      throw new Error('No organization found');
+    if (!session) {
+      throw new Error('Not authenticated. Please sign in first.');
     }
 
+    // Let the API determine the active organization
     const response = await post<BrandsResponse>('/api/brands', {
       domain,
-      organizationId,
     });
 
-    mutate(response);
+    mutate();
     return response;
   };
 
@@ -53,32 +54,13 @@ export function useBrands() {
 
   return {
     brands: data?.brands || [],
-    isLoading: !error && !data,
+    isLoading: !error && !data && !!session, // Only loading if authenticated
     error,
     createBrand,
     updateBrand,
     deleteBrand,
     mutate,
   };
-}
-
-// Helper function to get current organization ID
-async function getCurrentOrganizationId(): Promise<string | null> {
-  try {
-    const response = await fetch('/api/organizations');
-    const data = await response.json();
-
-    if (data.organizations?.length > 0) {
-      // Return the first organization's ID for now
-      // In a real app, you might want to use the active organization
-      return data.organizations[0].id;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error fetching organization:', error);
-    return null;
-  }
 }
 
 export type { Brand };

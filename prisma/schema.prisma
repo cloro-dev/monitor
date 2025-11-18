@@ -100,6 +100,7 @@ model brand {
   updatedAt      DateTime     @updatedAt
   organization   organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   prompts      prompt[]
+  competitors  BrandCompetitors[]
 
   @@index([organizationId])
   @@index([domain])
@@ -168,4 +169,21 @@ model Country {
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum CompetitorStatus {
+  ACCEPTED
+  REJECTED
+}
+
+model BrandCompetitors {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name      String
+  status    CompetitorStatus?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([brandId, name])
 }

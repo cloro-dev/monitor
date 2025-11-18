@@ -57,7 +57,7 @@ export function AppSidebar({
     {
       title: '',
       items: navigationRoutes
-        .filter((route) => route.url === '/prompts') // Currently only Prompts is main
+        .filter((route) => ['/prompts', '/competitors'].includes(route.url))
         .map((route) => ({
           title: route.title,
           url: route.url,

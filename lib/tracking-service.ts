@@ -83,6 +83,7 @@ export async function trackPromptById(promptId: string) {
         brandName,
       );
 
+      // Create metrics object, regardless of whether the brand was found.
       await prisma.brandMetrics.create({
         data: {
           sentiment: metrics.sentiment,

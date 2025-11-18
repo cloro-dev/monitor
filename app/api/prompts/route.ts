@@ -66,20 +66,28 @@ export async function GET(request: NextRequest) {
       const totalMetrics = metricsList.length;
 
       // Visibility Score Calculation
-      const mentions = metricsList.filter((m) => m.position > 0).length;
+      const mentions = metricsList.filter(
+        (m) => m.position != null && m.position > 0,
+      ).length;
       const visibilityScore = (mentions / totalMetrics) * 100;
 
       // Average Sentiment Calculation
-      const totalSentiment = metricsList.reduce(
-        (acc, m) => acc + m.sentiment,
+      const sentimentMetrics = metricsList.filter((m) => m.sentiment != null);
+      const totalSentiment = sentimentMetrics.reduce(
+        (acc, m) => acc + m.sentiment!,
         0,
       );
-      const averageSentiment = totalSentiment / totalMetrics;
+      const averageSentiment =
+        sentimentMetrics.length > 0
+          ? totalSentiment / sentimentMetrics.length
+          : null;
 
       // Average Position Calculation (only for prompts that were ranked)
-      const positionMetrics = metricsList.filter((m) => m.position > 0);
+      const positionMetrics = metricsList.filter(
+        (m) => m.position != null && m.position > 0,
+      );
       const totalPosition = positionMetrics.reduce(
-        (acc, m) => acc + m.position,
+        (acc, m) => acc + m.position!,
         0,
       );
       const averagePosition =

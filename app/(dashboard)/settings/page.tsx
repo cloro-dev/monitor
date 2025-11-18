@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Building2, Users, Globe } from 'lucide-react';
+import { Building2, Users, Globe, Bot } from 'lucide-react';
 import { IconLoader } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import {
@@ -19,6 +19,7 @@ import {
   useUpdateOrganization,
 } from '@/hooks/use-organizations';
 import { BrandManagement } from '@/components/brands/brand-management';
+import { AIModelsSettings } from '@/components/ai-models/ai-models-settings';
 
 export default function SettingsPage() {
   const { activeOrganization } = useActiveOrganization();
@@ -176,20 +177,39 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            Brands
-          </CardTitle>
-          <CardDescription>
-            Manage brands and domains for tracking
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <BrandManagement />
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Brands */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Brands
+            </CardTitle>
+            <CardDescription>
+              Manage brands and domains for tracking
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BrandManagement />
+          </CardContent>
+        </Card>
+
+        {/* AI Models */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              AI Models
+            </CardTitle>
+            <CardDescription>
+              Configure which AI models to use for tracking
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AIModelsSettings />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

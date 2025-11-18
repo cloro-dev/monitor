@@ -26,6 +26,7 @@ export interface Organization {
   slug: string;
   logo?: string;
   metadata?: any;
+  aiModels?: string[];
   members: Member[];
   createdAt: string;
   updatedAt: string;
@@ -51,6 +52,7 @@ interface UpdateOrganizationData {
   name?: string;
   slug?: string;
   logo?: string;
+  aiModels?: string[];
 }
 
 /**

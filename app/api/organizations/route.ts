@@ -84,13 +84,20 @@ export async function POST(request: NextRequest) {
 
     // Create organization and add user as owner
     const organization = await prisma.$transaction(async (tx) => {
-      // Create organization
+      // Create organization with all AI models enabled by default
       const newOrg = await tx.organization.create({
         data: {
           name,
           slug,
           logo,
           metadata,
+          aiModels: [
+            'CHATGPT',
+            'PERPLEXITY',
+            'MICROSOFT_COPILOT',
+            'GOOGLE_AI_MODE',
+            'GOOGLE_AI_OVERVIEW',
+          ],
         },
       });
 
@@ -138,7 +145,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { organizationId, name, slug, logo } = body;
+    const { organizationId, name, slug, logo, aiModels } = body;
 
     if (!organizationId) {
       return NextResponse.json(
@@ -187,6 +194,7 @@ export async function PATCH(request: NextRequest) {
         ...(name && { name }),
         ...(slug && { slug }),
         ...(logo !== undefined && { logo }),
+        ...(aiModels !== undefined && { aiModels }),
       },
     });
 

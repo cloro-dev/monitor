@@ -42,6 +42,7 @@ interface PromptDialogProps {
   prompt?: Prompt;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  disabled?: boolean;
 }
 
 export function PromptDialog({
@@ -49,6 +50,7 @@ export function PromptDialog({
   prompt,
   open,
   onOpenChange,
+  disabled = false,
 }: PromptDialogProps) {
   const [isOpen, setIsOpen] = useState(open || false);
   const [isLoading, setIsLoading] = useState(false);
@@ -140,7 +142,8 @@ export function PromptDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+      {trigger && !disabled && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+      {trigger && disabled && trigger}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
@@ -278,11 +281,12 @@ export function PromptDialog({
 }
 
 // Default trigger button component
-export function AddPromptButton() {
+export function AddPromptButton({ disabled }: { disabled?: boolean }) {
   return (
     <PromptDialog
+      disabled={disabled}
       trigger={
-        <Button>
+        <Button disabled={disabled}>
           <Plus className="h-4 w-4" />
           Add prompt
         </Button>

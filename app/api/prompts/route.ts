@@ -40,21 +40,23 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
-        trackingResults: {
-          include: {
-            metrics: true,
-          },
-        },
+        providerResults: true,
       },
     });
 
-    // Calculate aggregated metrics for each prompt
+    // Calculate aggregated metrics for each prompt from all ProviderResults
     const promptsWithMetrics = prompts.map((prompt) => {
-      const metricsList = prompt.trackingResults
-        .map((tr) => tr.metrics)
-        .filter((m): m is NonNullable<typeof m> => m !== null);
+      // For visibility calculation: use all SUCCESS results (regardless of sentiment)
+      const successfulResultsForVisibility = prompt.providerResults.filter(
+        (pr) => pr.status === 'SUCCESS',
+      );
 
-      if (metricsList.length === 0) {
+      // For sentiment calculation: use only SUCCESS results with sentiment
+      const successfulResultsForSentiment = prompt.providerResults.filter(
+        (pr) => pr.status === 'SUCCESS' && pr.sentiment != null,
+      );
+
+      if (successfulResultsForVisibility.length === 0) {
         return {
           ...prompt,
           visibilityScore: null,
@@ -63,36 +65,35 @@ export async function GET(request: NextRequest) {
         };
       }
 
-      const totalMetrics = metricsList.length;
-
-      // Visibility Score Calculation
-      const mentions = metricsList.filter(
-        (m) => m.position != null && m.position > 0,
+      // Visibility Score Calculation (percentage of results where position is not null and > 0)
+      const totalResults = successfulResultsForVisibility.length;
+      const mentions = successfulResultsForVisibility.filter(
+        (pr) => pr.position != null && pr.position > 0,
       ).length;
-      const visibilityScore = (mentions / totalMetrics) * 100;
+      const visibilityScore = (mentions / totalResults) * 100;
 
       // Average Sentiment Calculation
-      const sentimentMetrics = metricsList.filter((m) => m.sentiment != null);
-      const totalSentiment = sentimentMetrics.reduce(
-        (acc, m) => acc + m.sentiment!,
+      const sentimentResults = successfulResultsForSentiment;
+      const totalSentiment = sentimentResults.reduce(
+        (acc, pr) => acc + pr.sentiment!,
         0,
       );
       const averageSentiment =
-        sentimentMetrics.length > 0
-          ? totalSentiment / sentimentMetrics.length
+        sentimentResults.length > 0
+          ? totalSentiment / sentimentResults.length
           : null;
 
       // Average Position Calculation (only for prompts that were ranked)
-      const positionMetrics = metricsList.filter(
-        (m) => m.position != null && m.position > 0,
+      const positionResults = successfulResultsForVisibility.filter(
+        (pr) => pr.position != null && pr.position > 0,
       );
-      const totalPosition = positionMetrics.reduce(
-        (acc, m) => acc + m.position!,
+      const totalPosition = positionResults.reduce(
+        (acc, pr) => acc + pr.position!,
         0,
       );
       const averagePosition =
-        positionMetrics.length > 0
-          ? totalPosition / positionMetrics.length
+        positionResults.length > 0
+          ? totalPosition / positionResults.length
           : null;
 
       return {
@@ -123,6 +124,34 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedData = createPromptSchema.parse(body);
+
+    // Get the organization to check if AI models are enabled
+    const brand = await prisma.brand.findUnique({
+      where: { id: validatedData.brandId },
+      include: {
+        organization: {
+          select: {
+            aiModels: true,
+          },
+        },
+      },
+    });
+
+    if (!brand) {
+      return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
+    }
+
+    // Check if any AI models are enabled
+    const enabledModels = (brand.organization.aiModels as string[]) || [];
+    if (enabledModels.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            'No AI models enabled. Please enable at least one AI model in Settings > AI Models before creating prompts.',
+        },
+        { status: 400 },
+      );
+    }
 
     const newPrompt = await prisma.prompt.create({
       data: {

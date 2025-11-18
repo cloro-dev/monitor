@@ -38,20 +38,6 @@ export function BrandList({
   isDeleting,
   deletingBrandId,
 }: BrandListProps) {
-  if (brands.length === 0) {
-    return (
-      <div className="py-8 text-center">
-        <IconBuildingStore className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-        <h3 className="mb-2 text-lg font-medium text-muted-foreground">
-          No brands yet
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Add your first brand to start tracking domain information
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
       {brands.map((brand) => (

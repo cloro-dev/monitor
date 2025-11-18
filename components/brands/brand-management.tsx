@@ -181,19 +181,6 @@ export function BrandManagement() {
         </div>
       ))}
 
-      {/* Empty State */}
-      {brands.length === 0 && (
-        <div className="py-8 text-center">
-          <IconWorld className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-          <h3 className="mb-2 text-lg font-medium text-muted-foreground">
-            No brands yet
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Add your first brand using the input below
-          </p>
-        </div>
-      )}
-
       {/* Add Brand Input Row */}
       <form onSubmit={handleSubmit(handleAddBrand)} className="pt-2">
         <div className="flex gap-2">

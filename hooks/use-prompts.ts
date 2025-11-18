@@ -50,12 +50,35 @@ export function usePrompts(brandId?: string | null) {
 
   const { data, error, isLoading, mutate } = useSWR<Prompt[]>(
     getKey,
-    (url: string | [string, string]) => {
-      if (Array.isArray(url)) {
-        const [endpoint, id] = url;
-        return fetch(`${endpoint}?brandId=${id}`).then((res) => res.json());
+    async (url: string | [string, string]) => {
+      try {
+        let response;
+        if (Array.isArray(url)) {
+          const [endpoint, id] = url;
+          response = await fetch(`${endpoint}?brandId=${id}`);
+        } else {
+          response = await fetch(url);
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const jsonData = await response.json();
+
+        // Handle different response formats
+        if (Array.isArray(jsonData)) {
+          return jsonData;
+        } else if (jsonData && Array.isArray(jsonData.prompts)) {
+          return jsonData.prompts;
+        } else {
+          console.error('Unexpected API response format:', jsonData);
+          return [];
+        }
+      } catch (error) {
+        console.error('Error fetching prompts:', error);
+        throw error;
       }
-      return fetch(url).then((res) => res.json());
     },
     {
       revalidateOnFocus: true,

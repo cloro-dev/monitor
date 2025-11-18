@@ -62,7 +62,7 @@ model prompt {
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   brand     brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
   brandId   String
-  trackingResults TrackingResult[]
+  providerResults ProviderResult[]
 
   @@index([userId])
   @@index([country])
@@ -84,6 +84,7 @@ model organization {
   slug        String       @unique
   logo        String?
   metadata    Json?
+  aiModels    Json?        // Store enabled AI models as JSON array
   createdAt   DateTime     @default(now())
   members     member[]
   invitations invitation[]
@@ -139,28 +140,29 @@ enum TrackingStatus {
   FAILED
 }
 
-model TrackingResult {
+enum ProviderModel {
+  CHATGPT
+  PERPLEXITY
+  MICROSOFT_COPILOT
+  GOOGLE_AI_MODE
+  GOOGLE_AI_OVERVIEW
+}
+
+model ProviderResult {
   id        String         @id @default(cuid())
   prompt    prompt         @relation(fields: [promptId], references: [id], onDelete: Cascade)
   promptId  String
+  model     ProviderModel
   status    TrackingStatus @default(PENDING)
   response  Json?
+  sentiment Float?
+  position  Int?
+  competitors Json?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
-  metrics   BrandMetrics?
 
   @@index([promptId])
-}
-
-model BrandMetrics {
-  id               String         @id @default(cuid())
-  sentiment        Float?
-  position         Int?
-  competitors      Json?
-  trackingResult   TrackingResult @relation(fields: [trackingResultId], references: [id], onDelete: Cascade)
-  trackingResultId String         @unique
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  @@index([model])
 }
 
 model Country {

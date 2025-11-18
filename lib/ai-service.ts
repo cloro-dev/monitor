@@ -46,11 +46,11 @@ export async function analyzeBrandMetrics(text: string, brandName: string) {
   // Select the LLM provider based on available environment variables.
   if (process.env.OPENAI_API_KEY) {
     model = models.openai;
-  } else if (process.env.GEMINI_API_KEY) {
+  } else if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     model = models.google;
   } else {
     throw new Error(
-      'No LLM provider API key found. Please set OPENAI_API_KEY or GEMINI_API_KEY.',
+      'No LLM provider API key found. Please set OPENAI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY.',
     );
   }
 

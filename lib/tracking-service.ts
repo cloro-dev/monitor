@@ -1,6 +1,5 @@
 import prisma from '@/lib/prisma';
 import { trackPrompt } from './cloro';
-import { countries } from './countries';
 import { analyzeBrandMetrics } from './ai-service';
 import { ProviderModel } from '@prisma/client';
 
@@ -80,14 +79,8 @@ async function trackSingleModel(
       data: { status: 'PROCESSING' },
     });
 
-    // Get country code
-    const countryEntry = countries.find((c) => c.label === prompt.country);
-    if (!countryEntry) {
-      throw new Error(
-        `Invalid country name "${prompt.country}" for prompt ${prompt.id}. Cannot find ISO code.`,
-      );
-    }
-    const countryCode = countryEntry.value;
+    // Use country code directly
+    const countryCode = prompt.country;
 
     // Call the cloro API for this specific model
     const apiResponse = await trackPrompt(prompt.text, countryCode, model);

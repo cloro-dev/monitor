@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { countries } from '@/lib/countries';
+import { getCountriesForSelect } from '@/lib/countries';
 import { Loader2, Plus } from 'lucide-react';
 import { useCreatePrompt, useUpdatePrompt } from '@/hooks/use-prompts';
 import { useBrands } from '@/hooks/use-brands';
@@ -60,6 +60,10 @@ export function PromptDialog({
     brandId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [countries, setCountries] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+  const [isLoadingCountries, setIsLoadingCountries] = useState(false);
 
   const { brands, isLoading: isLoadingBrands } = useBrands();
 
@@ -84,6 +88,24 @@ export function PromptDialog({
     }
     setErrors({});
   }, [prompt, isOpen]);
+
+  useEffect(() => {
+    const loadCountries = async () => {
+      if (isOpen && countries.length === 0) {
+        setIsLoadingCountries(true);
+        try {
+          const countriesData = await getCountriesForSelect();
+          setCountries(countriesData);
+        } catch (error) {
+          console.error('Failed to load countries:', error);
+        } finally {
+          setIsLoadingCountries(false);
+        }
+      }
+    };
+
+    loadCountries();
+  }, [isOpen, countries.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,11 +219,24 @@ export function PromptDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <div className="max-h-[200px] overflow-y-auto">
-                    {countries.map((country) => (
-                      <SelectItem key={country.value} value={country.label}>
-                        {country.label}
-                      </SelectItem>
-                    ))}
+                    {isLoadingCountries ? (
+                      <div className="flex items-center justify-center py-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Loading countries...
+                        </span>
+                      </div>
+                    ) : countries.length > 0 ? (
+                      countries.map((country) => (
+                        <SelectItem key={country.value} value={country.value}>
+                          {country.label}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="py-2 text-center text-sm text-muted-foreground">
+                        Failed to load countries
+                      </div>
+                    )}
                   </div>
                 </SelectContent>
               </Select>

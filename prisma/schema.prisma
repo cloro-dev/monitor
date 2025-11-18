@@ -165,13 +165,6 @@ model ProviderResult {
   @@index([model])
 }
 
-model Country {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
 
 enum CompetitorStatus {
   ACCEPTED

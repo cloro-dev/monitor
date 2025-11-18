@@ -43,6 +43,9 @@ interface Prompt {
     domain: string;
     name?: string;
   };
+  visibilityScore: number | null;
+  averageSentiment: number | null;
+  averagePosition: number | null;
 }
 
 interface PromptsTableProps {
@@ -54,11 +57,6 @@ export function PromptsTable({ data }: PromptsTableProps) {
   const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { deletePrompt } = useDeletePrompt();
-
-  const handlePromptSaved = () => {
-    // SWR handles cache updates automatically via the hooks in PromptDialog
-    setEditingPrompt(null);
-  };
 
   const handleDeletePrompt = async () => {
     if (!deletingPrompt) return;
@@ -105,8 +103,10 @@ export function PromptsTable({ data }: PromptsTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Prompt</TableHead>
-              <TableHead>Country</TableHead>
               <TableHead>Brand</TableHead>
+              <TableHead>Visibility</TableHead>
+              <TableHead>Sentiment</TableHead>
+              <TableHead>Position</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -119,9 +119,23 @@ export function PromptsTable({ data }: PromptsTableProps) {
                     {prompt.text}
                   </div>
                 </TableCell>
-                <TableCell>{prompt.country}</TableCell>
                 <TableCell>
                   {prompt.brand?.name || prompt.brand?.domain || 'N/A'}
+                </TableCell>
+                <TableCell>
+                  {prompt.visibilityScore != null
+                    ? `${prompt.visibilityScore.toFixed(0)}%`
+                    : '-'}
+                </TableCell>
+                <TableCell>
+                  {prompt.averageSentiment != null
+                    ? prompt.averageSentiment.toFixed(1)
+                    : '-'}
+                </TableCell>
+                <TableCell>
+                  {prompt.averagePosition != null
+                    ? prompt.averagePosition.toFixed(1)
+                    : '-'}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(prompt.createdAt)}

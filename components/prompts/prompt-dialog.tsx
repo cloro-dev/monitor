@@ -144,7 +144,7 @@ export function PromptDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? 'Edit Prompt' : 'Add New Prompt'}
+            {isEditing ? 'Edit prompt' : 'Add new prompt'}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -267,7 +267,7 @@ export function PromptDialog({
                   {isEditing ? 'Updating...' : 'Creating...'}
                 </>
               ) : (
-                <>{isEditing ? 'Update Prompt' : 'Create Prompt'}</>
+                <>{isEditing ? 'Update prompt' : 'Create prompt'}</>
               )}
             </Button>
           </div>
@@ -283,8 +283,8 @@ export function AddPromptButton() {
     <PromptDialog
       trigger={
         <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Prompt
+          <Plus className="h-4 w-4" />
+          Add prompt
         </Button>
       }
     />

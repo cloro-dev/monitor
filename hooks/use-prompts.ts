@@ -1,6 +1,6 @@
 'use client';
 
-import useSWR, { mutate } from 'swr';
+import useSWR from 'swr';
 import { useAuth } from './use-auth';
 import { post, put, del } from '@/lib/fetcher';
 
@@ -16,6 +16,9 @@ export interface Prompt {
     domain: string;
     name?: string;
   };
+  visibilityScore: number | null;
+  averageSentiment: number | null;
+  averagePosition: number | null;
 }
 
 interface CreatePromptData {

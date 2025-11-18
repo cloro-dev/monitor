@@ -1,0 +1,86 @@
+import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
+import { LanguageModel, generateObject } from 'ai';
+import { z } from 'zod';
+
+// Define the schema for the structured object we want the LLM to return.
+const brandMetricsSchema = z.object({
+  sentiment: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe(
+      'A score from 0-100 representing the sentiment of the text concerning the primary brand. 0 is very negative, 50 is neutral, and 100 is very positive.',
+    )
+    .nullable(),
+  position: z
+    .number()
+    .int()
+    .describe(
+      'The rank of the primary brand mentioned in the text. 1 is the most prominent.',
+    )
+    .nullable(),
+  competitors: z
+    .array(z.string())
+    .describe(
+      'A ranked list of all brand names mentioned in the text, including the primary brand, ordered by prominence.',
+    )
+    .nullable(),
+});
+
+// Hardcoded model instances
+const models = {
+  openai: openai('gpt-4o-mini'),
+  google: google('gemini-2.5-flash'),
+};
+
+/**
+ * Analyzes a given text to extract brand metrics using an LLM.
+ * @param text The text to analyze.
+ * @param brandName The name of the primary brand to focus on.
+ * @returns A promise that resolves to the structured brand metrics.
+ */
+export async function analyzeBrandMetrics(text: string, brandName: string) {
+  let model: LanguageModel;
+
+  // Select the LLM provider based on available environment variables.
+  if (process.env.OPENAI_API_KEY) {
+    model = models.openai;
+  } else if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    model = models.google;
+  } else {
+    throw new Error(
+      'No LLM provider API key found. Please set OPENAI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY.',
+    );
+  }
+
+  const { object } = await generateObject({
+    model,
+    schema: brandMetricsSchema,
+    prompt: `
+      You are a professional market analyst. Your task is to analyze the following text
+      to understand the competitive landscape for the brand "${brandName}".
+
+      Please perform the following analysis:
+      1.  Read the text carefully to identify all brand names mentioned.
+      2.  Create a ranked list of all brand names based on their prominence in the text. The most prominent brand should be at rank 1.
+      3.  Determine if "${brandName}" is mentioned in the text.
+      4.  If "${brandName}" IS mentioned:
+          a.  Calculate its sentiment on a scale of 0-100 (0=very negative, 50=neutral, 100=very positive).
+          b.  Identify its rank in the list.
+      5.  If "${brandName}" is NOT mentioned, its 'sentiment' and 'position' should be null.
+
+      Return a JSON object with the following structure:
+      - sentiment: The numerical sentiment score (0-100) for "${brandName}". Should be null if the brand is not mentioned.
+      - position: The integer rank of "${brandName}" in the prominence list. Should be null if the brand is not mentioned.
+      - competitors: A JSON array of ALL brand names you identified, ordered by their rank. If no brands are mentioned at all, this should be null.
+
+      Text to analyze:
+      ---
+      ${text}
+      ---
+    `,
+  });
+
+  return object;
+}

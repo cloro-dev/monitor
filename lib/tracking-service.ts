@@ -1,20 +1,37 @@
-// lib/tracking-service.ts
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { trackPrompt } from './cloro';
 import { countries } from './countries';
 import { analyzeBrandMetrics } from './ai-service';
 
-export async function trackAllPrompts() {
+export async function trackAllPrompts(concurrency = 2) {
   const prompts = await prisma.prompt.findMany({
     include: {
       brand: true,
     },
   });
 
-  for (const prompt of prompts) {
-    await trackPromptById(prompt.id);
+  const results: any[] = [];
+  let promptIndex = 0;
+
+  async function worker(workerId: number) {
+    while (promptIndex < prompts.length) {
+      const currentIndex = promptIndex++;
+      const prompt = prompts[currentIndex];
+
+      if (!prompt) {
+        break;
+      }
+
+      const result = await trackPromptById(prompt.id);
+      results.push(result);
+    }
   }
+
+  const workers = Array(concurrency)
+    .fill(0)
+    .map((_, i) => worker(i + 1));
+  await Promise.all(workers);
 }
 
 export async function trackPromptById(promptId: string) {
@@ -65,14 +82,6 @@ export async function trackPromptById(promptId: string) {
 
     const apiResponse = await trackPrompt(prompt.text, countryCode);
 
-    const updatedTrackingResult = await prisma.trackingResult.update({
-      where: { id: trackingResult.id },
-      data: {
-        response: apiResponse as Prisma.InputJsonValue,
-        status: 'SUCCESS',
-      },
-    });
-
     // --- LLM-based Metrics Calculation ---
     const responseData = apiResponse as any;
     const brandName = prompt.brand.name || prompt.brand.domain;
@@ -83,15 +92,24 @@ export async function trackPromptById(promptId: string) {
         brandName,
       );
 
-      // Create metrics object, regardless of whether the brand was found.
-      await prisma.brandMetrics.create({
-        data: {
-          sentiment: metrics.sentiment,
-          position: metrics.position,
-          competitors: (metrics.competitors ?? []) as Prisma.InputJsonValue,
-          trackingResultId: updatedTrackingResult.id,
-        },
-      });
+      // Add new competitors to the BrandCompetitors table
+      if (metrics.competitors) {
+        for (const competitor of metrics.competitors) {
+          await prisma.brandCompetitors.upsert({
+            where: {
+              brandId_name: {
+                brandId: prompt.brandId,
+                name: competitor,
+              },
+            },
+            update: {},
+            create: {
+              brandId: prompt.brandId,
+              name: competitor,
+            },
+          });
+        }
+      }
     } else {
       // Handle cases where the Cloro response has no text
       throw new Error('No text found in Cloro API response to analyze.');

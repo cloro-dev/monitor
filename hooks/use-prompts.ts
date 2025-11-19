@@ -5,20 +5,33 @@ import { useAuth } from './use-auth';
 import { post, put, del } from '@/lib/fetcher';
 
 // Type definitions based on the API response
+export interface Result {
+  id: string;
+  model: string;
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+  response: any;
+  sentiment: number | null;
+  position: number | null;
+  competitors: any;
+  createdAt: string;
+}
+
 export interface Prompt {
   id: string;
   text: string;
   country: string;
+  brandId: string;
   createdAt: string;
   updatedAt: string;
   brand?: {
     id: string;
+    name: string | null;
     domain: string;
-    name?: string;
   };
-  visibilityScore: number | null;
-  averageSentiment: number | null;
-  averagePosition: number | null;
+  results?: Result[];
+  visibilityScore?: number | null;
+  averageSentiment?: number | null;
+  averagePosition?: number | null;
 }
 
 interface CreatePromptData {

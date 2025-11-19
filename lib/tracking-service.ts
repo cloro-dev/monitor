@@ -1,7 +1,7 @@
 import prisma from '@/lib/prisma';
 import { trackPrompt } from './cloro';
 import { analyzeBrandMetrics, getCompetitorDomain } from './ai-service';
-import { ProviderModel } from '@prisma/client';
+import { ProviderModel, Result } from '@prisma/client';
 
 export async function trackAllPrompts(concurrency = 2) {
   const prompts = await prisma.prompt.findMany({
@@ -62,11 +62,11 @@ async function trackSingleModel(
   prompt: any,
 ) {
   const model = modelString as ProviderModel;
-  let providerResult: any = null;
+  let result: Result | null = null;
 
   try {
-    // Create a ProviderResult for this model
-    providerResult = await prisma.providerResult.create({
+    // Create a Result for this model
+    result = await prisma.result.create({
       data: {
         promptId: prompt.id,
         model,
@@ -75,8 +75,8 @@ async function trackSingleModel(
     });
 
     // Update to PROCESSING status
-    await prisma.providerResult.update({
-      where: { id: providerResult.id },
+    await prisma.result.update({
+      where: { id: result.id },
       data: { status: 'PROCESSING' },
     });
 
@@ -157,9 +157,9 @@ async function trackSingleModel(
       throw new Error('No text found in Cloro API response to analyze.');
     }
 
-    // Update the ProviderResult with success data
-    await prisma.providerResult.update({
-      where: { id: providerResult.id },
+    // Update the Result with success data
+    await prisma.result.update({
+      where: { id: result.id },
       data: {
         status: 'SUCCESS',
         response: apiResponse as any,
@@ -177,10 +177,10 @@ async function trackSingleModel(
       `Failed to track prompt ${promptId} with model ${model}: ${errorMessage}`,
     );
 
-    // Try to update the ProviderResult to FAILED status
+    // Try to update the Result to FAILED status
     try {
-      if (providerResult) {
-        await prisma.providerResult.updateMany({
+      if (result) {
+        await prisma.result.updateMany({
           where: {
             promptId,
             model,
@@ -195,7 +195,7 @@ async function trackSingleModel(
         });
       }
     } catch (updateError) {
-      // Non-critical error - ProviderResult already exists, don't log noise
+      // Non-critical error - Result already exists, don't log noise
     }
   }
 }

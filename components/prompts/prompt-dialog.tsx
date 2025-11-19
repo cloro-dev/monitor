@@ -23,19 +23,7 @@ import { Loader2, Plus } from 'lucide-react';
 import { useCreatePrompt, useUpdatePrompt } from '@/hooks/use-prompts';
 import { useBrands } from '@/hooks/use-brands';
 import { toast } from 'sonner';
-
-interface Prompt {
-  id: string;
-  text: string;
-  country: string;
-  createdAt: string;
-  updatedAt: string;
-  brand?: {
-    id: string;
-    domain: string;
-    name?: string;
-  };
-}
+import { Prompt } from '@/hooks/use-prompts';
 
 interface PromptDialogProps {
   trigger?: React.ReactNode;

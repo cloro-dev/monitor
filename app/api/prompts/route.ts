@@ -40,19 +40,19 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
-        providerResults: true,
+        results: true,
       },
     });
 
-    // Calculate aggregated metrics for each prompt from all ProviderResults
+    // Calculate aggregated metrics for each prompt from all Results
     const promptsWithMetrics = prompts.map((prompt) => {
       // For visibility calculation: use all SUCCESS results (regardless of sentiment)
-      const successfulResultsForVisibility = prompt.providerResults.filter(
+      const successfulResultsForVisibility = prompt.results.filter(
         (pr) => pr.status === 'SUCCESS',
       );
 
       // For sentiment calculation: use only SUCCESS results with sentiment
-      const successfulResultsForSentiment = prompt.providerResults.filter(
+      const successfulResultsForSentiment = prompt.results.filter(
         (pr) => pr.status === 'SUCCESS' && pr.sentiment != null,
       );
 

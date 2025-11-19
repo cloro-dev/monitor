@@ -29,24 +29,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useDeletePrompt } from '@/hooks/use-prompts';
+import { useDeletePrompt, Prompt } from '@/hooks/use-prompts';
 import { toast } from 'sonner';
-
-interface Prompt {
-  id: string;
-  text: string;
-  country: string;
-  createdAt: string;
-  updatedAt: string;
-  brand?: {
-    id: string;
-    domain: string;
-    name?: string;
-  };
-  visibilityScore: number | null;
-  averageSentiment: number | null;
-  averagePosition: number | null;
-}
 
 interface PromptsTableProps {
   data: Prompt[];

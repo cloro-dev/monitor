@@ -62,7 +62,7 @@ model prompt {
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   brand     brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
   brandId   String
-  providerResults ProviderResult[]
+  results   Result[]
 
   @@index([userId])
   @@index([country])
@@ -84,7 +84,7 @@ model organization {
   slug        String       @unique
   logo        String?
   metadata    Json?
-  aiModels    Json?        // Store enabled AI models as JSON array
+  aiModels    Json? // Store enabled AI models as JSON array
   createdAt   DateTime     @default(now())
   members     member[]
   invitations invitation[]
@@ -92,17 +92,17 @@ model organization {
 }
 
 model brand {
-  id             String       @id @default(cuid())
-  domain         String       @unique
+  id             String        @id @default(cuid())
+  domain         String        @unique
   name           String?
   faviconUrl     String?
   organizationId String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   organization   organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  prompts      prompt[]
-  competitors  Competitor[] @relation("BrandToCompetitor")
-  competitorOf Competitor[] @relation("CompetitorToBrand")
+  prompts        prompt[]
+  competitors    Competitor[]  @relation("BrandToCompetitor")
+  competitorOf   Competitor[]  @relation("CompetitorToBrand")
 
   @@index([organizationId])
   @@index([domain])
@@ -149,23 +149,23 @@ enum ProviderModel {
   GOOGLE_AI_OVERVIEW
 }
 
-model ProviderResult {
-  id        String         @id @default(cuid())
-  prompt    prompt         @relation(fields: [promptId], references: [id], onDelete: Cascade)
-  promptId  String
-  model     ProviderModel
-  status    TrackingStatus @default(PENDING)
-  response  Json?
-  sentiment Float?
-  position  Int?
+model Result {
+  id          String         @id @default(cuid())
+  prompt      prompt         @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  promptId    String
+  model       ProviderModel
+  status      TrackingStatus @default(PENDING)
+  response    Json?
+  sentiment   Float?
+  position    Int?
   competitors Json?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@index([promptId])
   @@index([model])
+  @@map("result")
 }
-
 
 enum CompetitorStatus {
   ACCEPTED
@@ -173,16 +173,17 @@ enum CompetitorStatus {
 }
 
 model Competitor {
-  id           String           @id @default(cuid())
+  id           String            @id @default(cuid())
   brandId      String
-  brand        brand            @relation("BrandToCompetitor", fields: [brandId], references: [id], onDelete: Cascade)
+  brand        brand             @relation("BrandToCompetitor", fields: [brandId], references: [id], onDelete: Cascade)
   competitorId String
-  competitor   brand            @relation("CompetitorToBrand", fields: [competitorId], references: [id], onDelete: Cascade)
+  competitor   brand             @relation("CompetitorToBrand", fields: [competitorId], references: [id], onDelete: Cascade)
   status       CompetitorStatus?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   @@unique([brandId, competitorId])
   @@index([brandId])
   @@index([competitorId])
+  @@map("competitor")
 }

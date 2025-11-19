@@ -84,3 +84,41 @@ export async function analyzeBrandMetrics(text: string, brandName: string) {
 
   return object;
 }
+
+export async function getCompetitorDomain(
+  competitorName: string,
+  contextPrompt: string,
+) {
+  let model: LanguageModel;
+
+  // Select the LLM provider based on available environment variables.
+  if (process.env.OPENAI_API_KEY) {
+    model = models.openai;
+  } else if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    model = models.google;
+  } else {
+    throw new Error(
+      'No LLM provider API key found. Please set OPENAI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY.',
+    );
+  }
+
+  const { object } = await generateObject({
+    model,
+    schema: z.object({
+      domain: z
+        .string()
+        .describe('The official website domain (e.g. "example.com")')
+        .nullable(),
+    }),
+    prompt: `
+      Identify the official website domain for the brand "${competitorName}".
+      Context: The brand was mentioned in relation to the query: "${contextPrompt}".
+
+      Return ONLY the domain name (e.g. "example.com", "google.com", "notion.so").
+      Do not include "https://" or "www.".
+      If you are unsure or if the brand does not have a distinct website, return null.
+    `,
+  });
+
+  return object.domain;
+}

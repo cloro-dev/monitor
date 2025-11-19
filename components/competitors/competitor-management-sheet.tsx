@@ -44,28 +44,25 @@ export function CompetitorManagementSheet({
   const { brands } = useBrands();
 
   const handleUpdateStatus = async (
-    brandId: string,
-    name: string,
+    id: string,
     status: 'ACCEPTED' | 'REJECTED',
   ) => {
     // Optimistic UI update
     mutate(
       (currentData: any[] | undefined) => {
         if (!currentData) return [];
-        return currentData.map((c) =>
-          c.brandId === brandId && c.name === name ? { ...c, status } : c,
-        );
+        return currentData.map((c) => (c.id === id ? { ...c, status } : c));
       },
       { revalidate: false },
     );
 
     // Send the update to the API
     await fetch('/api/competitors', {
-      method: 'POST',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ brandId, name, status }),
+      body: JSON.stringify({ id, status }),
     });
 
     // Trigger a revalidation to ensure data is in sync with the server
@@ -139,11 +136,7 @@ export function CompetitorManagementSheet({
                               variant="outline"
                               size="sm"
                               onClick={() =>
-                                handleUpdateStatus(
-                                  competitor.brandId,
-                                  competitor.name,
-                                  'ACCEPTED',
-                                )
+                                handleUpdateStatus(competitor.id, 'ACCEPTED')
                               }
                               className="h-8 w-8 p-0"
                             >
@@ -153,11 +146,7 @@ export function CompetitorManagementSheet({
                               variant="outline"
                               size="sm"
                               onClick={() =>
-                                handleUpdateStatus(
-                                  competitor.brandId,
-                                  competitor.name,
-                                  'REJECTED',
-                                )
+                                handleUpdateStatus(competitor.id, 'REJECTED')
                               }
                               className="h-8 w-8 p-0"
                             >

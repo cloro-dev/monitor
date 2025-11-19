@@ -1,5 +1,5 @@
 // Comprehensive country code to name mapping
-const COUNTRY_NAME_MAP: Record<string, string> = {
+export const COUNTRY_NAME_MAP: Record<string, string> = {
   AF: 'Afghanistan',
   AL: 'Albania',
   DZ: 'Algeria',

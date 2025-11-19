@@ -64,11 +64,14 @@ export async function GET(req: Request) {
   const targetBrandIds = brandId ? [brandId] : brandIds;
 
   // 3. Fetch competitors associated with the target brands
-  const brandCompetitors = await prisma.brandCompetitors.findMany({
+  const competitorsRel = await prisma.competitor.findMany({
     where: {
       brandId: {
         in: targetBrandIds,
       },
+    },
+    include: {
+      competitor: true, // Include the competitor brand details
     },
     orderBy: {
       createdAt: 'desc',
@@ -76,38 +79,46 @@ export async function GET(req: Request) {
   });
 
   // 4. Format the response
-  const competitors = brandCompetitors.map((competitor: any) => ({
-    ...competitor,
-    brand: brandMap.get(competitor.brandId) || 'Unknown',
+  const competitors = competitorsRel.map((rel: any) => ({
+    id: rel.id,
+    brandId: rel.brandId,
+    name: rel.competitor.name,
+    domain: rel.competitor.domain,
+    status: rel.status,
+    createdAt: rel.createdAt,
+    brand: brandMap.get(rel.brandId) || 'Unknown',
   }));
 
   return NextResponse.json(competitors);
 }
 
-export async function POST(req: Request) {
+export async function PATCH(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { brandId, name, status } = await req.json();
+  const { id, status } = await req.json();
 
-  const competitor = await prisma.brandCompetitors.upsert({
-    where: {
-      brandId_name: {
-        brandId,
-        name,
-      },
-    },
-    update: {
-      status,
-    },
-    create: {
-      brandId,
-      name,
-      status,
-    },
-  });
+  if (!id || !status) {
+    return NextResponse.json(
+      { error: 'Missing required fields' },
+      { status: 400 },
+    );
+  }
 
-  return NextResponse.json(competitor);
+  try {
+    const updatedCompetitor = await prisma.competitor.update({
+      where: { id },
+      data: { status },
+    });
+
+    return NextResponse.json(updatedCompetitor);
+  } catch (error) {
+    console.error('Error updating competitor status:', error);
+    return NextResponse.json(
+      { error: 'Failed to update competitor status' },
+      { status: 500 },
+    );
+  }
 }

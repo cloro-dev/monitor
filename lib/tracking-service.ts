@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import { trackPrompt } from './cloro';
-import { analyzeBrandMetrics } from './ai-service';
+import { analyzeBrandMetrics, getCompetitorDomain } from './ai-service';
 import { ProviderModel } from '@prisma/client';
 
 export async function trackAllPrompts(concurrency = 2) {
@@ -17,8 +17,9 @@ export async function trackAllPrompts(concurrency = 2) {
   // Create a flat queue of all model tasks to process
   const taskQueue: any[] = [];
   for (const prompt of prompts) {
-    const enabledModels =
-      (prompt.brand.organization.aiModels as string[]) || [];
+    const enabledModels = prompt.brand.organization
+      ? (prompt.brand.organization.aiModels as string[]) || []
+      : [];
     for (const modelString of enabledModels) {
       taskQueue.push({
         promptId: prompt.id,
@@ -102,22 +103,54 @@ async function trackSingleModel(
       position = metrics.position;
       competitors = metrics.competitors;
 
-      // Add new competitors to the BrandCompetitors table
+      // Add new competitors to the Competitors table (as Brands)
       if (metrics.competitors) {
-        for (const competitor of metrics.competitors) {
-          await prisma.brandCompetitors.upsert({
-            where: {
-              brandId_name: {
-                brandId: prompt.brandId,
-                name: competitor,
-              },
-            },
-            update: {},
-            create: {
-              brandId: prompt.brandId,
-              name: competitor,
-            },
-          });
+        for (const competitorNameRaw of metrics.competitors) {
+          try {
+            // Resolve domain using LLM
+            const competitorDomain = await getCompetitorDomain(
+              competitorNameRaw,
+              prompt.text,
+            );
+
+            if (competitorDomain) {
+              // 1. Find or Create the Competitor Brand
+              // We use 'organizationId: null' for unmanaged competitors
+              let competitorBrand = await prisma.brand.findUnique({
+                where: { domain: competitorDomain },
+              });
+
+              if (!competitorBrand) {
+                competitorBrand = await prisma.brand.create({
+                  data: {
+                    domain: competitorDomain,
+                    name: competitorNameRaw,
+                    organizationId: null, // Not owned by the current org
+                  },
+                });
+              }
+
+              // 2. Link it as a competitor to the current brand
+              await prisma.competitor.upsert({
+                where: {
+                  brandId_competitorId: {
+                    brandId: prompt.brandId,
+                    competitorId: competitorBrand.id,
+                  },
+                },
+                update: {},
+                create: {
+                  brandId: prompt.brandId,
+                  competitorId: competitorBrand.id,
+                },
+              });
+            }
+          } catch (error) {
+            console.warn(
+              `Failed to process competitor ${competitorNameRaw}:`,
+              error,
+            );
+          }
         }
       }
     } else {
@@ -181,6 +214,11 @@ export async function trackPromptById(promptId: string) {
 
   if (!prompt) {
     console.error(`Prompt with id ${promptId} not found`);
+    return;
+  }
+
+  if (!prompt.brand.organization) {
+    console.warn(`Prompt ${promptId} belongs to an unmanaged brand.`);
     return;
   }
 

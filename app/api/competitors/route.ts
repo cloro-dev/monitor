@@ -69,13 +69,14 @@ export async function GET(req: Request) {
       brandId: {
         in: targetBrandIds,
       },
+      mentions: {
+        gte: 3,
+      },
     },
     include: {
       competitor: true, // Include the competitor brand details
     },
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy: [{ mentions: 'desc' }, { createdAt: 'desc' }],
   });
 
   // 4. Format the response
@@ -85,6 +86,7 @@ export async function GET(req: Request) {
     name: rel.competitor.name,
     domain: rel.competitor.domain,
     status: rel.status,
+    mentions: rel.mentions,
     createdAt: rel.createdAt,
     brand: brandMap.get(rel.brandId) || 'Unknown',
   }));
@@ -100,7 +102,7 @@ export async function PATCH(req: Request) {
 
   const { id, status } = await req.json();
 
-  if (!id || !status) {
+  if (!id || status === undefined) {
     return NextResponse.json(
       { error: 'Missing required fields' },
       { status: 400 },

@@ -130,6 +130,11 @@ async function trackSingleModel(
                 });
               }
 
+              // Prevent adding the brand itself as a competitor
+              if (competitorBrand.id === prompt.brandId) {
+                continue;
+              }
+
               // 2. Link it as a competitor to the current brand
               await prisma.competitor.upsert({
                 where: {
@@ -138,7 +143,11 @@ async function trackSingleModel(
                     competitorId: competitorBrand.id,
                   },
                 },
-                update: {},
+                update: {
+                  mentions: {
+                    increment: 1,
+                  },
+                },
                 create: {
                   brandId: prompt.brandId,
                   competitorId: competitorBrand.id,

@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCompetitors } from '@/hooks/use-competitors';
 import { useBrands } from '@/hooks/use-brands';
-import { Check, X } from 'lucide-react';
+import { Check, X, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 
 interface CompetitorManagementSheetProps {
@@ -45,7 +45,7 @@ export function CompetitorManagementSheet({
 
   const handleUpdateStatus = async (
     id: string,
-    status: 'ACCEPTED' | 'REJECTED',
+    status: 'ACCEPTED' | 'REJECTED' | null,
   ) => {
     // Optimistic UI update
     mutate(
@@ -120,6 +120,7 @@ export function CompetitorManagementSheet({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Brand</TableHead>
+                  <TableHead>Mentions</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -129,6 +130,7 @@ export function CompetitorManagementSheet({
                     <TableRow key={competitor.id}>
                       <TableCell>{competitor.name}</TableCell>
                       <TableCell>{competitor.brand}</TableCell>
+                      <TableCell>{competitor.mentions}</TableCell>
                       <TableCell>
                         {competitor.status === null && (
                           <div className="flex gap-1">
@@ -138,9 +140,9 @@ export function CompetitorManagementSheet({
                               onClick={() =>
                                 handleUpdateStatus(competitor.id, 'ACCEPTED')
                               }
-                              className="h-8 w-8 p-0"
+                              className="h-5 w-5 p-0"
                             >
-                              <Check className="h-4 w-4" />
+                              <Check className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="outline"
@@ -148,17 +150,41 @@ export function CompetitorManagementSheet({
                               onClick={() =>
                                 handleUpdateStatus(competitor.id, 'REJECTED')
                               }
-                              className="h-8 w-8 p-0"
+                              className="h-5 w-5 p-0"
                             >
-                              <X className="h-4 w-4" />
+                              <X className="h-3 w-3" />
                             </Button>
                           </div>
                         )}
                         {competitor.status === 'ACCEPTED' && (
-                          <Check className="h-4 w-4 text-green-500" />
+                          <div className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-green-500" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleUpdateStatus(competitor.id, null)
+                              }
+                              className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                            </Button>
+                          </div>
                         )}
                         {competitor.status === 'REJECTED' && (
-                          <X className="h-4 w-4 text-red-500" />
+                          <div className="flex items-center gap-2">
+                            <X className="h-4 w-4 text-red-500" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleUpdateStatus(competitor.id, null)
+                              }
+                              className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>

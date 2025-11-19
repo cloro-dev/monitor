@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Auth System',
-  description: 'Auth System',
+  title: 'cloro - Monitor',
+  description: 'Track your brand mentions in this new AI world',
 };
 
 export default function RootLayout({

@@ -76,7 +76,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -85,7 +85,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Organization Details */}
-        <Card>
+        <Card className="pt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
@@ -95,7 +95,7 @@ export default function SettingsPage() {
               Update your organization information
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="py-6">
             <form onSubmit={handleSaveChanges} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Organization Name</Label>
@@ -134,7 +134,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Members */}
-        <Card>
+        <Card className="pt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -179,7 +179,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Brands */}
-        <Card>
+        <Card className="pt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
@@ -195,7 +195,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* AI Models */}
-        <Card>
+        <Card className="pt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5" />

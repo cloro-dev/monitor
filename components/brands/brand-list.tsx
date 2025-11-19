@@ -46,14 +46,14 @@ export function BrandList({
             <div className="flex items-center justify-between">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Favicon */}
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
+                <div className="flex h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                   {brand.faviconUrl ? (
                     <Image
                       src={brand.faviconUrl}
                       alt={`${brand.name || brand.domain} favicon`}
-                      width={24}
-                      height={24}
-                      className="object-cover"
+                      width={32}
+                      height={32}
+                      className="h-full w-full object-cover"
                       onError={(e) => {
                         // Fallback to default icon if favicon fails to load
                         e.currentTarget.style.display = 'none';
@@ -63,7 +63,7 @@ export function BrandList({
                       }}
                     />
                   ) : null}
-                  <IconWorld className="hidden h-4 w-4 text-muted-foreground" />
+                  <IconWorld className="hidden h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 </div>
 
                 {/* Brand Info */}

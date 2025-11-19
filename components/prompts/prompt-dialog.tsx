@@ -263,7 +263,7 @@ export function PromptDialog({
                   <div className="max-h-[200px] overflow-y-auto">
                     {brands?.map((brand) => (
                       <SelectItem key={brand.id} value={brand.id}>
-                        {brand.domain}
+                        {brand.name || brand.domain}
                       </SelectItem>
                     ))}
                   </div>

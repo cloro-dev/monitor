@@ -216,6 +216,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
     }
 
+    if (!brand.organizationId) {
+      return NextResponse.json(
+        { error: 'Cannot modify unmanaged brand' },
+        { status: 403 },
+      );
+    }
+
     const membership = await prisma.member.findFirst({
       where: {
         userId: session.user.id,
@@ -284,6 +291,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!brand) {
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
+    }
+
+    if (!brand.organizationId) {
+      return NextResponse.json(
+        { error: 'Cannot delete unmanaged brand' },
+        { status: 403 },
+      );
     }
 
     const membership = await prisma.member.findFirst({

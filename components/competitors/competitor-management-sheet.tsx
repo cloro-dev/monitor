@@ -39,7 +39,8 @@ export function CompetitorManagementSheet({
   onOpenChange,
 }: CompetitorManagementSheetProps) {
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-  const { competitors, isLoading, mutate } = useCompetitors(selectedBrand);
+  const { competitors, isLoading, mutate, error } =
+    useCompetitors(selectedBrand);
   const { brands } = useBrands();
 
   const handleUpdateStatus = async (
@@ -96,17 +97,25 @@ export function CompetitorManagementSheet({
                 <SelectItem value="all">All brands</SelectItem>
                 {brands?.map((brand) => (
                   <SelectItem key={brand.id} value={brand.id}>
-                    {brand.domain}
+                    {brand.name || brand.domain}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          {isLoading ? (
+          {error ? (
+            <div className="flex items-center justify-center py-8 text-red-500">
+              Failed to load competitors
+            </div>
+          ) : isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-8 w-full" />
+            </div>
+          ) : !competitors || (competitors as any[]).length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              No competitors found
             </div>
           ) : (
             <Table>

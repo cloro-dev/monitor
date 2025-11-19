@@ -96,12 +96,13 @@ model brand {
   domain         String       @unique
   name           String?
   faviconUrl     String?
-  organizationId String
+  organizationId String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  organization   organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   prompts      prompt[]
-  competitors  BrandCompetitors[]
+  competitors  Competitor[] @relation("BrandToCompetitor")
+  competitorOf Competitor[] @relation("CompetitorToBrand")
 
   @@index([organizationId])
   @@index([domain])
@@ -171,14 +172,17 @@ enum CompetitorStatus {
   REJECTED
 }
 
-model BrandCompetitors {
-  id        String   @id @default(cuid())
-  brandId   String
-  brand     brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  name      String
-  status    CompetitorStatus?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Competitor {
+  id           String           @id @default(cuid())
+  brandId      String
+  brand        brand            @relation("BrandToCompetitor", fields: [brandId], references: [id], onDelete: Cascade)
+  competitorId String
+  competitor   brand            @relation("CompetitorToBrand", fields: [competitorId], references: [id], onDelete: Cascade)
+  status       CompetitorStatus?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  @@unique([brandId, name])
+  @@unique([brandId, competitorId])
+  @@index([brandId])
+  @@index([competitorId])
 }

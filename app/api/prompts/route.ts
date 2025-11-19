@@ -141,6 +141,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
     }
 
+    if (!brand.organization) {
+      return NextResponse.json(
+        { error: 'Cannot create prompts for unmanaged brands' },
+        { status: 400 },
+      );
+    }
+
     // Check if any AI models are enabled
     const enabledModels = (brand.organization.aiModels as string[]) || [];
     if (enabledModels.length === 0) {

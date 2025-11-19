@@ -17,7 +17,7 @@ interface CompetitorsTableProps {
 }
 
 export function CompetitorsTable({ data }: CompetitorsTableProps) {
-  const { competitors, isLoading, mutate } = useCompetitors();
+  const { competitors, isLoading, mutate, error } = useCompetitors();
 
   // Use provided data or fall back to fetched data
   const displayData = data ?? competitors;
@@ -51,12 +51,24 @@ export function CompetitorsTable({ data }: CompetitorsTableProps) {
     mutate();
   };
 
+  if (error) {
+    return <div className="text-red-500">Failed to load competitors.</div>;
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-2">
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-8 w-full" />
+      </div>
+    );
+  }
+
+  if (!displayData || (displayData as any[]).length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-sm text-muted-foreground">No competitors found.</p>
       </div>
     );
   }

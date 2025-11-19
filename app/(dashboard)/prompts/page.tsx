@@ -50,7 +50,7 @@ export default function PromptsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>AI Prompts</CardTitle>
+              <CardTitle>Prompts</CardTitle>
               <CardDescription>
                 Create and manage your prompt templates
               </CardDescription>

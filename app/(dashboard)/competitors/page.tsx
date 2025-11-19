@@ -41,7 +41,7 @@ export default function CompetitorsPage() {
   return (
     <>
       {hasNullStatusCompetitors && (
-        <Card className="mb-6 border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-200">
+        <Card className="border-orange-200 bg-orange-50 pb-3 pt-3 text-orange-800 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-200">
           <CardContent className="px-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">

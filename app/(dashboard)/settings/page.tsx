@@ -85,7 +85,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Organization Details */}
-        <Card className="pt-6">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
@@ -134,7 +134,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Members */}
-        <Card className="pt-6">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -179,7 +179,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Brands */}
-        <Card className="pt-6">
+        <Card className="py-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
@@ -195,7 +195,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* AI Models */}
-        <Card className="pt-6">
+        <Card className="py-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5" />

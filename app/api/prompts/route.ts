@@ -24,12 +24,24 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const brandId = searchParams.get('brandId');
+    const status = searchParams.get('status');
+
+    const whereClause: any = {
+      userId: session.user.id,
+      ...(brandId && { brandId }),
+    };
+
+    if (status === 'ALL') {
+      // No status filter = return all
+    } else if (status) {
+      whereClause.status = status;
+    } else {
+      // Default: Active and Suggested only
+      whereClause.status = { in: ['ACTIVE', 'SUGGESTED'] };
+    }
 
     const prompts = await prisma.prompt.findMany({
-      where: {
-        userId: session.user.id,
-        ...(brandId && { brandId }),
-      },
+      where: whereClause,
       orderBy: {
         createdAt: 'desc',
       },

@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { trackPromptById } from '@/lib/tracking-service';
+import { waitUntil } from '@vercel/functions';
 
 const updatePromptSchema = z.object({
   text: z
     .string()
     .min(10, 'Prompt must be at least 10 characters')
-    .max(200, 'Prompt must be at most 200 characters'),
-  country: z.string().min(1, 'Country is required'),
-  brandId: z.string().min(1, 'Brand is required'),
+    .max(200, 'Prompt must be at most 200 characters')
+    .optional(),
+  country: z.string().min(1, 'Country is required').optional(),
+  brandId: z.string().min(1, 'Brand is required').optional(),
+  status: z.enum(['ACTIVE', 'SUGGESTED', 'ARCHIVED']).optional(),
 });
 
 export async function PUT(
@@ -44,18 +48,22 @@ export async function PUT(
         id: id,
       },
       data: {
-        text: validatedData.text,
-        country: validatedData.country,
-        brandId: validatedData.brandId,
+        ...validatedData,
       },
       select: {
         id: true,
         text: true,
         country: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+
+    // If status is updated to ACTIVE, trigger tracking
+    if (validatedData.status === 'ACTIVE') {
+      waitUntil(trackPromptById(updatedPrompt.id));
+    }
 
     return NextResponse.json(updatedPrompt);
   } catch (error) {
@@ -98,13 +106,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
 
-    await prisma.prompt.delete({
+    await prisma.prompt.update({
       where: {
         id: id,
       },
+      data: {
+        status: 'ARCHIVED',
+      },
     });
 
-    return NextResponse.json({ message: 'Prompt deleted successfully' });
+    return NextResponse.json({ message: 'Prompt archived successfully' });
   } catch (error) {
     console.error('Error deleting prompt:', error);
     return NextResponse.json(

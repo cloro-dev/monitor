@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { fetchDomainInfo, isValidDomain } from '@/lib/domain-fetcher';
+import { generateBrandPrompts } from '@/lib/ai-service';
 import { z } from 'zod';
 
 // Validation schema
@@ -166,6 +167,35 @@ export async function POST(request: NextRequest) {
         organizationId: activeOrganization.id,
       },
     });
+
+    // Generate suggested prompts in background
+    if (domainInfo.description) {
+      // We don't await this to keep the UI snappy, but we catch errors to prevent crashes
+      // In a production environment, this should be a proper background job
+      (async () => {
+        try {
+          const suggestedPrompts = await generateBrandPrompts(
+            domainInfo.name || domain,
+            domainInfo.description!,
+          );
+
+          // Batch create the prompts
+          if (suggestedPrompts && suggestedPrompts.length > 0) {
+            await prisma.prompt.createMany({
+              data: suggestedPrompts.map((text) => ({
+                text,
+                country: 'US', // Default to US for now
+                status: 'SUGGESTED',
+                userId: session.user.id,
+                brandId: brand.id,
+              })),
+            });
+          }
+        } catch (err) {
+          console.error('Error generating suggested prompts:', err);
+        }
+      })();
+    }
 
     return NextResponse.json({ brand });
   } catch (error) {

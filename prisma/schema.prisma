@@ -52,15 +52,22 @@ model user {
   invitations   invitation[]
 }
 
+enum PromptStatus {
+  ACTIVE
+  SUGGESTED
+  ARCHIVED
+}
+
 model prompt {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   text      String
   country   String
+  status    PromptStatus @default(ACTIVE)
   userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  brand     brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  user      user         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand     brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
   brandId   String
   results   Result[]
 

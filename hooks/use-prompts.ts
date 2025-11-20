@@ -20,6 +20,7 @@ export interface Prompt {
   id: string;
   text: string;
   country: string;
+  status: 'ACTIVE' | 'SUGGESTED' | 'ARCHIVED';
   brandId: string;
   createdAt: string;
   updatedAt: string;
@@ -41,37 +42,35 @@ interface CreatePromptData {
 }
 
 interface UpdatePromptData {
-  text: string;
-  country: string;
-  brandId: string;
+  text?: string;
+  country?: string;
+  brandId?: string;
+  status?: 'ACTIVE' | 'SUGGESTED' | 'ARCHIVED';
 }
 
 /**
  * Hook to fetch user's prompts
  */
-export function usePrompts(brandId?: string | null) {
+export function usePrompts(brandId?: string | null, status?: string | null) {
   const { isAuthenticated } = useAuth();
 
   const getKey = () => {
     if (!isAuthenticated) return null;
-    const key = '/api/prompts';
+    let key = '/api/prompts?';
     if (brandId) {
-      return [key, brandId];
+      key += `brandId=${brandId}&`;
+    }
+    if (status) {
+      key += `status=${status}`;
     }
     return key;
   };
 
   const { data, error, isLoading, mutate } = useSWR<Prompt[]>(
     getKey,
-    async (url: string | [string, string]) => {
+    async (url: string) => {
       try {
-        let response;
-        if (Array.isArray(url)) {
-          const [endpoint, id] = url;
-          response = await fetch(`${endpoint}?brandId=${id}`);
-        } else {
-          response = await fetch(url);
-        }
+        const response = await fetch(url);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -134,25 +133,26 @@ export function usePrompt(id: string | null) {
  * Hook to create a new prompt
  */
 export function useCreatePrompt() {
-  const { mutate: globalMutate } = usePrompts();
+  // We need to mutate the main list that fetches all prompts
+  const { mutate } = useSWR('/api/prompts?status=ALL');
 
   const createPrompt = async (data: CreatePromptData) => {
     try {
       const newPrompt = await post<Prompt>('/api/prompts', data);
 
       // Optimistically update the cache
-      await globalMutate((currentPrompts: Prompt[] | undefined) => {
+      await mutate((currentPrompts: Prompt[] | undefined) => {
         if (!currentPrompts) return [newPrompt];
         return [newPrompt, ...currentPrompts];
-      }, false); // Don't revalidate immediately
+      }, false);
 
       // Then revalidate to ensure consistency
-      await globalMutate();
+      await mutate();
 
       return newPrompt;
     } catch (error) {
       // Revert optimistic update on error
-      await globalMutate();
+      await mutate();
       throw error;
     }
   };
@@ -164,25 +164,28 @@ export function useCreatePrompt() {
  * Hook to update an existing prompt
  */
 export function useUpdatePrompt() {
-  const { mutate: globalMutate } = usePrompts();
+  const { mutate } = useSWR('/api/prompts?status=ALL');
 
   const updatePrompt = async (id: string, data: UpdatePromptData) => {
     try {
       const updatedPrompt = await put<Prompt>(`/api/prompts/${id}`, data);
 
       // Update the cache with the new data
-      await globalMutate((currentPrompts: Prompt[] | undefined) => {
+      await mutate((currentPrompts: Prompt[] | undefined) => {
         if (!currentPrompts) return currentPrompts;
 
         return currentPrompts.map((prompt) =>
-          prompt.id === id ? updatedPrompt : prompt,
+          prompt.id === id ? { ...prompt, ...updatedPrompt } : prompt,
         );
-      }, false); // Don't revalidate, we already have the latest data
+      }, false);
+
+      // Force revalidation to ensure consistency
+      await mutate();
 
       return updatedPrompt;
     } catch (error) {
       // Revert on error by triggering a revalidation
-      await globalMutate();
+      await mutate();
       throw error;
     }
   };
@@ -194,22 +197,28 @@ export function useUpdatePrompt() {
  * Hook to delete a prompt
  */
 export function useDeletePrompt() {
-  const { mutate: globalMutate } = usePrompts();
+  const { mutate } = useSWR('/api/prompts?status=ALL');
 
   const deletePrompt = async (id: string) => {
     try {
       // Optimistically remove the prompt from cache
-      await globalMutate((currentPrompts: Prompt[] | undefined) => {
+      // Note: For "archive", we might want to update instead of remove,
+      // but since this hook is generic, removing/invalidating is safer for now
+      // or we rely on revalidation.
+      await mutate((currentPrompts: Prompt[] | undefined) => {
         if (!currentPrompts) return currentPrompts;
         return currentPrompts.filter((prompt) => prompt.id !== id);
       }, false);
 
       await del(`/api/prompts/${id}`);
 
+      // Force revalidation
+      await mutate();
+
       return true;
     } catch (error) {
       // Revert optimistic update on error
-      await globalMutate();
+      await mutate();
       throw error;
     }
   };

@@ -28,6 +28,15 @@ const brandMetricsSchema = z.object({
     .nullable(),
 });
 
+// Define schema for generated prompts
+const generatedPromptsSchema = z.object({
+  prompts: z
+    .array(z.string())
+    .describe(
+      'A list of 5 high-quality, distinct search prompts that potential customers might use.',
+    ),
+});
+
 // Hardcoded model instances
 const models = {
   openai: openai('gpt-4o-mini'),
@@ -83,6 +92,60 @@ export async function analyzeBrandMetrics(text: string, brandName: string) {
   });
 
   return object;
+}
+
+/**
+ * Generates a list of high-intent prompts for a brand based on its description.
+ * @param brandName The name of the brand.
+ * @param brandDescription The description of what the brand does.
+ * @returns A promise that resolves to a list of suggested prompts.
+ */
+export async function generateBrandPrompts(
+  brandName: string,
+  brandDescription: string,
+) {
+  let model: LanguageModel;
+
+  // Select the LLM provider based on available environment variables.
+  if (process.env.OPENAI_API_KEY) {
+    model = models.openai;
+  } else if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    model = models.google;
+  } else {
+    throw new Error(
+      'No LLM provider API key found. Please set OPENAI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY.',
+    );
+  }
+
+  const { object } = await generateObject({
+    model,
+    schema: generatedPromptsSchema,
+    prompt: `
+      You are an expert SEO and Brand Reputation Manager.
+      Your goal is to generate 5 strategic, high-intent prompts to test the visibility of the brand "${brandName}" in AI search engines (like ChatGPT, Perplexity, Gemini).
+
+      Brand Description: "${brandDescription}"
+
+      Generate 5 distinct prompts that a potential customer might use when they are looking for a solution like this, BUT DO NOT KNOW THE BRAND YET.
+      
+      CRITICAL RULE: DO NOT INCLUDE THE BRAND NAME ("${brandName}") IN ANY OF THE PROMPTS.
+      The goal is to see if the AI *suggests* this brand organically.
+
+      Structure the 5 prompts to cover these specific angles:
+      1.  **Category Leader:** A "Best [Specific Niche] tools" query. Make the niche specific to the brand's core value (e.g., not just "Best CRM", but "Best CRM for small plumbing businesses").
+      2.  **Problem Solution:** A "How do I [solve specific pain point]?" query where this brand is the natural answer.
+      3.  **Software Recommendation:** A query asking for software recommendations for a specific use case (e.g., "What software should I use to...").
+      4.  **Alternative Hunt:** A query asking for alternatives to a generic method or a major competitor (if known/implied), but NOT the brand itself.
+      5.  **Feature-Specific Search:** A query looking for a tool with a specific, unique feature mentioned in the description.
+
+      Constraints:
+      - Phrased as natural questions to an AI assistant.
+      - **NEVER mention "${brandName}"**.
+      - Focus on "unbranded" search queries.
+    `,
+  });
+
+  return object.prompts;
 }
 
 export async function getCompetitorDomain(

@@ -55,7 +55,9 @@ export function BrandManagement() {
     setIsSubmitting(true);
     try {
       await createBrand(data.domain);
-      toast.success(`Successfully added brand: ${data.domain}`);
+      toast.success(
+        `Brand added! We've generated 5 suggested prompts for you to review.`,
+      );
       reset();
     } catch (error: any) {
       console.error('Error adding brand:', error);

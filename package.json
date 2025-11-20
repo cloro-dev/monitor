@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "analyze": "ANALYZE=true next build --webpack",
     "start": "next start",
     "lint": "prettier --write . && eslint . --ext .ts,.tsx,.js,.jsx",

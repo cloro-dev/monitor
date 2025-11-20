@@ -91,7 +91,7 @@ export function SignupForm({
                   value={fullname}
                   id="name"
                   type="text"
-                  placeholder="Achour Meguenni"
+                  placeholder="Elon Musk"
                   required
                 />
               </div>

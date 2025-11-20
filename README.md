@@ -1,114 +1,120 @@
 # Monitor
 
-🚀 A monitoring application built with **Next.js 16**, **Better Auth**, **Prisma**, and **shadcn/ui**.
+<div align="center">
 
-<a href="https://www.buymeacoffee.com/achour" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+  <h3 align="center">AI-Powered Brand Monitoring & Competitor Analysis</h3>
 
-## 📌 Features
+  <p align="center">
+    Track your brand's presence across AI models, analyze sentiment, and discover competitors automatically.
+  </p>
 
-- ✅ **Next.js 16** with App Router
-- ✅ **Better Auth** for authentication
-- ✅ **Prisma** for database management (Rust-Free Engine)
-- ✅ **shadcn/ui** for UI components
-- ✅ **Dashboard** for authenticated users
-- ✅ TypeScript support
+  <p align="center">
+    <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcloro%2Fmonitor&env=DATABASE_URL,BETTER_AUTH_SECRET,BETTER_AUTH_URL,CRON_SECRET,OPENAI_API_KEY,GOOGLE_GENERATIVE_AI_API_KEY">
+      <img src="https://vercel.com/button" alt="Deploy with Vercel" />
+    </a>
+  </p>
+</div>
 
-## 📦 Installation
+## ✨ Features
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/Achour/monitor.git
-   cd monitor
-   ```
-2. Install dependencies:
-   ```sh
-   npm install
-   ```
-3. Set up the local database with Docker:
-
-   ```sh
-   npm run db:up
-   ```
-
-4. Set up environment variables:
-
-   ```sh
-   cp .env.example .env.local
-   ```
-
-   Fill in the necessary values in the `.env.local` file. For local development, you can use:
-
-   ```
-   DATABASE_URL="postgresql://monitor_user:monitor_password@localhost:5438/monitor_db"
-   BETTER_AUTH_SECRET="your-secret-key-here"
-   BETTER_AUTH_URL="http://localhost:3000"
-   ```
-
-5. Set up the database:
-
-   ```sh
-   npx prisma migrate dev
-   ```
-
-6. Start the development server:
-   ```sh
-   npm run dev
-   ```
-
-## 🐳 Docker Setup
-
-The application includes Docker Compose configuration for easy local development, following the backend repository structure:
-
-- **PostgreSQL**: Database server running on port 5438
-
-To start the services:
-
-```bash
-npm run db:up
-```
-
-To stop the services:
-
-```bash
-npm run db:down
-```
-
-To view logs:
-
-```bash
-npm run db:logs
-```
-
-To reset the database:
-
-```bash
-npm run db:reset
-```
-
-Database connection details:
-
-- **Host**: localhost
-- **Port**: 5438
-- **Database**: monitor_db
-- **Username**: monitor_user
-- **Password**: monitor_password
-
-The Docker configuration is located in `.docker-compose/dev.yaml` to match the backend repository structure.
-
-## 🚀 Usage
-
-- Run `npm run dev` to start the development server.
-- Use `npx prisma studio` to manage your database visually.
-- Customize authentication using Better Auth settings.
+- 🔍 **Brand Tracking**: Monitor how your brands are mentioned across various AI models.
+- 🤖 **Multi-Model Support**: Track responses from ChatGPT, Google Gemini, Perplexity, and more.
+- 📊 **AI Analysis**: Automated sentiment analysis, brand positioning, and mention tracking.
+- 🕵️‍♂️ **Competitor Discovery**: Automatically identify and track competitors mentioned alongside your brand.
+- 📈 **Interactive Dashboard**: Visualize trends, sentiment shifts, and competitive landscape over time.
+- ⏱️ **Automated Monitoring**: Scheduled cron jobs keep your data up-to-date 24/7.
+- 🔐 **Secure Authentication**: Robust auth system using Better Auth.
 
 ## 🛠️ Tech Stack
 
-- **Next.js 16** - React framework
-- **Better Auth** - Authentication
-- **Prisma** - Database ORM (Rust-Free Engine)
-- **shadcn/ui** - UI components
-- **TypeScript** - Type safety
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **Database**: [PostgreSQL](https://www.postgresql.org/) with [Prisma](https://www.prisma.io/)
+- **Authentication**: [Better Auth](https://better-auth.com/)
+- **UI**: [Tailwind CSS](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/), [Recharts](https://recharts.org/)
+- **AI**: [Vercel AI SDK](https://sdk.vercel.ai/) (OpenAI, Google)
+- **Deployment**: [Vercel](https://vercel.com/)
 
----
+## 🚀 Getting Started
 
-Made with ❤️ by [Achour Meguenni](https://github.com/Achour)
+Follow these steps to run Monitor locally.
+
+### Prerequisites
+
+- Node.js 18+
+- Docker (for local PostgreSQL)
+- npm or pnpm
+
+### Installation
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/cloro/monitor.git
+    cd monitor
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    npm install
+    # or
+    pnpm install
+    ```
+
+3.  **Environment Setup:**
+
+    Copy the example environment file and configure your secrets.
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    **Required Variables:**
+    - `DATABASE_URL`: Your PostgreSQL connection string.
+    - `BETTER_AUTH_SECRET`: A random secret key for authentication.
+    - `BETTER_AUTH_URL`: Your app's URL (e.g., `http://localhost:3000`).
+    - `CRON_SECRET`: Secret key for securing cron jobs.
+    - `OPENAI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`: For AI analysis.
+
+4.  **Start the Database:**
+
+    Use the provided Docker Compose setup to spin up a local PostgreSQL instance.
+
+    ```bash
+    npm run db:up
+    ```
+
+5.  **Database Migration:**
+
+    Push the schema to your database.
+
+    ```bash
+    npm run db:migrate
+    ```
+
+6.  **Run the Development Server:**
+
+    ```bash
+    npm run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000) to see the app.
+
+## 🔄 Cron Jobs
+
+To enable automated tracking, you need to trigger the cron endpoint.
+The endpoint is located at `/api/cron` and requires the `Authorization` header with your `CRON_SECRET`.
+
+Example request:
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3000/api/cron
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).

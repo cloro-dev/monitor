@@ -57,7 +57,9 @@ export function AppSidebar({
     {
       title: '',
       items: navigationRoutes
-        .filter((route) => ['/prompts', '/competitors'].includes(route.url))
+        .filter((route) =>
+          ['/prompts', '/sources', '/competitors'].includes(route.url),
+        )
         .map((route) => ({
           title: route.title,
           url: route.url,

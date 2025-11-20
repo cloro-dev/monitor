@@ -11,6 +11,7 @@ export interface RouteConfig {
 export const ROUTES: Record<string, RouteConfig> = {
   '/': { title: 'Dashboard', icon: 'LayoutDashboard' },
   '/prompts': { title: 'Prompts', icon: 'MessageSquare' },
+  '/sources': { title: 'Sources', icon: 'Link' },
   '/competitors': { title: 'Competitors', icon: 'Users' },
   '/settings': { title: 'Settings', icon: 'Building2' },
 };

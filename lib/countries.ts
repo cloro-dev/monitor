@@ -298,3 +298,11 @@ export async function getCountryByName(name: string) {
   const countries = await getCountries();
   return countries.find((country) => country.name === name);
 }
+
+export function getCountryFlag(countryCode: string) {
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}

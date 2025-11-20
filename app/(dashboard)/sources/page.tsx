@@ -18,14 +18,8 @@ import {
 } from '@/components/ui/card';
 import { useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useBrands } from '@/hooks/use-brands';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { BrandFilter } from '@/components/brands/brand-filter';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface SourceItem {
   url: string;
@@ -36,6 +30,15 @@ interface SourceItem {
 
 interface DomainStat {
   domain: string;
+  mentions: number;
+  totalPosition: number;
+  avgPosition: number;
+  uniquePrompts: Set<string>;
+  utilization: number;
+}
+
+interface URLStat {
+  url: string;
   mentions: number;
   totalPosition: number;
   avgPosition: number;
@@ -73,24 +76,18 @@ function getRootDomain(hostname: string): string {
 }
 
 export default function SourcesPage() {
-  const { prompts, isLoading } = usePrompts();
-  const { brands } = useBrands();
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-
-  const filteredPrompts = useMemo(() => {
-    if (!prompts) return [];
-    if (!selectedBrand || selectedBrand === 'all') return prompts;
-    return prompts.filter((prompt) => prompt.brandId === selectedBrand);
-  }, [prompts, selectedBrand]);
+  const { prompts, isLoading } = usePrompts(selectedBrand);
+  const [activeTab, setActiveTab] = useState('domain');
 
   const domainStats = useMemo(() => {
-    if (!filteredPrompts) return [];
+    if (!prompts) return [];
 
     const statsMap = new Map<string, DomainStat>();
     const processedPromptIds = new Set<string>();
     let totalPromptsWithResults = 0;
 
-    filteredPrompts.forEach((prompt) => {
+    prompts.forEach((prompt) => {
       if (!prompt.results) return;
 
       const successfulResults = prompt.results.filter(
@@ -153,7 +150,76 @@ export default function SourcesPage() {
             : 0,
       }))
       .sort((a, b) => b.utilization - a.utilization);
-  }, [filteredPrompts]);
+  }, [prompts]);
+
+  const urlStats = useMemo(() => {
+    if (!prompts) return [];
+
+    const statsMap = new Map<string, URLStat>();
+    const processedPromptIds = new Set<string>();
+    let totalPromptsWithResults = 0;
+
+    prompts.forEach((prompt) => {
+      if (!prompt.results) return;
+
+      const successfulResults = prompt.results.filter(
+        (r) => r.status === 'SUCCESS' && r.response,
+      );
+      if (successfulResults.length > 0) {
+        totalPromptsWithResults++;
+        processedPromptIds.add(prompt.id);
+      }
+
+      successfulResults.forEach((result) => {
+        const responseData = result.response as any;
+        const sources = responseData?.result?.sources as
+          | SourceItem[]
+          | undefined;
+
+        if (Array.isArray(sources)) {
+          sources.forEach((source) => {
+            try {
+              if (!source.url) return;
+              const urlObj = new URL(source.url);
+              const cleanUrl = urlObj.origin + urlObj.pathname;
+
+              if (!statsMap.has(cleanUrl)) {
+                statsMap.set(cleanUrl, {
+                  url: cleanUrl,
+                  mentions: 0,
+                  totalPosition: 0,
+                  avgPosition: 0,
+                  uniquePrompts: new Set(),
+                  utilization: 0,
+                });
+              }
+
+              const stat = statsMap.get(cleanUrl)!;
+              stat.mentions += 1;
+              stat.uniquePrompts.add(prompt.id);
+
+              if (typeof source.position === 'number') {
+                stat.totalPosition += source.position;
+              }
+            } catch (e) {
+              // Invalid URL, ignore
+            }
+          });
+        }
+      });
+    });
+
+    return Array.from(statsMap.values())
+      .map((stat) => ({
+        ...stat,
+        avgPosition: stat.mentions > 0 ? stat.totalPosition / stat.mentions : 0,
+        utilization:
+          totalPromptsWithResults > 0
+            ? (stat.uniquePrompts.size / totalPromptsWithResults) * 100
+            : 0,
+      }))
+      .sort((a, b) => b.utilization - a.utilization);
+  }, [prompts]);
 
   if (isLoading) {
     return (
@@ -189,59 +255,94 @@ export default function SourcesPage() {
               </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
-              <Select
-                onValueChange={(value) =>
-                  setSelectedBrand(value === 'all' ? null : value)
-                }
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All brands</SelectItem>
-                  {brands?.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id}>
-                      {brand.domain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="relative w-full overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Domain</TableHead>
-                  <TableHead>Utilization</TableHead>
-                  <TableHead>Mentions</TableHead>
-                  <TableHead>Avg. Position</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {domainStats.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      No sources found in your tracking results.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  domainStats.map((stat) => (
-                    <TableRow key={stat.domain}>
-                      <TableCell className="font-medium">
-                        {stat.domain}
-                      </TableCell>
-                      <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
-                      <TableCell>{stat.mentions}</TableCell>
-                      <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="mb-4">
+              <TabsTrigger value="domain">Domain</TabsTrigger>
+              <TabsTrigger value="url">URL</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="domain">
+              <div className="relative w-full overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Domain</TableHead>
+                      <TableHead>Utilization</TableHead>
+                      <TableHead>Mentions</TableHead>
+                      <TableHead>Avg. Position</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {domainStats.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          No sources found in your tracking results.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      domainStats.map((stat) => (
+                        <TableRow key={stat.domain}>
+                          <TableCell className="font-medium">
+                            {stat.domain}
+                          </TableCell>
+                          <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
+                          <TableCell>{stat.mentions}</TableCell>
+                          <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="url">
+              <div className="relative w-full overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>URL</TableHead>
+                      <TableHead>Utilization</TableHead>
+                      <TableHead>Mentions</TableHead>
+                      <TableHead>Avg. Position</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {urlStats.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center">
+                          No sources found in your tracking results.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      urlStats.map((stat) => (
+                        <TableRow key={stat.url}>
+                          <TableCell
+                            className="max-w-md truncate font-medium"
+                            title={stat.url}
+                          >
+                            {stat.url}
+                          </TableCell>
+                          <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
+                          <TableCell>{stat.mentions}</TableCell>
+                          <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>

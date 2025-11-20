@@ -4,15 +4,8 @@ import { useState, useMemo, useCallback } from 'react';
 import { PromptsTable } from '@/components/prompts/prompts-table';
 import { AddPromptButton } from '@/components/prompts/prompt-dialog';
 import { usePrompts } from '@/hooks/use-prompts';
-import { useBrands } from '@/hooks/use-brands';
 import { useActiveOrganization } from '@/hooks/use-organizations';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { BrandFilter } from '@/components/brands/brand-filter';
 import {
   Card,
   CardContent,
@@ -27,23 +20,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export const dynamic = 'force-dynamic';
 
 export default function PromptsPage() {
-  // Fetch all prompts including archived ones to calculate counts
-  const { prompts, error } = usePrompts(null, 'ALL');
-  const { brands } = useBrands();
   const { activeOrganization } = useActiveOrganization();
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+
+  // Fetch all prompts including archived ones to calculate counts
+  // Pass selectedBrand to filter on server/API side
+  const { prompts, error } = usePrompts(selectedBrand, 'ALL');
   const [activeTab, setActiveTab] = useState('active');
 
   const filterPrompts = useCallback(
     (status: string) => {
       let filtered = Array.isArray(prompts) ? prompts : [];
-
-      // Filter by brand if selected
-      if (selectedBrand) {
-        filtered = filtered.filter(
-          (prompt) => prompt.brand?.id === selectedBrand,
-        );
-      }
 
       // Filter by status
       return filtered.filter((prompt) => {
@@ -53,7 +40,7 @@ export default function PromptsPage() {
         return false;
       });
     },
-    [prompts, selectedBrand],
+    [prompts],
   );
 
   const activePrompts = useMemo(() => filterPrompts('active'), [filterPrompts]);
@@ -82,23 +69,7 @@ export default function PromptsPage() {
               </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
-              <Select
-                onValueChange={(value) =>
-                  setSelectedBrand(value === 'all' ? null : value)
-                }
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All brands</SelectItem>
-                  {brands?.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id}>
-                      {brand.domain}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
               {!hasAIModelsEnabled ? (
                 <div className="group relative">
                   <AddPromptButton disabled />

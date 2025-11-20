@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useDeletePrompt, useUpdatePrompt, Prompt } from '@/hooks/use-prompts';
 import { toast } from 'sonner';
+import { getCountryFlag } from '@/lib/countries';
 
 interface PromptsTableProps {
   data: Prompt[];
@@ -108,6 +109,7 @@ export function PromptsTable({
             <TableRow>
               <TableHead>Prompt</TableHead>
               <TableHead>Brand</TableHead>
+              <TableHead>Country</TableHead>
               {!showStatusActions && (
                 <>
                   <TableHead>Visibility</TableHead>
@@ -122,7 +124,7 @@ export function PromptsTable({
           <TableBody>
             {data.map((prompt) => (
               <TableRow key={prompt.id}>
-                <TableCell className="align-top font-medium">
+                <TableCell className="align-middle font-medium">
                   <div
                     className="line-clamp-3 max-w-md whitespace-normal break-words"
                     title={prompt.text}
@@ -130,32 +132,42 @@ export function PromptsTable({
                     {prompt.text}
                   </div>
                 </TableCell>
-                <TableCell className="align-top">
+                <TableCell className="align-middle">
                   {prompt.brand?.name || prompt.brand?.domain || 'N/A'}
+                </TableCell>
+                <TableCell className="whitespace-nowrap align-middle">
+                  <div className="flex items-center">
+                    <span className="mr-2 text-lg">
+                      {getCountryFlag(prompt.country)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {prompt.country}
+                    </span>
+                  </div>
                 </TableCell>
                 {!showStatusActions && (
                   <>
-                    <TableCell className="align-top">
+                    <TableCell className="align-middle">
                       {prompt.visibilityScore != null
                         ? `${prompt.visibilityScore.toFixed(0)}%`
                         : '-'}
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="align-middle">
                       {prompt.averageSentiment != null
                         ? prompt.averageSentiment.toFixed(1)
                         : '-'}
                     </TableCell>
-                    <TableCell className="align-top">
+                    <TableCell className="align-middle">
                       {prompt.averagePosition != null
                         ? prompt.averagePosition.toFixed(1)
                         : '-'}
                     </TableCell>
                   </>
                 )}
-                <TableCell className="whitespace-nowrap align-top text-muted-foreground">
+                <TableCell className="whitespace-nowrap align-middle text-muted-foreground">
                   {formatTimeAgo(prompt.createdAt)}
                 </TableCell>
-                <TableCell className="align-top">
+                <TableCell className="align-middle">
                   <div className="flex items-center justify-end gap-2">
                     {prompt.status === 'SUGGESTED' && (
                       <Button
@@ -181,12 +193,11 @@ export function PromptsTable({
                             setDeletingPrompt(prompt);
                             setIsDeleteDialogOpen(true);
                           }}
-                          className="text-red-600 focus:text-red-600"
                         >
                           {prompt.status === 'ARCHIVED' ? (
                             <>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete Permanently
+                              <Trash2 className="mr-2 h-4 w-4 text-red-600 focus:text-red-600" />
+                              Delete
                             </>
                           ) : (
                             <>

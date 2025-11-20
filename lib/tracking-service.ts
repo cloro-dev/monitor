@@ -85,6 +85,11 @@ async function trackSingleModel(
 
     // Call the cloro API for this specific model
     const apiResponse = await trackPrompt(prompt.text, countryCode, model);
+    const orgId = prompt.brand.organization?.id || 'N/A';
+
+    console.log(
+      `[${orgId}] Response received, prompt:${promptId}, model:${model}`,
+    );
 
     // --- LLM-based Metrics Calculation ---
     const responseData = apiResponse as any;
@@ -107,6 +112,9 @@ async function trackSingleModel(
       if (metrics.competitors) {
         for (const competitorNameRaw of metrics.competitors) {
           try {
+            console.log(
+              `[${orgId}] Competitor found, prompt:${promptId}, model:${model}, competitor:${competitorNameRaw}`,
+            );
             // Resolve domain using LLM
             const competitorDomain = await getCompetitorDomain(
               competitorNameRaw,

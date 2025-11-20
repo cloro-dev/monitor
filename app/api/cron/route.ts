@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { trackAllPrompts } from '@/lib/tracking-service';
+import { waitUntil } from '@vercel/functions';
 
 export async function GET(req: Request) {
   // Simple auth to prevent abuse
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    await trackAllPrompts();
+    waitUntil(trackAllPrompts());
     return NextResponse.json({
       message: 'Daily prompt tracking started successfully.',
     });

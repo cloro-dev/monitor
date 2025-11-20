@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { trackPromptById } from '@/lib/tracking-service';
+import { waitUntil } from '@vercel/functions';
 
 const createPromptSchema = z.object({
   text: z
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Don't await, let it run in the background
-    trackPromptById(newPrompt.id);
+    waitUntil(trackPromptById(newPrompt.id));
 
     return NextResponse.json(newPrompt, { status: 201 });
   } catch (error) {

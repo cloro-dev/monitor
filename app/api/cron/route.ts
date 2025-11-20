@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    trackAllPrompts();
+    await trackAllPrompts();
     return NextResponse.json({
       message: 'Daily prompt tracking started successfully.',
     });

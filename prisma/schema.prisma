@@ -95,6 +95,7 @@ model brand {
   id             String        @id @default(cuid())
   domain         String        @unique
   name           String?
+  description    String?
   faviconUrl     String?
   organizationId String?
   createdAt      DateTime      @default(now())

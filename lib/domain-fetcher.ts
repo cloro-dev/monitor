@@ -5,6 +5,7 @@ import { z } from 'zod';
 export interface DomainInfo {
   domain: string;
   name: string | null;
+  description: string | null;
   faviconUrl: string | null;
 }
 
@@ -25,12 +26,16 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
     // Extract brand name from metadata
     const name = await extractBrandNameFromMetadata(metadata, normalizedDomain);
 
+    // Extract description from metadata
+    const description = extractDescriptionFromMetadata(metadata);
+
     // Extract favicon URL from metadata
     const faviconUrl = extractFaviconUrl(metadata, normalizedDomain);
 
     return {
       domain: normalizedDomain,
       name,
+      description,
       faviconUrl,
     };
   } catch (error) {
@@ -44,9 +49,26 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
     return {
       domain: normalizedDomain,
       name,
+      description: null,
       faviconUrl,
     };
   }
+}
+
+/**
+ * Extract description from metadata
+ */
+function extractDescriptionFromMetadata(metadata: any): string | null {
+  const description =
+    metadata['og:description'] ||
+    metadata['twitter:description'] ||
+    metadata.description;
+
+  if (description && typeof description === 'string') {
+    return description.trim();
+  }
+
+  return null;
 }
 
 /**

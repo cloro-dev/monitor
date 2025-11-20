@@ -6,6 +6,7 @@ interface Brand {
   id: string;
   domain: string;
   name: string | null;
+  description: string | null;
   faviconUrl: string | null;
   organizationId: string;
   createdAt: string;

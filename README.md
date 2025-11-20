@@ -1,5 +1,3 @@
-# Monitor
-
 <div align="center">
 
   <h3 align="center">AI-Powered Brand Monitoring & Competitor Analysis</h3>
@@ -49,15 +47,13 @@ Follow these steps to run Monitor locally.
 1.  **Clone the repository:**
 
     ```bash
-    git clone https://github.com/cloro/monitor.git
+    git clone https://github.com/cloro-dev/monitor.git
     cd monitor
     ```
 
 2.  **Install dependencies:**
 
     ```bash
-    npm install
-    # or
     pnpm install
     ```
 
@@ -81,7 +77,7 @@ Follow these steps to run Monitor locally.
     Use the provided Docker Compose setup to spin up a local PostgreSQL instance.
 
     ```bash
-    npm run db:up
+    pnpm db:up
     ```
 
 5.  **Database Migration:**
@@ -89,13 +85,13 @@ Follow these steps to run Monitor locally.
     Push the schema to your database.
 
     ```bash
-    npm run db:migrate
+    pnpm db:migrate
     ```
 
 6.  **Run the Development Server:**
 
     ```bash
-    npm run dev
+    pnpm dev
     ```
 
     Open [http://localhost:3000](http://localhost:3000) to see the app.

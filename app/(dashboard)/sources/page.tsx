@@ -9,13 +9,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BrandFilter } from '@/components/brands/brand-filter';
@@ -224,127 +217,112 @@ export default function SourcesPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between space-y-2">
-              <Skeleton className="h-6 w-[200px]" />
-            </div>
-            <Skeleton className="h-4 w-[300px]" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-between space-y-2">
+          <Skeleton className="h-6 w-[200px]" />
+        </div>
+        <Skeleton className="h-4 w-[300px]" />
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Sources</CardTitle>
-              <CardDescription>
-                Domains mentioned in AI search results across your prompts.
-              </CardDescription>
-            </div>
-            <div className="flex items-center space-x-2">
-              <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
-            </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Sources</h2>
+          <p className="text-muted-foreground">
+            Domains mentioned in AI search results across your prompts.
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="domain">Domain</TabsTrigger>
+          <TabsTrigger value="url">URL</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="domain">
+          <div className="relative w-full overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Domain</TableHead>
+                  <TableHead>Utilization</TableHead>
+                  <TableHead>Mentions</TableHead>
+                  <TableHead>Avg. Position</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {domainStats.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No sources found in your tracking results.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  domainStats.map((stat) => (
+                    <TableRow key={stat.domain}>
+                      <TableCell className="font-medium">
+                        {stat.domain}
+                      </TableCell>
+                      <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
+                      <TableCell>{stat.mentions}</TableCell>
+                      <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="mb-4">
-              <TabsTrigger value="domain">Domain</TabsTrigger>
-              <TabsTrigger value="url">URL</TabsTrigger>
-            </TabsList>
+        </TabsContent>
 
-            <TabsContent value="domain">
-              <div className="relative w-full overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Domain</TableHead>
-                      <TableHead>Utilization</TableHead>
-                      <TableHead>Mentions</TableHead>
-                      <TableHead>Avg. Position</TableHead>
+        <TabsContent value="url">
+          <div className="relative w-full overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>URL</TableHead>
+                  <TableHead>Utilization</TableHead>
+                  <TableHead>Mentions</TableHead>
+                  <TableHead>Avg. Position</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {urlStats.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No sources found in your tracking results.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  urlStats.map((stat) => (
+                    <TableRow key={stat.url}>
+                      <TableCell
+                        className="max-w-md truncate font-medium"
+                        title={stat.url}
+                      >
+                        {stat.url}
+                      </TableCell>
+                      <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
+                      <TableCell>{stat.mentions}</TableCell>
+                      <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {domainStats.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                          No sources found in your tracking results.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      domainStats.map((stat) => (
-                        <TableRow key={stat.domain}>
-                          <TableCell className="font-medium">
-                            {stat.domain}
-                          </TableCell>
-                          <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
-                          <TableCell>{stat.mentions}</TableCell>
-                          <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="url">
-              <div className="relative w-full overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>URL</TableHead>
-                      <TableHead>Utilization</TableHead>
-                      <TableHead>Mentions</TableHead>
-                      <TableHead>Avg. Position</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {urlStats.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                          No sources found in your tracking results.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      urlStats.map((stat) => (
-                        <TableRow key={stat.url}>
-                          <TableCell
-                            className="max-w-md truncate font-medium"
-                            title={stat.url}
-                          >
-                            {stat.url}
-                          </TableCell>
-                          <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
-                          <TableCell>{stat.mentions}</TableCell>
-                          <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -82,7 +82,18 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
-        results: true,
+        results: {
+          include: {
+            sources: {
+              select: {
+                url: true,
+                hostname: true,
+                type: true,
+                faviconUrl: true,
+              },
+            },
+          },
+        },
       },
       ...(limit > 0 && {
         skip: (page - 1) * limit,

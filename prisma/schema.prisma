@@ -168,12 +168,28 @@ model Result {
   sentiment   Float?
   position    Int?
   competitors Json?
+  sources     Source[]       @relation("ResultSources")
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   @@index([promptId])
   @@index([model])
   @@map("result")
+}
+
+model Source {
+  id         String   @id @default(cuid())
+  url        String   @unique
+  hostname   String
+  title      String?
+  faviconUrl String?
+  type       String?
+  results    Result[] @relation("ResultSources")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([hostname])
+  @@map("source")
 }
 
 enum CompetitorStatus {

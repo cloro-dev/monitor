@@ -7,6 +7,7 @@ export interface DomainInfo {
   name: string | null;
   description: string | null;
   faviconUrl: string | null;
+  type: string | null;
 }
 
 /**
@@ -23,8 +24,11 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
       timeout: 10000, // 10 second timeout
     });
 
-    // Extract brand name from metadata
-    const name = await extractBrandNameFromMetadata(metadata, normalizedDomain);
+    // Extract information using AI (combines name and type extraction)
+    const enrichedInfo = await enrichDomainInfoWithAI(
+      metadata,
+      normalizedDomain,
+    );
 
     // Extract description from metadata
     const description = extractDescriptionFromMetadata(metadata);
@@ -34,7 +38,8 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
 
     return {
       domain: normalizedDomain,
-      name,
+      name: enrichedInfo.name,
+      type: enrichedInfo.type,
       description,
       faviconUrl,
     };
@@ -43,14 +48,14 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
 
     // Fallback: use domain-based extraction
     const normalizedDomain = normalizeDomain(domain);
-    const name = extractBrandNameFromDomain(normalizedDomain);
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${normalizedDomain}&sz=64`;
 
     return {
       domain: normalizedDomain,
-      name,
+      name: normalizedDomain,
       description: null,
       faviconUrl,
+      type: 'WEBSITE', // Default fallback type
     };
   }
 }
@@ -72,40 +77,23 @@ function extractDescriptionFromMetadata(metadata: any): string | null {
 }
 
 /**
- * Extract brand name from URL metadata using AI cleaning
+ * Extract brand name and type from URL metadata using AI
  */
-async function extractBrandNameFromMetadata(
+async function enrichDomainInfoWithAI(
   metadata: any,
   domain: string,
-): Promise<string> {
-  // Try multiple sources in order of preference
-  const sources = [
-    metadata['og:site_name'],
-    metadata['twitter:site'],
-    metadata['application-name'],
-    metadata.title,
-  ];
+): Promise<{ name: string; type: string }> {
+  // Try multiple sources for the title/name in order of preference
+  const titleSource =
+    metadata['og:site_name'] ||
+    metadata['twitter:site'] ||
+    metadata['application-name'] ||
+    metadata.title ||
+    domain;
 
-  for (const source of sources) {
-    if (source && typeof source === 'string') {
-      const cleaned = await cleanBrandNameWithAI(source, domain);
-      if (cleaned && cleaned.length > 1) {
-        return cleaned;
-      }
-    }
-  }
+  // Extract og:type for hint
+  const ogType = metadata['og:type'] || '';
 
-  // Fallback to domain-based extraction
-  return extractBrandNameFromDomain(domain);
-}
-
-/**
- * Clean and extract meaningful brand name using AI
- */
-async function cleanBrandNameWithAI(
-  text: string,
-  domain: string,
-): Promise<string | null> {
   try {
     // Import AI models (same as ai-service.ts)
     const { openai } = require('@ai-sdk/openai');
@@ -123,41 +111,61 @@ async function cleanBrandNameWithAI(
     const { object } = await generateObject({
       model,
       schema: z.object({
-        brandName: z
-          .string()
-          .max(100)
-          .nullable()
-          .describe('The cleaned brand name or null if no valid brand found'),
+        brandName: z.string().max(100).describe('The cleaned brand name'),
+        sourceType: z
+          .enum([
+            'NEWS',
+            'BLOG',
+            'SOCIAL_MEDIA',
+            'FORUM',
+            'CORPORATE',
+            'E_COMMERCE',
+            'WIKI',
+            'GOVERNMENT',
+            'REVIEW',
+            'OTHER',
+          ])
+          .describe('The classification of the website source'),
       }),
       prompt: `
-Extract the actual brand name from this website title/metadata.
+Analyze this website metadata to extract the Brand Name and Classify the Source Type.
 
 Given:
 - Domain: "${domain}"
-- Text: "${text}"
+- Page Title/Site Name: "${titleSource}"
+- OG Type: "${ogType}"
 
-Return only the core brand/company name. Remove:
-- Descriptive text like "SEO Content Optimization Platform", "Official Website", etc.
-- Generic terms like "Home", "Welcome", "Dashboard", "Login"
-- Legal endings like "Inc", "LLC", "Ltd" unless essential to the name
-- Domain references like ".com"
+1. **Brand Name**: Extract the core brand name. Remove generic text ("Official Site", "Home", "Inc", "LLC").
+2. **Source Type**: Classify the website into one of these categories:
+   - NEWS: News outlets, newspapers, magazines (e.g., NYT, CNN, TechCrunch).
+   - BLOG: Personal or niche blogs, Substack, Medium.
+   - SOCIAL_MEDIA: Social platforms (e.g., Twitter, Reddit, LinkedIn, Instagram).
+   - FORUM: Discussion boards, Q&A sites (e.g., Quora, StackOverflow).
+   - CORPORATE: Business websites, SaaS landing pages, company portfolios.
+   - E_COMMERCE: Online stores (e.g., Amazon, Shopify stores).
+   - WIKI: Encyclopedias, documentation, wikis (e.g., Wikipedia).
+   - GOVERNMENT: .gov sites, official agencies.
+   - REVIEW: Review aggregators (e.g., G2, Capterra, Yelp, TripAdvisor).
+   - OTHER: Anything else.
 
 Examples:
-- "Surfer: SEO Content Optimization Platform" → "Surfer"
-- "Google - Search Engine" → "Google"
-- "Welcome to ACME Corp - Home" → "ACME Corp"
-- "Tesla: Electric Cars, Solar & Clean Energy" → "Tesla"
-- "Microsoft Official Website" → "Microsoft"
-- "Amazon.com: Online Shopping" → "Amazon"
-
-Return just the brand name, nothing else.
+- "nytimes.com" -> Name: "The New York Times", Type: "NEWS"
+- "reddit.com" -> Name: "Reddit", Type: "SOCIAL_MEDIA"
+- "hubspot.com" -> Name: "HubSpot", Type: "CORPORATE"
+- "medium.com" -> Name: "Medium", Type: "BLOG"
       `.trim(),
     });
 
-    return object.brandName;
+    return {
+      name: object.brandName,
+      type: object.sourceType,
+    };
   } catch (error) {
-    // Fallback: return original text if AI fails
-    return text;
+    // Fallback if AI fails
+    return {
+      name: domain,
+      type: 'WEBSITE',
+    };
   }
 }
 
@@ -186,31 +194,6 @@ function extractFaviconUrl(metadata: any, domain: string): string | null {
 
   // Fallback to Google favicon service
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-}
-
-/**
- * Extract brand name from domain (fallback method)
- */
-function extractBrandNameFromDomain(domain: string): string {
-  // Remove subdomains and extract the main domain
-  let name = '';
-  const parts = domain.split('.');
-
-  // Handle common TLDs like .co.uk, .com.au, etc.
-  if (
-    parts.length >= 3 &&
-    ['co', 'com', 'org', 'net', 'gov', 'edu', 'ac'].includes(
-      parts[parts.length - 2],
-    )
-  ) {
-    name = parts[parts.length - 3];
-  } else {
-    // For regular domains, use the second-level domain
-    name = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
-  }
-
-  // Capitalize the first letter
-  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 /**

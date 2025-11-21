@@ -14,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BrandFilter } from '@/components/brands/brand-filter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -22,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  addDays,
   subDays,
   isWithinInterval,
   startOfDay,
@@ -61,6 +62,13 @@ interface SourceItem {
   description: string;
 }
 
+interface DbSource {
+  url: string;
+  hostname: string;
+  type?: string | null;
+  faviconUrl?: string | null;
+}
+
 interface DomainStat {
   domain: string;
   mentions: number;
@@ -68,6 +76,8 @@ interface DomainStat {
   avgPosition: number;
   uniquePrompts: Set<string>;
   utilization: number;
+  type?: string;
+  faviconUrl?: string;
 }
 
 interface URLStat {
@@ -77,7 +87,36 @@ interface URLStat {
   avgPosition: number;
   uniquePrompts: Set<string>;
   utilization: number;
+  type?: string;
+  faviconUrl?: string;
 }
+
+const typeStyles: Record<string, string> = {
+  NEWS: 'bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900 dark:text-blue-300',
+  BLOG: 'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-300',
+  SOCIAL_MEDIA:
+    'bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-900 dark:text-sky-300',
+  FORUM:
+    'bg-orange-100 text-orange-800 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-300',
+  CORPORATE:
+    'bg-slate-100 text-slate-800 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300',
+  E_COMMERCE:
+    'bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-900 dark:text-purple-300',
+  WIKI: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-100 dark:bg-indigo-900 dark:text-indigo-300',
+  GOVERNMENT:
+    'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-300',
+  REVIEW:
+    'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-300',
+  OTHER:
+    'bg-gray-100 text-gray-800 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300',
+};
+
+const formatType = (type: string) => {
+  return type
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+};
 
 function getRootDomain(hostname: string): string {
   const parts = hostname.split('.');
@@ -145,7 +184,6 @@ export default function SourcesPage() {
         const createdAt = new Date(r.createdAt);
         if (
           r.status === 'SUCCESS' &&
-          r.response &&
           isWithinInterval(createdAt, { start: from, end: to })
         ) {
           results.push({
@@ -167,58 +205,97 @@ export default function SourcesPage() {
 
     filteredResults.forEach(({ promptId, result }) => {
       processedPromptIds.add(promptId);
-      const responseData = result.response as any;
-      const sources = responseData?.result?.sources as SourceItem[] | undefined;
 
-      if (Array.isArray(sources)) {
-        sources.forEach((source) => {
-          try {
-            if (!source.url) return;
-            const urlObj = new URL(source.url);
-            const hostname = urlObj.hostname.replace(/^www\./, '');
-            const domain = getRootDomain(hostname);
-            const cleanUrl = urlObj.origin + urlObj.pathname;
+      const dbSources = result.sources as DbSource[] | undefined;
+      const legacySources = (result.response as any)?.result?.sources as
+        | SourceItem[]
+        | undefined;
 
-            // Domain Stats
-            if (!domainMap.has(domain)) {
-              domainMap.set(domain, {
-                domain,
-                mentions: 0,
-                totalPosition: 0,
-                avgPosition: 0,
-                uniquePrompts: new Set(),
-                utilization: 0,
-              });
-            }
-            const dStat = domainMap.get(domain)!;
-            dStat.mentions += 1;
-            dStat.uniquePrompts.add(promptId);
-            if (typeof source.position === 'number') {
-              dStat.totalPosition += source.position;
-            }
+      // Helper to process a source item (normalized)
+      const processSource = (
+        url: string,
+        position: number | undefined,
+        type?: string | null,
+        favicon?: string | null,
+      ) => {
+        try {
+          if (!url) return;
+          const urlObj = new URL(url);
+          const hostname = urlObj.hostname.replace(/^www\./, '');
+          const domain = getRootDomain(hostname);
+          const cleanUrl = urlObj.origin + urlObj.pathname;
 
-            // URL Stats
-            if (!urlMap.has(cleanUrl)) {
-              urlMap.set(cleanUrl, {
-                url: cleanUrl,
-                mentions: 0,
-                totalPosition: 0,
-                avgPosition: 0,
-                uniquePrompts: new Set(),
-                utilization: 0,
-              });
-            }
-            const uStat = urlMap.get(cleanUrl)!;
-            uStat.mentions += 1;
-            uStat.uniquePrompts.add(promptId);
-            if (typeof source.position === 'number') {
-              uStat.totalPosition += source.position;
-            }
-          } catch (e) {
-            // Invalid URL
+          // Domain Stats
+          if (!domainMap.has(domain)) {
+            domainMap.set(domain, {
+              domain,
+              mentions: 0,
+              totalPosition: 0,
+              avgPosition: 0,
+              uniquePrompts: new Set(),
+              utilization: 0,
+              type: type || undefined,
+              faviconUrl:
+                favicon ||
+                `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+            });
           }
+          const dStat = domainMap.get(domain)!;
+          dStat.mentions += 1;
+          dStat.uniquePrompts.add(promptId);
+          if (typeof position === 'number') {
+            dStat.totalPosition += position;
+          }
+          // Update type/favicon if we found a better one (e.g. from DB)
+          if (type && !dStat.type) dStat.type = type;
+          if (favicon && !dStat.faviconUrl?.includes('google.com'))
+            dStat.faviconUrl = favicon;
+
+          // URL Stats
+          if (!urlMap.has(cleanUrl)) {
+            urlMap.set(cleanUrl, {
+              url: cleanUrl,
+              mentions: 0,
+              totalPosition: 0,
+              avgPosition: 0,
+              uniquePrompts: new Set(),
+              utilization: 0,
+              type: type || undefined,
+              faviconUrl:
+                favicon ||
+                `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
+            });
+          }
+          const uStat = urlMap.get(cleanUrl)!;
+          uStat.mentions += 1;
+          uStat.uniquePrompts.add(promptId);
+          if (typeof position === 'number') {
+            uStat.totalPosition += position;
+          }
+          // Update type/favicon if we found a better one
+          if (type && !uStat.type) uStat.type = type;
+          if (favicon && !uStat.faviconUrl?.includes('google.com'))
+            uStat.faviconUrl = favicon;
+        } catch (e) {
+          // Invalid URL
+        }
+      };
+
+      // Use DB sources if available (preferred)
+      if (dbSources && dbSources.length > 0) {
+        dbSources.forEach((source) => {
+          // Try to find matching legacy source to extract position
+          let position: number | undefined = undefined;
+
+          if (Array.isArray(legacySources)) {
+            const match = legacySources.find((ls) => ls.url === source.url);
+            if (match) position = match.position;
+          }
+
+          processSource(source.url, position, source.type, source.faviconUrl);
         });
       }
+      // If no DB sources, we skip. Since DB is reset, we assume data will be correct going forward.
     });
 
     const totalPrompts = processedPromptIds.size;
@@ -485,6 +562,7 @@ export default function SourcesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Domain</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Utilization</TableHead>
                   <TableHead>Mentions</TableHead>
                   <TableHead>Avg. Position</TableHead>
@@ -493,7 +571,7 @@ export default function SourcesPage() {
               <TableBody>
                 {stats.domainStats.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       No sources found in your tracking results.
                     </TableCell>
                   </TableRow>
@@ -501,7 +579,34 @@ export default function SourcesPage() {
                   getPaginatedData(stats.domainStats).map((stat) => (
                     <TableRow key={stat.domain}>
                       <TableCell className="py-2 font-medium">
-                        {stat.domain}
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5 rounded-sm">
+                            <AvatarImage
+                              src={stat.faviconUrl}
+                              alt={stat.domain}
+                            />
+                            <AvatarFallback className="rounded-sm text-[10px]">
+                              {stat.domain.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {stat.domain}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        {stat.type ? (
+                          <Badge
+                            variant="secondary"
+                            className={
+                              typeStyles[stat.type] || typeStyles.OTHER
+                            }
+                          >
+                            {formatType(stat.type)}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            -
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="py-2">
                         {stat.utilization.toFixed(0)}%
@@ -531,6 +636,7 @@ export default function SourcesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>URL</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Utilization</TableHead>
                   <TableHead>Mentions</TableHead>
                   <TableHead>Avg. Position</TableHead>
@@ -539,7 +645,7 @@ export default function SourcesPage() {
               <TableBody>
                 {stats.urlStats.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       No sources found in your tracking results.
                     </TableCell>
                   </TableRow>
@@ -550,7 +656,31 @@ export default function SourcesPage() {
                         className="max-w-md truncate py-2 font-medium"
                         title={stat.url}
                       >
-                        {stat.url}
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-5 w-5 rounded-sm">
+                            <AvatarImage src={stat.faviconUrl} alt={stat.url} />
+                            <AvatarFallback className="rounded-sm text-[10px]">
+                              U
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="truncate">{stat.url}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        {stat.type ? (
+                          <Badge
+                            variant="secondary"
+                            className={
+                              typeStyles[stat.type] || typeStyles.OTHER
+                            }
+                          >
+                            {formatType(stat.type)}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            -
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="py-2">
                         {stat.utilization.toFixed(0)}%

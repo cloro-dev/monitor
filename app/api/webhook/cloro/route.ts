@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { analyzeBrandMetrics, getCompetitorDomain } from '@/lib/ai-service';
+import { processAndSaveSources } from '@/lib/source-service';
 import { waitUntil } from '@vercel/functions';
 
 export const maxDuration = 60; // Allow up to 60s for the webhook handler to run
@@ -166,6 +167,11 @@ async function processWebhook(body: any) {
         position,
         competitors: competitors as any,
       },
+    });
+
+    // Extract and save sources asynchronously (non-blocking)
+    await processAndSaveSources(resultId, responseData).catch((err) => {
+      console.error(`Failed to process sources for result ${resultId}:`, err);
     });
 
     console.log(

@@ -48,10 +48,6 @@ async function processWebhook(body: any) {
     const brandName = prompt.brand.name || prompt.brand.domain;
     const orgId = prompt.brand.organization?.id || 'N/A';
 
-    console.log(
-      `[${orgId}] Webhook processing for resultId: ${resultId}, status: ${status}`,
-    );
-
     let sentiment: number | null = null;
     let position: number | null = null;
     let competitors: string[] | null = null;

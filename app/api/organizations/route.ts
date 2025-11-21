@@ -94,9 +94,9 @@ export async function POST(request: NextRequest) {
           aiModels: [
             'CHATGPT',
             'PERPLEXITY',
-            'MICROSOFT_COPILOT',
-            'GOOGLE_AI_MODE',
-            'GOOGLE_AI_OVERVIEW',
+            'COPILOT',
+            'AIMODE',
+            'AIOVERVIEW',
           ],
         },
       });

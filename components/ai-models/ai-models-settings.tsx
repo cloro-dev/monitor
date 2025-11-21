@@ -32,17 +32,17 @@ const AI_MODELS: AIModel[] = [
     icon: PerplexityLogo,
   },
   {
-    id: 'MICROSOFT_COPILOT',
+    id: 'COPILOT',
     name: 'Microsoft Copilot',
     icon: CopilotLogo,
   },
   {
-    id: 'GOOGLE_AI_MODE',
+    id: 'AIMODE',
     name: 'Google AI Mode',
     icon: AIModeLogo,
   },
   {
-    id: 'GOOGLE_AI_OVERVIEW',
+    id: 'AIOVERVIEW',
     name: 'Google AI Overview',
     icon: AIOverviewLogo,
   },
@@ -61,9 +61,9 @@ export function AIModelsSettings() {
       const models = (activeOrganization.aiModels as string[]) || [
         'CHATGPT',
         'PERPLEXITY',
-        'MICROSOFT_COPILOT',
-        'GOOGLE_AI_MODE',
-        'GOOGLE_AI_OVERVIEW',
+        'COPILOT',
+        'AIMODE',
+        'AIOVERVIEW',
       ];
       setEnabledModels(models);
     }

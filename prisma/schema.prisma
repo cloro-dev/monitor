@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL") // Uses the Connection Pool
+  //directUrl = env("DIRECT_URL")   // Uses the Direct Connection
 }
 
 model account {
@@ -152,9 +153,9 @@ enum TrackingStatus {
 enum ProviderModel {
   CHATGPT
   PERPLEXITY
-  MICROSOFT_COPILOT
-  GOOGLE_AI_MODE
-  GOOGLE_AI_OVERVIEW
+  COPILOT
+  AIMODE
+  AIOVERVIEW
 }
 
 model Result {

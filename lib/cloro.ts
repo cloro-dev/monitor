@@ -1,59 +1,61 @@
-import { Prisma, ProviderModel } from '@prisma/client';
+import { ProviderModel } from '@prisma/client';
 
 const CLORO_API_BASE_URL = 'https://api.cloro.dev/v1/monitor';
 
-const MODEL_ENDPOINTS: Record<ProviderModel, string> = {
-  CHATGPT: `${CLORO_API_BASE_URL}/chatgpt`,
-  PERPLEXITY: `${CLORO_API_BASE_URL}/perplexity`,
-  MICROSOFT_COPILOT: `${CLORO_API_BASE_URL}/copilot`,
-  GOOGLE_AI_MODE: `${CLORO_API_BASE_URL}/aimode`,
-  GOOGLE_AI_OVERVIEW: `${CLORO_API_BASE_URL}/aioverview`,
-};
-
 /**
- * Calls the cloro.dev API to track a prompt's response from a specific AI model.
- * @param prompt The text of the prompt to send to the model.
- * @param country The full country name (e.g., "United States") for regional tracking.
- * @param model The AI model to use for tracking.
- * @returns The full JSON response from the cloro.dev API.
+ * Initiates an asynchronous tracking task with Cloro.
+ * @param prompt The text of the prompt.
+ * @param country The country code.
+ * @param model The AI model to use.
+ * @param idempotencyKey A unique key (usually the Result ID) to track this specific task.
  */
-export async function trackPrompt(
+export async function trackPromptAsync(
   prompt: string,
   country: string,
   model: ProviderModel,
-): Promise<Prisma.JsonValue> {
+  idempotencyKey: string,
+): Promise<void> {
   const apiKey = process.env.CLORO_API_KEY;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
   if (!apiKey) {
-    throw new Error('CLORO_API_KEY is not set in the environment variables.');
+    throw new Error('CLORO_API_KEY is not set.');
+  }
+  if (!appUrl) {
+    throw new Error(
+      'NEXT_PUBLIC_APP_URL is not set. Required for webhook callbacks.',
+    );
   }
 
-  const endpoint = MODEL_ENDPOINTS[model];
-  if (!endpoint) {
-    throw new Error(`No endpoint found for model: ${model}`);
-  }
+  // Construct the webhook URL
+  const webhookUrl = `${appUrl}/api/webhook/cloro`;
 
-  const response = await fetch(endpoint, {
+  // The base URL for async tasks is slightly different (remove /monitor)
+  const asyncBaseUrl = CLORO_API_BASE_URL.replace('/monitor', '');
+
+  const response = await fetch(`${asyncBaseUrl}/async/task`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // The API key is sent as a Bearer token in the Authorization header.
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      prompt,
-      country,
+      taskType: model, // Now directly using the model enum value
+      idempotencyKey,
+      webhook: {
+        url: webhookUrl,
+      },
+      payload: {
+        prompt,
+        country,
+      },
     }),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    // Provide a more informative error message.
     throw new Error(
-      `cloro API request failed for ${model} with status ${response.status}: ${errorBody}`,
+      `Failed to initiate async task for ${model}: ${response.status} ${errorBody}`,
     );
   }
-
-  const data = await response.json();
-  return data as Prisma.JsonValue;
 }

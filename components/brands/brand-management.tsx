@@ -56,7 +56,7 @@ export function BrandManagement() {
     try {
       await createBrand(data.domain);
       toast.success(
-        `Brand added! We've generated 5 suggested prompts for you to review.`,
+        `Brand added! We are generating 5 suggested prompts for your review in the Prompts page.`,
       );
       reset();
     } catch (error: any) {

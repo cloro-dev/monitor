@@ -1,9 +1,8 @@
 import prisma from '@/lib/prisma';
-import { trackPrompt } from './cloro';
-import { analyzeBrandMetrics, getCompetitorDomain } from './ai-service';
+import { trackPromptAsync } from './cloro';
 import { ProviderModel, Result } from '@prisma/client';
 
-export async function trackAllPrompts(concurrency = 2) {
+export async function trackAllPrompts(concurrency = 20) {
   const prompts = await prisma.prompt.findMany({
     include: {
       brand: {
@@ -82,116 +81,18 @@ async function trackSingleModel(
 
     // Use country code directly
     const countryCode = prompt.country;
-
-    // Call the cloro API for this specific model
-    const apiResponse = await trackPrompt(prompt.text, countryCode, model);
     const orgId = prompt.brand.organization?.id || 'N/A';
 
+    await trackPromptAsync(prompt.text, countryCode, model, result.id);
+
     console.log(
-      `[${orgId}] Response received, prompt:${promptId}, model:${model}`,
+      `[${orgId}] Async task initiated for prompt:${promptId}, model:${model}, resultId:${result.id}`,
     );
-
-    // --- LLM-based Metrics Calculation ---
-    const responseData = apiResponse as any;
-    const brandName = prompt.brand.name || prompt.brand.domain;
-    let sentiment: number | null = null;
-    let position: number | null = null;
-    let competitors: string[] | null = null;
-
-    if (responseData?.result?.text) {
-      const metrics = await analyzeBrandMetrics(
-        responseData.result.text,
-        brandName,
-      );
-
-      sentiment = metrics.sentiment;
-      position = metrics.position;
-      competitors = metrics.competitors;
-
-      // Add new competitors to the Competitors table (as Brands)
-      if (metrics.competitors) {
-        for (const competitorNameRaw of metrics.competitors) {
-          try {
-            console.log(
-              `[${orgId}] Competitor found, prompt:${promptId}, model:${model}, competitor:${competitorNameRaw}`,
-            );
-            // Resolve domain using LLM
-            const competitorDomain = await getCompetitorDomain(
-              competitorNameRaw,
-              prompt.text,
-            );
-
-            if (competitorDomain) {
-              // 1. Find or Create the Competitor Brand
-              // We use 'organizationId: null' for unmanaged competitors
-              let competitorBrand = await prisma.brand.findUnique({
-                where: { domain: competitorDomain },
-              });
-
-              if (!competitorBrand) {
-                competitorBrand = await prisma.brand.create({
-                  data: {
-                    domain: competitorDomain,
-                    name: competitorNameRaw,
-                    organizationId: null, // Not owned by the current org
-                  },
-                });
-              }
-
-              // Prevent adding the brand itself as a competitor
-              if (competitorBrand.id === prompt.brandId) {
-                continue;
-              }
-
-              // 2. Link it as a competitor to the current brand
-              await prisma.competitor.upsert({
-                where: {
-                  brandId_competitorId: {
-                    brandId: prompt.brandId,
-                    competitorId: competitorBrand.id,
-                  },
-                },
-                update: {
-                  mentions: {
-                    increment: 1,
-                  },
-                },
-                create: {
-                  brandId: prompt.brandId,
-                  competitorId: competitorBrand.id,
-                },
-              });
-            }
-          } catch (error) {
-            console.warn(
-              `Failed to process competitor ${competitorNameRaw}:`,
-              error,
-            );
-          }
-        }
-      }
-    } else {
-      throw new Error('No text found in Cloro API response to analyze.');
-    }
-
-    // Update the Result with success data
-    await prisma.result.update({
-      where: { id: result.id },
-      data: {
-        status: 'SUCCESS',
-        response: apiResponse as any,
-        sentiment,
-        position,
-        competitors: competitors as any,
-      },
-    });
-
-    // Success - no need to log
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error';
     console.error(
-      `Failed to track prompt ${promptId} with model ${model}: ${errorMessage}`,
+      `Failed to initiate tracking for prompt ${promptId} with model ${model}: ${errorMessage}`,
     );
 
     // Try to update the Result to FAILED status
@@ -199,9 +100,8 @@ async function trackSingleModel(
       if (result) {
         await prisma.result.updateMany({
           where: {
-            promptId,
-            model,
-            status: 'PROCESSING',
+            id: result.id,
+            status: { in: ['PENDING', 'PROCESSING'] },
           },
           data: {
             status: 'FAILED',

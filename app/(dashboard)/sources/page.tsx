@@ -14,6 +14,45 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BrandFilter } from '@/components/brands/brand-filter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  addDays,
+  subDays,
+  isWithinInterval,
+  startOfDay,
+  endOfDay,
+  eachDayOfInterval,
+  format,
+  isSameDay,
+} from 'date-fns';
+
+type DateRange = {
+  from: Date | undefined;
+  to?: Date | undefined;
+};
+
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
 
 interface SourceItem {
   url: string;
@@ -74,148 +113,238 @@ export default function SourcesPage() {
   const { prompts, isLoading } = usePrompts(selectedBrand);
   const [activeTab, setActiveTab] = useState('domain');
   const [currentPage, setCurrentPage] = useState(1);
+  const [timeRange, setTimeRange] = useState('30d');
   const itemsPerPage = 15;
 
-  const domainStats = useMemo(() => {
-    if (!prompts) return [];
+  const date = useMemo<DateRange>(() => {
+    const end = new Date();
+    let days = 30;
+    if (timeRange === '7d') days = 7;
+    if (timeRange === '90d') days = 90;
+    return {
+      from: subDays(end, days),
+      to: end,
+    };
+  }, [timeRange]);
 
-    const statsMap = new Map<string, DomainStat>();
-    const processedPromptIds = new Set<string>();
-    let totalPromptsWithResults = 0;
+  // 1. Filter results by date range
+  const filteredResults = useMemo(() => {
+    if (!prompts || !date?.from || !date?.to) return [];
+
+    const from = startOfDay(date.from);
+    const to = endOfDay(date.to);
+    const results: {
+      promptId: string;
+      result: any;
+      createdAt: Date;
+    }[] = [];
 
     prompts.forEach((prompt) => {
       if (!prompt.results) return;
-
-      const successfulResults = prompt.results.filter(
-        (r) => r.status === 'SUCCESS' && r.response,
-      );
-      if (successfulResults.length > 0) {
-        totalPromptsWithResults++;
-        processedPromptIds.add(prompt.id);
-      }
-
-      successfulResults.forEach((result) => {
-        // Parse response.
-        // Assuming structure: { result: { sources: SourceItem[] } }
-        const responseData = result.response as any;
-        const sources = responseData?.result?.sources as
-          | SourceItem[]
-          | undefined;
-
-        if (Array.isArray(sources)) {
-          sources.forEach((source) => {
-            try {
-              if (!source.url) return;
-              const url = new URL(source.url);
-              const hostname = url.hostname.replace(/^www\./, '');
-              const domain = getRootDomain(hostname);
-
-              if (!statsMap.has(domain)) {
-                statsMap.set(domain, {
-                  domain,
-                  mentions: 0,
-                  totalPosition: 0,
-                  avgPosition: 0,
-                  uniquePrompts: new Set(),
-                  utilization: 0,
-                });
-              }
-
-              const stat = statsMap.get(domain)!;
-              stat.mentions += 1;
-              stat.uniquePrompts.add(prompt.id);
-
-              if (typeof source.position === 'number') {
-                stat.totalPosition += source.position;
-              }
-            } catch (e) {
-              // Invalid URL, ignore
-            }
+      prompt.results.forEach((r) => {
+        const createdAt = new Date(r.createdAt);
+        if (
+          r.status === 'SUCCESS' &&
+          r.response &&
+          isWithinInterval(createdAt, { start: from, end: to })
+        ) {
+          results.push({
+            promptId: prompt.id,
+            result: r,
+            createdAt,
           });
         }
       });
     });
+    return results;
+  }, [prompts, date]);
 
-    return Array.from(statsMap.values())
-      .map((stat) => ({
-        ...stat,
-        avgPosition: stat.mentions > 0 ? stat.totalPosition / stat.mentions : 0,
-        utilization:
-          totalPromptsWithResults > 0
-            ? (stat.uniquePrompts.size / totalPromptsWithResults) * 100
-            : 0,
-      }))
-      .sort((a, b) => b.utilization - a.utilization);
-  }, [prompts]);
-
-  const urlStats = useMemo(() => {
-    if (!prompts) return [];
-
-    const statsMap = new Map<string, URLStat>();
+  // 2. Compute Stats (Domain and URL) based on filtered results
+  const stats = useMemo(() => {
+    const domainMap = new Map<string, DomainStat>();
+    const urlMap = new Map<string, URLStat>();
     const processedPromptIds = new Set<string>();
-    let totalPromptsWithResults = 0;
 
-    prompts.forEach((prompt) => {
-      if (!prompt.results) return;
+    filteredResults.forEach(({ promptId, result }) => {
+      processedPromptIds.add(promptId);
+      const responseData = result.response as any;
+      const sources = responseData?.result?.sources as SourceItem[] | undefined;
 
-      const successfulResults = prompt.results.filter(
-        (r) => r.status === 'SUCCESS' && r.response,
-      );
-      if (successfulResults.length > 0) {
-        totalPromptsWithResults++;
-        processedPromptIds.add(prompt.id);
-      }
+      if (Array.isArray(sources)) {
+        sources.forEach((source) => {
+          try {
+            if (!source.url) return;
+            const urlObj = new URL(source.url);
+            const hostname = urlObj.hostname.replace(/^www\./, '');
+            const domain = getRootDomain(hostname);
+            const cleanUrl = urlObj.origin + urlObj.pathname;
 
-      successfulResults.forEach((result) => {
-        const responseData = result.response as any;
-        const sources = responseData?.result?.sources as
-          | SourceItem[]
-          | undefined;
-
-        if (Array.isArray(sources)) {
-          sources.forEach((source) => {
-            try {
-              if (!source.url) return;
-              const urlObj = new URL(source.url);
-              const cleanUrl = urlObj.origin + urlObj.pathname;
-
-              if (!statsMap.has(cleanUrl)) {
-                statsMap.set(cleanUrl, {
-                  url: cleanUrl,
-                  mentions: 0,
-                  totalPosition: 0,
-                  avgPosition: 0,
-                  uniquePrompts: new Set(),
-                  utilization: 0,
-                });
-              }
-
-              const stat = statsMap.get(cleanUrl)!;
-              stat.mentions += 1;
-              stat.uniquePrompts.add(prompt.id);
-
-              if (typeof source.position === 'number') {
-                stat.totalPosition += source.position;
-              }
-            } catch (e) {
-              // Invalid URL, ignore
+            // Domain Stats
+            if (!domainMap.has(domain)) {
+              domainMap.set(domain, {
+                domain,
+                mentions: 0,
+                totalPosition: 0,
+                avgPosition: 0,
+                uniquePrompts: new Set(),
+                utilization: 0,
+              });
             }
-          });
-        }
-      });
+            const dStat = domainMap.get(domain)!;
+            dStat.mentions += 1;
+            dStat.uniquePrompts.add(promptId);
+            if (typeof source.position === 'number') {
+              dStat.totalPosition += source.position;
+            }
+
+            // URL Stats
+            if (!urlMap.has(cleanUrl)) {
+              urlMap.set(cleanUrl, {
+                url: cleanUrl,
+                mentions: 0,
+                totalPosition: 0,
+                avgPosition: 0,
+                uniquePrompts: new Set(),
+                utilization: 0,
+              });
+            }
+            const uStat = urlMap.get(cleanUrl)!;
+            uStat.mentions += 1;
+            uStat.uniquePrompts.add(promptId);
+            if (typeof source.position === 'number') {
+              uStat.totalPosition += source.position;
+            }
+          } catch (e) {
+            // Invalid URL
+          }
+        });
+      }
     });
 
-    return Array.from(statsMap.values())
+    const totalPrompts = processedPromptIds.size;
+
+    const domainStatsArray = Array.from(domainMap.values())
       .map((stat) => ({
         ...stat,
         avgPosition: stat.mentions > 0 ? stat.totalPosition / stat.mentions : 0,
         utilization:
-          totalPromptsWithResults > 0
-            ? (stat.uniquePrompts.size / totalPromptsWithResults) * 100
-            : 0,
+          totalPrompts > 0 ? (stat.uniquePrompts.size / totalPrompts) * 100 : 0,
       }))
       .sort((a, b) => b.utilization - a.utilization);
-  }, [prompts]);
+
+    const urlStatsArray = Array.from(urlMap.values())
+      .map((stat) => ({
+        ...stat,
+        avgPosition: stat.mentions > 0 ? stat.totalPosition / stat.mentions : 0,
+        utilization:
+          totalPrompts > 0 ? (stat.uniquePrompts.size / totalPrompts) * 100 : 0,
+      }))
+      .sort((a, b) => b.utilization - a.utilization);
+
+    return { domainStats: domainStatsArray, urlStats: urlStatsArray };
+  }, [filteredResults]);
+
+  // 3. Prepare Chart Data
+  const chartData = useMemo(() => {
+    if (!date?.from || !date?.to) return { data: [], config: {} };
+
+    const topItems =
+      activeTab === 'domain'
+        ? stats.domainStats.slice(0, 5)
+        : stats.urlStats.slice(0, 5);
+
+    if (topItems.length === 0) return { data: [], config: {} };
+
+    const days = eachDayOfInterval({ start: date.from, end: date.to });
+
+    const config: ChartConfig = {};
+    const chartColors = [
+      'hsl(var(--chart-1))',
+      'hsl(var(--chart-2))',
+      'hsl(var(--chart-3))',
+      'hsl(var(--chart-4))',
+      'hsl(var(--chart-5))',
+    ];
+
+    topItems.forEach((item, index) => {
+      const key =
+        activeTab === 'domain'
+          ? (item as DomainStat).domain
+          : (item as URLStat).url;
+
+      let label = key;
+
+      if (activeTab === 'url') {
+        label = label.replace(/^(https?:\/\/)?(www\.)?/, '');
+
+        if (label.length > 30) {
+          label = `${label.substring(0, 27)}...`;
+        }
+      }
+
+      const safeId = `item_${index}`;
+
+      config[safeId] = {
+        label: label,
+
+        color: chartColors[index % chartColors.length],
+      };
+    });
+
+    const data = days.map((day) => {
+      const dayResults = filteredResults.filter((r) =>
+        isSameDay(r.createdAt, day),
+      );
+      const totalPromptsOnDay = new Set(dayResults.map((r) => r.promptId)).size;
+
+      const dayData: any = { date: format(day, 'yyyy-MM-dd') };
+
+      topItems.forEach((item, index) => {
+        const safeId = `item_${index}`;
+        const key =
+          activeTab === 'domain'
+            ? (item as DomainStat).domain
+            : (item as URLStat).url;
+
+        if (totalPromptsOnDay === 0) {
+          dayData[safeId] = 0;
+          return;
+        }
+
+        // Count prompts on this day where this item appeared
+        const uniquePromptsWithItemOnDay = new Set();
+        dayResults.forEach(({ promptId, result }) => {
+          const responseData = result.response as any;
+          const sources = responseData?.result?.sources as
+            | SourceItem[]
+            | undefined;
+          if (Array.isArray(sources)) {
+            sources.forEach((s) => {
+              try {
+                if (!s.url) return;
+                const u = new URL(s.url);
+                let match = false;
+                if (activeTab === 'domain') {
+                  const h = u.hostname.replace(/^www\./, '');
+                  if (getRootDomain(h) === key) match = true;
+                } else {
+                  if (u.origin + u.pathname === key) match = true;
+                }
+                if (match) uniquePromptsWithItemOnDay.add(promptId);
+              } catch (e) {}
+            });
+          }
+        });
+
+        dayData[safeId] =
+          (uniquePromptsWithItemOnDay.size / totalPromptsOnDay) * 100;
+      });
+
+      return dayData;
+    });
+
+    return { data, config };
+  }, [stats, activeTab, filteredResults, date]);
 
   // Pagination Logic
   const getPaginatedData = (data: any[]) => {
@@ -229,8 +358,12 @@ export default function SourcesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between space-y-2">
           <Skeleton className="h-6 w-[200px]" />
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-[300px]" />
+            <Skeleton className="h-10 w-[200px]" />
+          </div>
         </div>
-        <Skeleton className="h-4 w-[300px]" />
+        <Skeleton className="h-[300px] w-full" />
         <div className="space-y-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
@@ -242,14 +375,24 @@ export default function SourcesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Sources</h2>
           <p className="text-muted-foreground">
             Domains mentioned in AI search results across your prompts.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Select time range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
           <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
         </div>
       </div>
@@ -262,10 +405,79 @@ export default function SourcesPage() {
         }}
         className="w-full"
       >
-        <TabsList className="mb-4">
-          <TabsTrigger value="domain">Domain</TabsTrigger>
-          <TabsTrigger value="url">URL</TabsTrigger>
-        </TabsList>
+        <div className="mb-2 flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="domain">Domain</TabsTrigger>
+            <TabsTrigger value="url">URL</TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Chart Section */}
+        <Card className="mb-2">
+          <CardHeader>
+            <CardTitle>
+              {activeTab === 'domain' ? 'Top domains' : 'Top URLs'} utilization
+              over time
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={chartData.config}
+              className="h-[200px] w-full"
+            >
+              <AreaChart data={chartData.data} margin={{ left: 12, right: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  minTickGap={32}
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return date.toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                  }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value.toFixed(1)}%`}
+                  domain={[0, 100]}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      indicator="dot"
+                      labelFormatter={(value) => {
+                        return new Date(value).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        });
+                      }}
+                    />
+                  }
+                />
+                {Object.keys(chartData.config).map((key) => (
+                  <Area
+                    key={key}
+                    dataKey={key}
+                    type="monotone"
+                    fill={chartData.config[key].color}
+                    fillOpacity={0.1}
+                    stroke={chartData.config[key].color}
+                    stackId={undefined}
+                    strokeWidth={2}
+                  />
+                ))}
+                <ChartLegend content={<ChartLegendContent />} />
+              </AreaChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
 
         <TabsContent value="domain">
           <div className="relative w-full overflow-auto">
@@ -279,14 +491,14 @@ export default function SourcesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {domainStats.length === 0 ? (
+                {stats.domainStats.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
                       No sources found in your tracking results.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  getPaginatedData(domainStats).map((stat) => (
+                  getPaginatedData(stats.domainStats).map((stat) => (
                     <TableRow key={stat.domain}>
                       <TableCell className="py-2 font-medium">
                         {stat.domain}
@@ -304,10 +516,10 @@ export default function SourcesPage() {
               </TableBody>
             </Table>
           </div>
-          {domainStats.length > itemsPerPage && (
+          {stats.domainStats.length > itemsPerPage && (
             <PaginationControls
               currentPage={currentPage}
-              totalPages={Math.ceil(domainStats.length / itemsPerPage)}
+              totalPages={Math.ceil(stats.domainStats.length / itemsPerPage)}
               onPageChange={setCurrentPage}
             />
           )}
@@ -325,14 +537,14 @@ export default function SourcesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {urlStats.length === 0 ? (
+                {stats.urlStats.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
                       No sources found in your tracking results.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  getPaginatedData(urlStats).map((stat) => (
+                  getPaginatedData(stats.urlStats).map((stat) => (
                     <TableRow key={stat.url}>
                       <TableCell
                         className="max-w-md truncate py-2 font-medium"
@@ -353,10 +565,10 @@ export default function SourcesPage() {
               </TableBody>
             </Table>
           </div>
-          {urlStats.length > itemsPerPage && (
+          {stats.urlStats.length > itemsPerPage && (
             <PaginationControls
               currentPage={currentPage}
-              totalPages={Math.ceil(urlStats.length / itemsPerPage)}
+              totalPages={Math.ceil(stats.urlStats.length / itemsPerPage)}
               onPageChange={setCurrentPage}
             />
           )}

@@ -70,14 +70,31 @@ async function processWebhook(body: any) {
           await Promise.all(
             metrics.competitors.map(async (competitorNameRaw) => {
               try {
-                // Resolve domain using LLM
-                const competitorDomain = await getCompetitorDomain(
-                  competitorNameRaw,
-                  prompt.text,
-                );
+                let competitorDomain: string | null = null;
+
+                // 1. Check if we already have a brand with this name
+                const existingBrandByName = await prisma.brand.findFirst({
+                  where: {
+                    name: {
+                      equals: competitorNameRaw,
+                      mode: 'insensitive',
+                    },
+                  },
+                  select: { domain: true },
+                });
+
+                if (existingBrandByName) {
+                  competitorDomain = existingBrandByName.domain;
+                } else {
+                  // 2. Fallback: Resolve domain using LLM
+                  competitorDomain = await getCompetitorDomain(
+                    competitorNameRaw,
+                    prompt.text,
+                  );
+                }
 
                 if (competitorDomain) {
-                  // 1. Find or Create the Competitor Brand
+                  // 3. Find or Create the Competitor Brand
                   // Check if brand exists first to avoid race conditions in parallel creation
                   let competitorBrand = await prisma.brand.findUnique({
                     where: { domain: competitorDomain },

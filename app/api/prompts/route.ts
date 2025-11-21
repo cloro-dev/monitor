@@ -25,20 +25,49 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const brandId = searchParams.get('brandId');
     const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '0'); // 0 means all
 
-    const whereClause: any = {
+    const baseWhereClause: any = {
       userId: session.user.id,
       ...(brandId && { brandId }),
     };
+
+    const whereClause: any = { ...baseWhereClause };
 
     if (status === 'ALL') {
       // No status filter = return all
     } else if (status) {
       whereClause.status = status;
     } else {
-      // Default: Active and Suggested only
+      // Default: Active and Suggested only (legacy behavior, though with tabs we usually specify)
       whereClause.status = { in: ['ACTIVE', 'SUGGESTED'] };
     }
+
+    // 1. Get Counts per Status (for tabs)
+    // We use baseWhereClause to get counts for the current context (User/Brand) ignoring the selected status tab
+    const statusCounts = await prisma.prompt.groupBy({
+      by: ['status'],
+      where: baseWhereClause,
+      _count: {
+        id: true,
+      },
+    });
+
+    const counts = {
+      ACTIVE: 0,
+      SUGGESTED: 0,
+      ARCHIVED: 0,
+    };
+
+    statusCounts.forEach((item) => {
+      if (item.status in counts) {
+        counts[item.status as keyof typeof counts] = item._count.id;
+      }
+    });
+
+    // 2. Get Paginated Data
+    const total = await prisma.prompt.count({ where: whereClause });
 
     const prompts = await prisma.prompt.findMany({
       where: whereClause,
@@ -55,6 +84,10 @@ export async function GET(request: NextRequest) {
         },
         results: true,
       },
+      ...(limit > 0 && {
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
     });
 
     // Calculate aggregated metrics for each prompt from all Results
@@ -117,7 +150,16 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(promptsWithMetrics);
+    return NextResponse.json({
+      prompts: promptsWithMetrics,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
+      },
+      counts,
+    });
   } catch (error) {
     console.error('Error fetching prompts:', error);
     return NextResponse.json(

@@ -8,6 +8,7 @@ import { useActiveOrganization } from '@/hooks/use-organizations';
 import { BrandFilter } from '@/components/brands/brand-filter';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 // Force dynamic rendering for authentication
 export const dynamic = 'force-dynamic';
@@ -15,35 +16,24 @@ export const dynamic = 'force-dynamic';
 export default function PromptsPage() {
   const { activeOrganization } = useActiveOrganization();
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-
-  // Fetch all prompts including archived ones to calculate counts
-  // Pass selectedBrand to filter on server/API side
-  const { prompts, error } = usePrompts(selectedBrand, 'ALL');
   const [activeTab, setActiveTab] = useState('active');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
-  const filterPrompts = useCallback(
-    (status: string) => {
-      let filtered = Array.isArray(prompts) ? prompts : [];
+  // Map UI tab to API status
+  const apiStatus = useMemo(() => {
+    if (activeTab === 'active') return 'ACTIVE';
+    if (activeTab === 'suggested') return 'SUGGESTED';
+    if (activeTab === 'archived') return 'ARCHIVED';
+    return 'ACTIVE';
+  }, [activeTab]);
 
-      // Filter by status
-      return filtered.filter((prompt) => {
-        if (status === 'active') return prompt.status === 'ACTIVE';
-        if (status === 'suggested') return prompt.status === 'SUGGESTED';
-        if (status === 'archived') return prompt.status === 'ARCHIVED';
-        return false;
-      });
-    },
-    [prompts],
-  );
-
-  const activePrompts = useMemo(() => filterPrompts('active'), [filterPrompts]);
-  const suggestedPrompts = useMemo(
-    () => filterPrompts('suggested'),
-    [filterPrompts],
-  );
-  const archivedPrompts = useMemo(
-    () => filterPrompts('archived'),
-    [filterPrompts],
+  // Fetch paginated prompts for the current status
+  const { prompts, pagination, counts, error } = usePrompts(
+    selectedBrand,
+    apiStatus,
+    currentPage,
+    itemsPerPage,
   );
 
   // Check if AI models are enabled
@@ -100,38 +90,66 @@ export default function PromptsPage() {
           </div>
         </div>
       ) : (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => {
+            setActiveTab(val);
+            setCurrentPage(1);
+          }}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-3 lg:w-[300px]">
             <TabsTrigger value="active" className="items-end px-4">
               Active
               <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
-                {activePrompts.length}
+                {counts?.ACTIVE || 0}
               </span>
             </TabsTrigger>
             <TabsTrigger value="suggested" className="items-end px-4">
               Suggested
               <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
-                {suggestedPrompts.length}
+                {counts?.SUGGESTED || 0}
               </span>
             </TabsTrigger>
             <TabsTrigger value="archived" className="items-end px-4">
               Archived
               <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
-                {archivedPrompts.length}
+                {counts?.ARCHIVED || 0}
               </span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="mt-4">
-            <PromptsTable data={activePrompts} />
+            <PromptsTable data={prompts} />
+            {pagination && pagination.totalPages > 1 && (
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="suggested" className="mt-4">
-            <PromptsTable data={suggestedPrompts} showStatusActions={true} />
+            <PromptsTable data={prompts} showStatusActions={true} />
+            {pagination && pagination.totalPages > 1 && (
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="archived" className="mt-4">
-            <PromptsTable data={archivedPrompts} showStatusActions={true} />
+            <PromptsTable data={prompts} showStatusActions={true} />
+            {pagination && pagination.totalPages > 1 && (
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </TabsContent>
         </Tabs>
       )}

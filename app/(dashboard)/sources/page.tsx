@@ -13,6 +13,7 @@ import { useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BrandFilter } from '@/components/brands/brand-filter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface SourceItem {
   url: string;
@@ -72,6 +73,8 @@ export default function SourcesPage() {
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const { prompts, isLoading } = usePrompts(selectedBrand);
   const [activeTab, setActiveTab] = useState('domain');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const domainStats = useMemo(() => {
     if (!prompts) return [];
@@ -214,6 +217,13 @@ export default function SourcesPage() {
       .sort((a, b) => b.utilization - a.utilization);
   }, [prompts]);
 
+  // Pagination Logic
+  const getPaginatedData = (data: any[]) => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return data.slice(startIndex, endIndex);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -244,7 +254,14 @@ export default function SourcesPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => {
+          setActiveTab(val);
+          setCurrentPage(1);
+        }}
+        className="w-full"
+      >
         <TabsList className="mb-4">
           <TabsTrigger value="domain">Domain</TabsTrigger>
           <TabsTrigger value="url">URL</TabsTrigger>
@@ -269,20 +286,31 @@ export default function SourcesPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  domainStats.map((stat) => (
+                  getPaginatedData(domainStats).map((stat) => (
                     <TableRow key={stat.domain}>
-                      <TableCell className="font-medium">
+                      <TableCell className="py-2 font-medium">
                         {stat.domain}
                       </TableCell>
-                      <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
-                      <TableCell>{stat.mentions}</TableCell>
-                      <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
+                      <TableCell className="py-2">
+                        {stat.utilization.toFixed(0)}%
+                      </TableCell>
+                      <TableCell className="py-2">{stat.mentions}</TableCell>
+                      <TableCell className="py-2">
+                        {stat.avgPosition.toFixed(1)}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
           </div>
+          {domainStats.length > itemsPerPage && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(domainStats.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="url">
@@ -304,23 +332,34 @@ export default function SourcesPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  urlStats.map((stat) => (
+                  getPaginatedData(urlStats).map((stat) => (
                     <TableRow key={stat.url}>
                       <TableCell
-                        className="max-w-md truncate font-medium"
+                        className="max-w-md truncate py-2 font-medium"
                         title={stat.url}
                       >
                         {stat.url}
                       </TableCell>
-                      <TableCell>{stat.utilization.toFixed(0)}%</TableCell>
-                      <TableCell>{stat.mentions}</TableCell>
-                      <TableCell>{stat.avgPosition.toFixed(1)}</TableCell>
+                      <TableCell className="py-2">
+                        {stat.utilization.toFixed(0)}%
+                      </TableCell>
+                      <TableCell className="py-2">{stat.mentions}</TableCell>
+                      <TableCell className="py-2">
+                        {stat.avgPosition.toFixed(1)}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
           </div>
+          {urlStats.length > itemsPerPage && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={Math.ceil(urlStats.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

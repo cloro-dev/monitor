@@ -51,7 +51,12 @@ interface UpdatePromptData {
 /**
  * Hook to fetch user's prompts
  */
-export function usePrompts(brandId?: string | null, status?: string | null) {
+export function usePrompts(
+  brandId?: string | null,
+  status?: string | null,
+  page?: number,
+  limit?: number,
+) {
   const { isAuthenticated } = useAuth();
 
   const getKey = () => {
@@ -61,12 +66,18 @@ export function usePrompts(brandId?: string | null, status?: string | null) {
       key += `brandId=${brandId}&`;
     }
     if (status) {
-      key += `status=${status}`;
+      key += `status=${status}&`;
+    }
+    if (page) {
+      key += `page=${page}&`;
+    }
+    if (limit) {
+      key += `limit=${limit}&`;
     }
     return key;
   };
 
-  const { data, error, isLoading, mutate } = useSWR<Prompt[]>(
+  const { data, error, isLoading, mutate } = useSWR<any>(
     getKey,
     async (url: string) => {
       try {
@@ -77,16 +88,7 @@ export function usePrompts(brandId?: string | null, status?: string | null) {
         }
 
         const jsonData = await response.json();
-
-        // Handle different response formats
-        if (Array.isArray(jsonData)) {
-          return jsonData;
-        } else if (jsonData && Array.isArray(jsonData.prompts)) {
-          return jsonData.prompts;
-        } else {
-          console.error('Unexpected API response format:', jsonData);
-          return [];
-        }
+        return jsonData;
       } catch (error) {
         console.error('Error fetching prompts:', error);
         throw error;
@@ -99,8 +101,14 @@ export function usePrompts(brandId?: string | null, status?: string | null) {
     },
   );
 
+  const prompts = data?.prompts || (Array.isArray(data) ? data : []);
+  const pagination = data?.pagination;
+  const counts = data?.counts;
+
   return {
-    prompts: data || [],
+    prompts: prompts as Prompt[],
+    pagination,
+    counts,
     isLoading,
     error,
     mutate,

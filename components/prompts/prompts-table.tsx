@@ -124,7 +124,7 @@ export function PromptsTable({
           <TableBody>
             {data.map((prompt) => (
               <TableRow key={prompt.id}>
-                <TableCell className="align-middle font-medium">
+                <TableCell className="py-2 align-middle font-medium">
                   <div
                     className="line-clamp-3 max-w-md whitespace-normal break-words"
                     title={prompt.text}
@@ -132,10 +132,10 @@ export function PromptsTable({
                     {prompt.text}
                   </div>
                 </TableCell>
-                <TableCell className="align-middle">
+                <TableCell className="py-2 align-middle">
                   {prompt.brand?.name || prompt.brand?.domain || 'N/A'}
                 </TableCell>
-                <TableCell className="whitespace-nowrap align-middle">
+                <TableCell className="whitespace-nowrap py-2 align-middle">
                   <div className="flex items-center">
                     <span className="mr-2 text-lg">
                       {getCountryFlag(prompt.country)}
@@ -147,27 +147,27 @@ export function PromptsTable({
                 </TableCell>
                 {!showStatusActions && (
                   <>
-                    <TableCell className="align-middle">
+                    <TableCell className="py-2 align-middle">
                       {prompt.visibilityScore != null
                         ? `${prompt.visibilityScore.toFixed(0)}%`
                         : '-'}
                     </TableCell>
-                    <TableCell className="align-middle">
+                    <TableCell className="py-2 align-middle">
                       {prompt.averageSentiment != null
                         ? prompt.averageSentiment.toFixed(1)
                         : '-'}
                     </TableCell>
-                    <TableCell className="align-middle">
+                    <TableCell className="py-2 align-middle">
                       {prompt.averagePosition != null
                         ? prompt.averagePosition.toFixed(1)
                         : '-'}
                     </TableCell>
                   </>
                 )}
-                <TableCell className="whitespace-nowrap align-middle text-muted-foreground">
+                <TableCell className="whitespace-nowrap py-2 align-middle text-muted-foreground">
                   {formatTimeAgo(prompt.createdAt)}
                 </TableCell>
-                <TableCell className="align-middle">
+                <TableCell className="py-2 align-middle">
                   <div className="flex items-center justify-end gap-2">
                     {prompt.status === 'SUGGESTED' && (
                       <Button

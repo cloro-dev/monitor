@@ -65,60 +65,74 @@ async function processWebhook(body: any) {
         competitors = metrics.competitors;
 
         // Add new competitors to the Competitors table (as Brands)
-        if (metrics.competitors) {
-          for (const competitorNameRaw of metrics.competitors) {
-            try {
-              // Resolve domain using LLM
-              const competitorDomain = await getCompetitorDomain(
-                competitorNameRaw,
-                prompt.text,
-              );
+        if (metrics.competitors && metrics.competitors.length > 0) {
+          // Process all competitors in parallel to avoid timeouts
+          await Promise.all(
+            metrics.competitors.map(async (competitorNameRaw) => {
+              try {
+                // Resolve domain using LLM
+                const competitorDomain = await getCompetitorDomain(
+                  competitorNameRaw,
+                  prompt.text,
+                );
 
-              if (competitorDomain) {
-                // 1. Find or Create the Competitor Brand
-                let competitorBrand = await prisma.brand.findUnique({
-                  where: { domain: competitorDomain },
-                });
-
-                if (!competitorBrand) {
-                  competitorBrand = await prisma.brand.create({
-                    data: {
-                      domain: competitorDomain,
-                      name: competitorNameRaw,
-                      organizationId: null,
-                    },
+                if (competitorDomain) {
+                  // 1. Find or Create the Competitor Brand
+                  // Check if brand exists first to avoid race conditions in parallel creation
+                  let competitorBrand = await prisma.brand.findUnique({
+                    where: { domain: competitorDomain },
                   });
-                }
 
-                // Prevent adding the brand itself as a competitor
-                if (competitorBrand.id === prompt.brandId) {
-                  continue;
-                }
+                  if (!competitorBrand) {
+                    // Try to create. If it fails (race condition), fetch it again.
+                    try {
+                      competitorBrand = await prisma.brand.create({
+                        data: {
+                          domain: competitorDomain,
+                          name: competitorNameRaw,
+                          organizationId: null,
+                        },
+                      });
+                    } catch (createError) {
+                      // Likely a unique constraint violation from another parallel execution
+                      competitorBrand = await prisma.brand.findUnique({
+                        where: { domain: competitorDomain },
+                      });
+                    }
+                  }
 
-                // 2. Link it as a competitor to the current brand
-                await prisma.competitor.upsert({
-                  where: {
-                    brandId_competitorId: {
-                      brandId: prompt.brandId,
-                      competitorId: competitorBrand.id,
-                    },
-                  },
-                  update: {
-                    mentions: { increment: 1 },
-                  },
-                  create: {
-                    brandId: prompt.brandId,
-                    competitorId: competitorBrand.id,
-                  },
-                });
+                  if (competitorBrand) {
+                    // Prevent adding the brand itself as a competitor
+                    if (competitorBrand.id === prompt.brandId) {
+                      return;
+                    }
+
+                    // 2. Link it as a competitor to the current brand
+                    await prisma.competitor.upsert({
+                      where: {
+                        brandId_competitorId: {
+                          brandId: prompt.brandId,
+                          competitorId: competitorBrand.id,
+                        },
+                      },
+                      update: {
+                        mentions: { increment: 1 },
+                      },
+                      create: {
+                        brandId: prompt.brandId,
+                        competitorId: competitorBrand.id,
+                      },
+                    });
+                  }
+                }
+              } catch (err) {
+                console.warn(
+                  `Failed to process competitor ${competitorNameRaw}:`,
+                  err,
+                );
               }
-            } catch (err) {
-              console.warn(
-                `Failed to process competitor ${competitorNameRaw}:`,
-                err,
-              );
-            }
-          }
+            }),
+          );
         }
       } catch (metricsError) {
         console.error(

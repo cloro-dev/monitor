@@ -156,7 +156,7 @@ export default function SettingsPage() {
                     </span>
                   </div>
                   <div className="text-sm">
-                    <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">
+                    <span className="rounded-full bg-secondary px-2 py-1 text-foreground">
                       {member.role}
                     </span>
                   </div>

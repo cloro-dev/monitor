@@ -91,7 +91,7 @@ export function AppSidebar({
           <div
             className={`flex items-center gap-2 py-1 ${state === 'collapsed' ? '' : 'px-2'}`}
           >
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg border bg-white text-black">
               <span className="text-sm font-bold">M</span>
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
@@ -123,7 +123,7 @@ export function AppSidebar({
               className="rounded-lg"
             />
           ) : (
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg border bg-white text-black">
               <span className="text-sm font-bold">
                 {activeOrganization?.name?.charAt(0)?.toUpperCase() || 'M'}
               </span>

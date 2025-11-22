@@ -22,6 +22,7 @@ import {
   IconBuildingStore,
 } from '@tabler/icons-react';
 import Image from 'next/image';
+import { getFaviconUrl } from '@/lib/utils';
 
 interface BrandListProps {
   brands: Brand[];
@@ -47,22 +48,21 @@ export function BrandList({
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Favicon */}
                 <div className="flex h-8 w-8 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {brand.faviconUrl ? (
-                    <Image
-                      src={brand.faviconUrl}
-                      alt={`${brand.name || brand.domain} favicon`}
-                      width={32}
-                      height={32}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        // Fallback to default icon if favicon fails to load
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.classList.remove(
-                          'hidden',
-                        );
-                      }}
-                    />
-                  ) : null}
+                  <Image
+                    src={getFaviconUrl(brand.domain)}
+                    alt={`${brand.name || brand.domain} favicon`}
+                    width={32}
+                    height={32}
+                    className="h-full w-full object-cover"
+                    unoptimized
+                    onError={(e) => {
+                      // Fallback to default icon if favicon fails to load
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove(
+                        'hidden',
+                      );
+                    }}
+                  />
                   <IconWorld className="hidden h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 </div>
 

@@ -103,7 +103,6 @@ model brand {
   domain         String        @unique
   name           String?
   description    String?
-  faviconUrl     String?
   organizationId String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -181,7 +180,6 @@ model Source {
   url        String   @unique
   hostname   String
   title      String?
-  faviconUrl String?
   type       String?
   results    Result[] @relation("ResultSources")
   createdAt  DateTime @default(now())

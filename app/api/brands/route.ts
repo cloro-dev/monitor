@@ -15,7 +15,6 @@ const createBrandSchema = z.object({
 const updateBrandSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
-  faviconUrl: z.string().url().optional(),
 });
 
 // GET: Fetch brands for user's active organization
@@ -163,7 +162,6 @@ export async function POST(request: NextRequest) {
         domain: domainInfo.domain,
         name: domainInfo.name,
         description: domainInfo.description,
-        faviconUrl: domainInfo.faviconUrl,
         organizationId: activeOrganization.id,
       },
     });
@@ -227,7 +225,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brandId, name, description, faviconUrl } = body;
+    const { brandId, name, description } = body;
 
     if (!brandId) {
       return NextResponse.json(
@@ -239,7 +237,6 @@ export async function PATCH(request: NextRequest) {
     const updateData = updateBrandSchema.parse({
       name,
       description,
-      faviconUrl,
     });
 
     // Verify user is a member of the organization that owns the brand

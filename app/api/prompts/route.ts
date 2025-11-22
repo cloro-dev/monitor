@@ -10,7 +10,7 @@ const createPromptSchema = z.object({
     .string()
     .min(10, 'Prompt must be at least 10 characters')
     .max(200, 'Prompt must be at most 200 characters'),
-  country: z.string().min(1, 'Country is required'),
+  country: z.string().optional(),
   brandId: z.string().min(1, 'Brand is required'),
 });
 
@@ -225,10 +225,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use brand's default country as fallback, or the provided country, or US as final fallback
+    const country = validatedData.country || brand.defaultCountry || 'US';
+
     const newPrompt = await prisma.prompt.create({
       data: {
         text: validatedData.text,
-        country: validatedData.country,
+        country: country.toUpperCase(),
         brandId: validatedData.brandId,
         userId: session.user.id,
       },

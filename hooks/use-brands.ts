@@ -7,6 +7,7 @@ interface Brand {
   domain: string;
   name: string | null;
   description: string | null;
+  defaultCountry: string | null;
   organizationId: string;
   createdAt: string;
   updatedAt: string;
@@ -23,7 +24,7 @@ export function useBrands() {
     session ? '/api/brands' : null,
   );
 
-  const createBrand = async (domain: string) => {
+  const createBrand = async (domain: string, defaultCountry?: string) => {
     if (!session) {
       throw new Error('Not authenticated. Please sign in first.');
     }
@@ -31,6 +32,7 @@ export function useBrands() {
     // Let the API determine the active organization
     const response = await post<BrandsResponse>('/api/brands', {
       domain,
+      ...(defaultCountry && { defaultCountry }),
     });
 
     mutate();

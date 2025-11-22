@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { fetchDomainInfo, isValidDomain } from '@/lib/domain-fetcher';
 import { generateBrandPrompts } from '@/lib/ai-service';
+import { COUNTRY_NAME_MAP } from '@/lib/countries';
 import { z } from 'zod';
 
 // Validation schema
@@ -10,11 +11,25 @@ const createBrandSchema = z.object({
   domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
     message: 'Please enter a valid domain name (e.g., example.com)',
   }),
+  defaultCountry: z
+    .string()
+    .length(2, 'Country code must be exactly 2 characters')
+    .refine((code) => COUNTRY_NAME_MAP[code.toUpperCase()], {
+      message: 'Invalid country code',
+    })
+    .optional(),
 });
 
 const updateBrandSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
+  defaultCountry: z
+    .string()
+    .length(2, 'Country code must be exactly 2 characters')
+    .refine((code) => COUNTRY_NAME_MAP[code.toUpperCase()], {
+      message: 'Invalid country code',
+    })
+    .optional(),
 });
 
 // GET: Fetch brands for user's active organization
@@ -95,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { domain } = createBrandSchema.parse(body);
+    const { domain, defaultCountry } = createBrandSchema.parse(body);
 
     // Get user's active organization from session
     const userSession = await prisma.session.findFirst({
@@ -162,6 +177,7 @@ export async function POST(request: NextRequest) {
         domain: domainInfo.domain,
         name: domainInfo.name,
         description: domainInfo.description,
+        defaultCountry: defaultCountry?.toUpperCase(),
         organizationId: activeOrganization.id,
       },
     });
@@ -182,7 +198,7 @@ export async function POST(request: NextRequest) {
             await prisma.prompt.createMany({
               data: suggestedPrompts.map((text) => ({
                 text,
-                country: 'US', // Default to US for now
+                country: defaultCountry?.toUpperCase() || 'US', // Use brand's default country or fallback to US
                 status: 'SUGGESTED',
                 userId: session.user.id,
                 brandId: brand.id,
@@ -225,7 +241,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brandId, name, description } = body;
+    const { brandId, name, description, defaultCountry } = body;
 
     if (!brandId) {
       return NextResponse.json(
@@ -237,6 +253,7 @@ export async function PATCH(request: NextRequest) {
     const updateData = updateBrandSchema.parse({
       name,
       description,
+      defaultCountry,
     });
 
     // Verify user is a member of the organization that owns the brand
@@ -274,7 +291,10 @@ export async function PATCH(request: NextRequest) {
     // Update brand
     const updatedBrand = await prisma.brand.update({
       where: { id: brandId },
-      data: updateData,
+      data: {
+        ...updateData,
+        ...(defaultCountry && { defaultCountry: defaultCountry.toUpperCase() }),
+      },
     });
 
     return NextResponse.json({ brand: updatedBrand });

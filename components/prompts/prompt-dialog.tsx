@@ -95,6 +95,18 @@ export function PromptDialog({
     loadCountries();
   }, [isOpen, countries.length]);
 
+  const handleBrandChange = (brandId: string) => {
+    const selectedBrand = brands.find((brand) => brand.id === brandId);
+    const defaultCountry = selectedBrand?.defaultCountry || 'US';
+
+    setFormData({
+      ...formData,
+      brandId,
+      // Only update country if it's not already set or if we're creating a new prompt
+      ...(isEditing ? {} : { country: formData.country || defaultCountry }),
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -237,9 +249,7 @@ export function PromptDialog({
               <Label htmlFor="brand">Brand</Label>
               <Select
                 value={formData.brandId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, brandId: value })
-                }
+                onValueChange={handleBrandChange}
                 disabled={isLoading || isLoadingBrands}
               >
                 <SelectTrigger
@@ -251,7 +261,14 @@ export function PromptDialog({
                   <div className="max-h-[200px] overflow-y-auto">
                     {brands?.map((brand) => (
                       <SelectItem key={brand.id} value={brand.id}>
-                        {brand.name || brand.domain}
+                        <div className="flex items-center gap-2">
+                          <span>{brand.name || brand.domain}</span>
+                          {brand.defaultCountry && (
+                            <span className="rounded bg-muted px-1 py-0.5 text-xs font-medium text-muted-foreground">
+                              {brand.defaultCountry}
+                            </span>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </div>

@@ -1,11 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useBrands } from '@/hooks/use-brands';
 import {
@@ -28,11 +35,13 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { getFaviconUrl } from '@/lib/utils';
+import { getCountriesForSelect } from '@/lib/countries';
 
 const addBrandSchema = z.object({
   domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
     message: 'Please enter a valid domain name (e.g., example.com)',
   }),
+  defaultCountry: z.string().optional(),
 });
 
 type AddBrandFormData = z.infer<typeof addBrandSchema>;
@@ -42,24 +51,57 @@ export function BrandManagement() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
+  const [countries, setCountries] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+  const [isLoadingCountries, setIsLoadingCountries] = useState(true);
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<AddBrandFormData>({
     resolver: zodResolver(addBrandSchema),
   });
 
+  // Load countries on component mount
+  useEffect(() => {
+    const loadCountries = async () => {
+      try {
+        const countriesData = await getCountriesForSelect();
+        setCountries(countriesData);
+        // Set default to US if available
+        const usOption = countriesData.find(
+          (country) => country.value === 'US',
+        );
+        if (usOption) {
+          setValue('defaultCountry', 'US');
+        }
+      } catch (error) {
+        console.error('Error loading countries:', error);
+      } finally {
+        setIsLoadingCountries(false);
+      }
+    };
+
+    loadCountries();
+  }, [setValue]);
+
+  const selectedCountry = watch('defaultCountry');
+
   const handleAddBrand = async (data: AddBrandFormData) => {
     setIsSubmitting(true);
     try {
-      await createBrand(data.domain);
+      await createBrand(data.domain, data.defaultCountry);
       toast.success(
         `Brand added! We are generating 5 suggested prompts for your review in the Prompts page.`,
       );
       reset();
+      // Reset country to US default
+      setValue('defaultCountry', 'US');
     } catch (error: any) {
       console.error('Error adding brand:', error);
       toast.error(error.message || 'Failed to add brand');
@@ -131,6 +173,11 @@ export function BrandManagement() {
                     ({brand.domain})
                   </span>
                 )}
+                {brand.defaultCountry && (
+                  <span className="rounded bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                    {brand.defaultCountry}
+                  </span>
+                )}
                 <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
                   Added {new Date(brand.createdAt).toLocaleDateString()}
                 </span>
@@ -195,6 +242,28 @@ export function BrandManagement() {
             />
             <IconWorld className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
+          <Select
+            value={selectedCountry || ''}
+            onValueChange={(value) => setValue('defaultCountry', value)}
+            disabled={isSubmitting || isLoadingCountries}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Country">
+                {selectedCountry && !isLoadingCountries && (
+                  <div className="flex items-center gap-1">
+                    <span>{selectedCountry}</span>
+                  </div>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {countries.map((country) => (
+                <SelectItem key={country.value} value={country.value}>
+                  {country.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <IconLoader className="h-4 w-4 animate-spin" />
@@ -209,7 +278,8 @@ export function BrandManagement() {
           </p>
         ) : (
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter a domain name to track its brand information
+            Enter a domain name and select a default country for prompt
+            generation
           </p>
         )}
       </form>

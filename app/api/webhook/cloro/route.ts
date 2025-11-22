@@ -20,7 +20,11 @@ async function processWebhook(body: any) {
           include: {
             brand: {
               include: {
-                organization: true,
+                organizationBrands: {
+                  include: {
+                    organization: true,
+                  },
+                },
               },
             },
           },
@@ -48,7 +52,11 @@ async function processWebhook(body: any) {
 
     const prompt = result.prompt;
     const brandName = prompt.brand.name || prompt.brand.domain;
-    const orgId = prompt.brand.organization?.id || 'N/A';
+    // Get the first organization ID for logging purposes (brands can belong to multiple orgs)
+    const orgId =
+      prompt.brand.organizationBrands.length > 0
+        ? prompt.brand.organizationBrands[0].organizationId
+        : 'N/A';
 
     let sentiment: number | null = null;
     let position: number | null = null;
@@ -123,7 +131,6 @@ async function processWebhook(body: any) {
                           domain: domainInfo.domain,
                           name: domainInfo.name || competitorNameRaw,
                           description: domainInfo.description,
-                          organizationId: null,
                         },
                       });
                     } catch (createError) {

@@ -10,7 +10,11 @@ export async function trackAllPrompts(concurrency = 20) {
     include: {
       brand: {
         include: {
-          organization: true,
+          organizationBrands: {
+            include: {
+              organization: true,
+            },
+          },
         },
       },
     },
@@ -19,15 +23,17 @@ export async function trackAllPrompts(concurrency = 20) {
   // Create a flat queue of all model tasks to process
   const taskQueue: any[] = [];
   for (const prompt of prompts) {
-    const enabledModels = prompt.brand.organization
-      ? (prompt.brand.organization.aiModels as string[]) || []
-      : [];
-    for (const modelString of enabledModels) {
-      taskQueue.push({
-        promptId: prompt.id,
-        model: modelString,
-        prompt,
-      });
+    // For each organization that has access to this brand, check AI models
+    for (const orgBrand of prompt.brand.organizationBrands) {
+      const enabledModels = (orgBrand.organization.aiModels as string[]) || [];
+      for (const modelString of enabledModels) {
+        taskQueue.push({
+          promptId: prompt.id,
+          model: modelString,
+          prompt,
+          organizationId: orgBrand.organizationId,
+        });
+      }
     }
   }
 
@@ -47,6 +53,7 @@ export async function trackAllPrompts(concurrency = 20) {
         task.promptId,
         task.model,
         task.prompt,
+        task.organizationId,
       );
       results.push(result);
     }
@@ -62,6 +69,7 @@ async function trackSingleModel(
   promptId: string,
   modelString: string,
   prompt: any,
+  organizationId?: string,
 ) {
   const model = modelString as ProviderModel;
   let result: Result | null = null;
@@ -84,7 +92,7 @@ async function trackSingleModel(
 
     // Use country code directly
     const countryCode = prompt.country;
-    const orgId = prompt.brand.organization?.id || 'N/A';
+    const orgId = organizationId || 'N/A';
 
     await trackPromptAsync(prompt.text, countryCode, model, result.id);
 
@@ -126,7 +134,11 @@ export async function trackPromptById(promptId: string) {
     include: {
       brand: {
         include: {
-          organization: true,
+          organizationBrands: {
+            include: {
+              organization: true,
+            },
+          },
         },
       },
     },
@@ -137,27 +149,40 @@ export async function trackPromptById(promptId: string) {
     return;
   }
 
-  if (!prompt.brand.organization) {
-    console.warn(`Prompt ${promptId} belongs to an unmanaged brand.`);
-    return;
-  }
-
-  // Get enabled AI models for the organization
-  const enabledModels = (prompt.brand.organization.aiModels as string[]) || [];
-
-  if (enabledModels.length === 0) {
+  if (prompt.brand.organizationBrands.length === 0) {
     console.warn(
-      `No AI models enabled for organization ${prompt.brand.organization.name}`,
+      `Prompt ${promptId} belongs to a brand with no organization access.`,
     );
     return;
   }
 
-  // Process models with concurrency limit of 2
-  const taskQueue = enabledModels.map((modelString) => ({
-    promptId,
-    model: modelString,
-    prompt,
-  }));
+  // Collect all enabled AI models from all organizations that have access to this brand
+  const taskQueue: any[] = [];
+  for (const orgBrand of prompt.brand.organizationBrands) {
+    const enabledModels = (orgBrand.organization.aiModels as string[]) || [];
+    if (enabledModels.length === 0) {
+      console.warn(
+        `No AI models enabled for organization ${orgBrand.organization.name}`,
+      );
+      continue;
+    }
+
+    for (const modelString of enabledModels) {
+      taskQueue.push({
+        promptId,
+        model: modelString,
+        prompt,
+        organizationId: orgBrand.organizationId,
+      });
+    }
+  }
+
+  if (taskQueue.length === 0) {
+    console.warn(
+      `No AI models enabled for any organization that has access to brand ${prompt.brand.name}`,
+    );
+    return;
+  }
 
   let taskIndex = 0;
   const concurrency = 2;
@@ -171,7 +196,12 @@ export async function trackPromptById(promptId: string) {
         break;
       }
 
-      await trackSingleModel(task.promptId, task.model, task.prompt);
+      await trackSingleModel(
+        task.promptId,
+        task.model,
+        task.prompt,
+        task.organizationId,
+      );
     }
   }
 

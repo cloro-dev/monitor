@@ -86,34 +86,48 @@ model verification {
 }
 
 model organization {
-  id          String       @id @default(cuid())
+  id          String                @id @default(cuid())
   name        String
-  slug        String       @unique
+  slug        String                @unique
   logo        String?
   metadata    Json?
   aiModels    Json? // Store enabled AI models as JSON array
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime              @default(now())
   members     member[]
   invitations invitation[]
-  brands      brand[]
+  organizationBrands organization_brand[]
 }
 
 model brand {
-  id             String        @id @default(cuid())
-  domain         String        @unique
+  id             String       @id @default(cuid())
+  domain         String       @unique
   name           String?
   description    String?
   defaultCountry String?
-  organizationId String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationBrands organization_brand[]
   prompts        prompt[]
   competitors    Competitor[]  @relation("BrandToCompetitor")
   competitorOf   Competitor[]  @relation("CompetitorToBrand")
 
-  @@index([organizationId])
   @@index([domain])
+}
+
+model organization_brand {
+  id             String   @id @default(cuid())
+  organizationId String
+  brandId        String
+  role           String   @default("member") // member, admin, viewer
+  createdAt      DateTime @default(now())
+
+  organization   organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand          brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, brandId])
+  @@index([organizationId])
+  @@index([brandId])
+  @@map("organization_brand")
 }
 
 model member {

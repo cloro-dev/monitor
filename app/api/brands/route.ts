@@ -78,10 +78,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ brands: [] });
     }
 
-    // Fetch brands for the organization
+    // Fetch brands for the organization through the join table
     const brands = await prisma.brand.findMany({
       where: {
-        organizationId: activeOrganization.id,
+        organizationBrands: {
+          some: {
+            organizationId: activeOrganization.id,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -156,49 +160,84 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if domain already exists (within the user's organization)
-    const existingBrand = await prisma.brand.findUnique({
+    // Check if domain already exists globally
+    let brand = await prisma.brand.findUnique({
       where: { domain },
     });
 
-    if (existingBrand) {
-      return NextResponse.json(
-        { error: 'Brand with this domain already exists' },
-        { status: 409 },
-      );
+    const isNewBrand = !brand;
+
+    if (brand) {
+      // Check if the organization already has access to this brand
+      const existingAssociation = await prisma.organization_brand.findUnique({
+        where: {
+          organizationId_brandId: {
+            organizationId: activeOrganization.id,
+            brandId: brand.id,
+          },
+        },
+      });
+
+      if (existingAssociation) {
+        return NextResponse.json(
+          {
+            error:
+              'Brand with this domain is already available to your organization',
+          },
+          { status: 409 },
+        );
+      }
     }
 
-    // Fetch domain information including brand name and favicon
-    const domainInfo = await fetchDomainInfo(domain);
+    // Create new brand if it doesn't exist
+    if (!brand) {
+      const domainInfo = await fetchDomainInfo(domain);
 
-    // Create brand with fetched information using active organization
-    const brand = await prisma.brand.create({
+      brand = await prisma.brand.create({
+        data: {
+          domain: domainInfo.domain,
+          name: domainInfo.name,
+          description: domainInfo.description,
+          defaultCountry: defaultCountry?.toUpperCase(),
+        },
+      });
+    } else {
+      // Update existing brand with defaultCountry if needed
+      if (
+        defaultCountry &&
+        brand.defaultCountry !== defaultCountry.toUpperCase()
+      ) {
+        brand = await prisma.brand.update({
+          where: { id: brand.id },
+          data: { defaultCountry: defaultCountry.toUpperCase() },
+        });
+      }
+    }
+
+    // Create organization-brand relationship
+    await prisma.organization_brand.create({
       data: {
-        domain: domainInfo.domain,
-        name: domainInfo.name,
-        description: domainInfo.description,
-        defaultCountry: defaultCountry?.toUpperCase(),
         organizationId: activeOrganization.id,
+        brandId: brand.id,
+        role: isNewBrand ? 'admin' : 'member', // Brand creator gets admin role for new brands
       },
     });
 
-    // Generate suggested prompts in background
-    if (domainInfo.description) {
-      // We don't await this to keep the UI snappy, but we catch errors to prevent crashes
-      // In a production environment, this should be a proper background job
+    // Generate AI prompts for both new and existing brands
+    if (brand.description) {
       (async () => {
         try {
           const suggestedPrompts = await generateBrandPrompts(
-            domainInfo.name || domain,
-            domainInfo.description!,
+            brand.name || domain,
+            brand.description!,
           );
 
-          // Batch create the prompts
           if (suggestedPrompts && suggestedPrompts.length > 0) {
             await prisma.prompt.createMany({
               data: suggestedPrompts.map((text) => ({
                 text,
-                country: defaultCountry?.toUpperCase() || 'US', // Use brand's default country or fallback to US
+                country:
+                  defaultCountry?.toUpperCase() || brand.defaultCountry || 'US',
                 status: 'SUGGESTED',
                 userId: session.user.id,
                 brandId: brand.id,
@@ -256,32 +295,43 @@ export async function PATCH(request: NextRequest) {
       defaultCountry,
     });
 
-    // Verify user is a member of the organization that owns the brand
+    // Verify user has permission to update this brand through organization_brand relationship
     const brand = await prisma.brand.findUnique({
       where: { id: brandId },
-      include: { organization: true },
     });
 
     if (!brand) {
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
     }
 
-    if (!brand.organizationId) {
-      return NextResponse.json(
-        { error: 'Cannot modify unmanaged brand' },
-        { status: 403 },
-      );
-    }
-
-    const membership = await prisma.member.findFirst({
+    // Check if user has admin or owner role for this brand in any organization
+    const organizationBrand = await prisma.organization_brand.findFirst({
       where: {
-        userId: session.user.id,
-        organizationId: brand.organizationId,
-        role: { in: ['owner', 'admin'] },
+        brandId: brandId,
+        organization: {
+          members: {
+            some: {
+              userId: session.user.id,
+              role: { in: ['owner', 'admin'] },
+            },
+          },
+        },
+      },
+      include: {
+        organization: {
+          include: {
+            members: {
+              where: {
+                userId: session.user.id,
+                role: { in: ['owner', 'admin'] },
+              },
+            },
+          },
+        },
       },
     });
 
-    if (!membership) {
+    if (!organizationBrand) {
       return NextResponse.json(
         { error: "You don't have permission to update this brand" },
         { status: 403 },
@@ -336,39 +386,38 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Verify user is a member of the organization that owns the brand
+    // Verify user has permission to delete this brand through organization_brand relationship
     const brand = await prisma.brand.findUnique({
       where: { id: brandId },
-      include: { organization: true },
     });
 
     if (!brand) {
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
     }
 
-    if (!brand.organizationId) {
-      return NextResponse.json(
-        { error: 'Cannot delete unmanaged brand' },
-        { status: 403 },
-      );
-    }
-
-    const membership = await prisma.member.findFirst({
+    // Check if user has admin or owner role for this brand in any organization
+    const organizationBrand = await prisma.organization_brand.findFirst({
       where: {
-        userId: session.user.id,
-        organizationId: brand.organizationId,
-        role: { in: ['owner', 'admin'] },
+        brandId: brandId,
+        organization: {
+          members: {
+            some: {
+              userId: session.user.id,
+              role: { in: ['owner', 'admin'] },
+            },
+          },
+        },
       },
     });
 
-    if (!membership) {
+    if (!organizationBrand) {
       return NextResponse.json(
         { error: "You don't have permission to delete this brand" },
         { status: 403 },
       );
     }
 
-    // Delete brand
+    // Delete the brand (this will cascade delete organization_brand relationships)
     await prisma.brand.delete({
       where: { id: brandId },
     });

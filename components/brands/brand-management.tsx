@@ -242,6 +242,11 @@ export function BrandManagement() {
             />
             <IconWorld className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
+          <Input
+            type="hidden"
+            {...register('defaultCountry')}
+            value={selectedCountry || ''}
+          />
           <Select
             value={selectedCountry || ''}
             onValueChange={(value) => setValue('defaultCountry', value)}

@@ -190,9 +190,48 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createPromptSchema.parse(body);
 
-    // Get the organization to check if AI models are enabled
-    const brand = await prisma.brand.findUnique({
-      where: { id: validatedData.brandId },
+    // Get user's active organization from session
+    const userSession = await prisma.session.findFirst({
+      where: {
+        userId: session.user.id,
+      },
+      include: {
+        user: {
+          include: {
+            members: {
+              include: {
+                organization: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!userSession?.activeOrganizationId) {
+      return NextResponse.json(
+        { error: 'No active organization selected' },
+        { status: 400 },
+      );
+    }
+
+    const activeOrganization = userSession.user.members.find(
+      (m: any) => m.organizationId === userSession.activeOrganizationId,
+    )?.organization;
+
+    if (!activeOrganization) {
+      return NextResponse.json(
+        { error: 'Active organization not found' },
+        { status: 400 },
+      );
+    }
+
+    // Check if user has access to the brand through organization-brand relationship
+    const organizationBrand = await prisma.organization_brand.findFirst({
+      where: {
+        brandId: validatedData.brandId,
+        organizationId: activeOrganization.id,
+      },
       include: {
         organization: {
           select: {
@@ -202,19 +241,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!brand) {
-      return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
-    }
-
-    if (!brand.organization) {
+    if (!organizationBrand) {
       return NextResponse.json(
-        { error: 'Cannot create prompts for unmanaged brands' },
+        { error: 'You do not have access to this brand' },
         { status: 400 },
       );
     }
 
     // Check if any AI models are enabled
-    const enabledModels = (brand.organization.aiModels as string[]) || [];
+    const enabledModels =
+      (organizationBrand.organization.aiModels as string[]) || [];
     if (enabledModels.length === 0) {
       return NextResponse.json(
         {
@@ -225,8 +261,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get brand details for default country
+    const brand = await prisma.brand.findUnique({
+      where: { id: validatedData.brandId },
+      select: { defaultCountry: true },
+    });
+
     // Use brand's default country as fallback, or the provided country, or US as final fallback
-    const country = validatedData.country || brand.defaultCountry || 'US';
+    const country = validatedData.country || brand?.defaultCountry || 'US';
 
     const newPrompt = await prisma.prompt.create({
       data: {

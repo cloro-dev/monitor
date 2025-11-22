@@ -47,10 +47,14 @@ export async function GET(req: Request) {
     return NextResponse.json([]);
   }
 
-  // 1. Get all brands for the organization to create a lookup map
+  // 1. Get all brands for the organization through the join table to create a lookup map
   const brands = await prisma.brand.findMany({
     where: {
-      organizationId: activeOrganization.id,
+      organizationBrands: {
+        some: {
+          organizationId: activeOrganization.id,
+        },
+      },
     },
     select: {
       id: true,

@@ -8,7 +8,6 @@ interface Brand {
   name: string | null;
   description: string | null;
   defaultCountry: string | null;
-  organizationId: string;
   createdAt: string;
   updatedAt: string;
 }

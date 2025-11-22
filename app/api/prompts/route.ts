@@ -305,3 +305,84 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+const bulkUpdateSchema = z.object({
+  ids: z.array(z.string()).min(1, 'At least one prompt ID is required'),
+  status: z.enum(['ACTIVE', 'SUGGESTED', 'ARCHIVED']),
+});
+
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await auth.api.getSession({ headers: request.headers });
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { ids, status } = bulkUpdateSchema.parse(body);
+
+    // Fetch user session to get active org
+    const userSession = await prisma.session.findFirst({
+      where: { userId: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+
+    if (!userSession?.activeOrganizationId) {
+      return NextResponse.json(
+        { error: 'No active organization' },
+        { status: 403 },
+      );
+    }
+
+    // Get all brands for this organization
+    const orgBrands = await prisma.organization_brand.findMany({
+      where: { organizationId: userSession.activeOrganizationId },
+      select: { brandId: true },
+    });
+    const allowedBrandIds = orgBrands.map((ob) => ob.brandId);
+
+    const result = await prisma.prompt.updateMany({
+      where: {
+        id: { in: ids },
+        brandId: { in: allowedBrandIds }, // Security scope
+      },
+      data: {
+        status,
+      },
+    });
+
+    // If activated, trigger tracking
+    if (status === 'ACTIVE') {
+      // We need to find which IDs were actually updated to track them
+      // updateMany returns count, but not the records.
+      // So we fetch them. This is a bit redundant but ensures we only track valid ones.
+      const activatedPrompts = await prisma.prompt.findMany({
+        where: {
+          id: { in: ids },
+          brandId: { in: allowedBrandIds },
+          status: 'ACTIVE',
+        },
+        select: { id: true },
+      });
+
+      activatedPrompts.forEach((p) => {
+        waitUntil(trackPromptById(p.id));
+      });
+    }
+
+    return NextResponse.json({ updated: result.count });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid data', details: error.errors },
+        { status: 400 },
+      );
+    }
+    console.error('Error bulk updating prompts:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 },
+    );
+  }
+}

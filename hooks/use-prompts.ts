@@ -187,6 +187,33 @@ export function useUpdatePrompt() {
 }
 
 /**
+ * Hook to bulk update prompts
+ */
+export function useBulkUpdatePrompts() {
+  const bulkUpdatePrompts = async (
+    ids: string[],
+    status: 'ACTIVE' | 'SUGGESTED' | 'ARCHIVED',
+  ) => {
+    try {
+      await put('/api/prompts', { ids, status });
+
+      // Invalidate all prompt-related keys
+      await globalMutate(
+        (key) => typeof key === 'string' && key.startsWith('/api/prompts'),
+        undefined,
+        { revalidate: true },
+      );
+
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  return { bulkUpdatePrompts };
+}
+
+/**
  * Hook to delete a prompt
  */
 export function useDeletePrompt() {

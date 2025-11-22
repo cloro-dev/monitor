@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { PromptsTable } from '@/components/prompts/prompts-table';
 import { AddPromptButton } from '@/components/prompts/prompt-dialog';
-import { usePrompts } from '@/hooks/use-prompts';
+import { usePrompts, useBulkUpdatePrompts } from '@/hooks/use-prompts';
 import { useActiveOrganization } from '@/hooks/use-organizations';
 import { BrandFilter } from '@/components/brands/brand-filter';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import { Check, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Force dynamic rendering for authentication
 export const dynamic = 'force-dynamic';
@@ -19,6 +21,8 @@ export default function PromptsPage() {
   const [activeTab, setActiveTab] = useState('active');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+  const { bulkUpdatePrompts } = useBulkUpdatePrompts();
+  const [isAcceptingAll, setIsAcceptingAll] = useState(false);
 
   // Map UI tab to API status
   const apiStatus = useMemo(() => {
@@ -35,6 +39,20 @@ export default function PromptsPage() {
     currentPage,
     itemsPerPage,
   );
+
+  const handleAcceptAll = async () => {
+    if (!prompts.length) return;
+    setIsAcceptingAll(true);
+    try {
+      const ids = prompts.map((p) => p.id);
+      await bulkUpdatePrompts(ids, 'ACTIVE');
+      toast.success(`Accepted ${ids.length} prompts`);
+    } catch (error) {
+      toast.error('Failed to accept prompts');
+    } finally {
+      setIsAcceptingAll(false);
+    }
+  };
 
   // Check if AI models are enabled
   const enabledModels = (activeOrganization?.aiModels as string[]) || [];
@@ -98,26 +116,43 @@ export default function PromptsPage() {
           }}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 lg:w-[300px]">
-            <TabsTrigger value="active" className="items-end px-4">
-              Active
-              <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
-                {counts?.ACTIVE || 0}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="suggested" className="items-end px-4">
-              Suggested
-              <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
-                {counts?.SUGGESTED || 0}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="archived" className="items-end px-4">
-              Archived
-              <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
-                {counts?.ARCHIVED || 0}
-              </span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="mb-4 flex items-center justify-between">
+            <TabsList className="grid w-full grid-cols-3 lg:w-[300px]">
+              <TabsTrigger value="active" className="items-end px-4">
+                Active
+                <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
+                  {counts?.ACTIVE || 0}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="suggested" className="items-end px-4">
+                Suggested
+                <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
+                  {counts?.SUGGESTED || 0}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="archived" className="items-end px-4">
+                Archived
+                <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
+                  {counts?.ARCHIVED || 0}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+            {activeTab === 'suggested' && prompts.length > 0 && (
+              <Button
+                onClick={handleAcceptAll}
+                disabled={isAcceptingAll}
+                size="sm"
+                className="ml-auto"
+              >
+                {isAcceptingAll ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                Accept All
+              </Button>
+            )}
+          </div>
 
           <TabsContent value="active" className="mt-4">
             <PromptsTable data={prompts} />

@@ -6,7 +6,6 @@ export interface DomainInfo {
   domain: string;
   name: string | null;
   description: string | null;
-  faviconUrl: string | null;
   type: string | null;
 }
 
@@ -33,28 +32,22 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
     // Extract description from metadata
     const description = extractDescriptionFromMetadata(metadata);
 
-    // Use Google favicon service
-    const faviconUrl = `https://www.google.com/s2/favicons?domain=${normalizedDomain}&sz=64`;
-
     return {
       domain: normalizedDomain,
       name: enrichedInfo.name,
       type: enrichedInfo.type,
       description,
-      faviconUrl,
     };
   } catch (error) {
     console.warn(`Error fetching domain info for ${domain}:`, error);
 
     // Fallback: use domain-based extraction
     const normalizedDomain = normalizeDomain(domain);
-    const faviconUrl = `https://www.google.com/s2/favicons?domain=${normalizedDomain}&sz=64`;
 
     return {
       domain: normalizedDomain,
       name: normalizedDomain,
       description: null,
-      faviconUrl,
       type: 'WEBSITE', // Default fallback type
     };
   }

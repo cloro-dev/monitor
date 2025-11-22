@@ -4,6 +4,9 @@ import { ProviderModel, Result } from '@prisma/client';
 
 export async function trackAllPrompts(concurrency = 20) {
   const prompts = await prisma.prompt.findMany({
+    where: {
+      status: 'ACTIVE',
+    },
     include: {
       brand: {
         include: {

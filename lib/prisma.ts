@@ -1,37 +1,27 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool, PoolConfig } from 'pg';
+import { Pool } from 'pg';
 import { env } from 'process';
 
 const connectionString = env.DATABASE_URL;
-let finalConnectionString = connectionString;
-let sslConfig: PoolConfig['ssl'] = false; // Default to NO SSL (for local dev)
+const useSelfSigned = process.env.DB_SSL === 'allow-self-signed';
 
-if (connectionString) {
+// If using custom SSL config, strip sslmode from connection string to avoid conflicts
+let finalConnectionString = connectionString;
+if (useSelfSigned && connectionString) {
   try {
     const url = new URL(connectionString);
-    const sslMode = url.searchParams.get('sslmode');
-
-    // Always delete sslmode from the URL after reading it,
-    // so our explicit `ssl` config object takes precedence.
     url.searchParams.delete('sslmode');
     finalConnectionString = url.toString();
-
-    if (sslMode === 'no-verify') {
-      // Allow self-signed certs (e.g. DigitalOcean managed DBs)
-      sslConfig = { rejectUnauthorized: false };
-    } else if (sslMode === 'require') {
-      // Standard strict SSL
-      sslConfig = true;
-    }
   } catch (e) {
-    console.warn('Failed to parse DATABASE_URL, falling back to default', e);
+    // If URL parsing fails, fallback to original string
+    console.warn('Failed to parse DATABASE_URL, using original string');
   }
 }
 
 const pool = new Pool({
   connectionString: finalConnectionString,
-  ssl: sslConfig,
+  ssl: useSelfSigned ? { rejectUnauthorized: false } : undefined,
 });
 const adapter = new PrismaPg(pool);
 declare global {

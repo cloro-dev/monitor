@@ -44,7 +44,7 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
       faviconUrl,
     };
   } catch (error) {
-    console.error(`Error fetching domain info for ${domain}:`, error);
+    console.warn(`Error fetching domain info for ${domain}:`, error);
 
     // Fallback: use domain-based extraction
     const normalizedDomain = normalizeDomain(domain);

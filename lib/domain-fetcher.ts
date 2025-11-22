@@ -33,8 +33,8 @@ export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
     // Extract description from metadata
     const description = extractDescriptionFromMetadata(metadata);
 
-    // Extract favicon URL from metadata
-    const faviconUrl = extractFaviconUrl(metadata, normalizedDomain);
+    // Use Google favicon service
+    const faviconUrl = `https://www.google.com/s2/favicons?domain=${normalizedDomain}&sz=64`;
 
     return {
       domain: normalizedDomain,
@@ -167,33 +167,6 @@ Examples:
       type: 'WEBSITE',
     };
   }
-}
-
-/**
- * Extract favicon URL from URL metadata
- */
-function extractFaviconUrl(metadata: any, domain: string): string | null {
-  // Try to get favicon from metadata
-  const faviconUrl = metadata.favicon;
-
-  if (faviconUrl && typeof faviconUrl === 'string') {
-    // Convert relative URLs to absolute
-    if (faviconUrl.startsWith('/')) {
-      return `https://${domain}${faviconUrl}`;
-    }
-    if (faviconUrl.startsWith('//')) {
-      return `https:${faviconUrl}`;
-    }
-    if (faviconUrl.startsWith('http')) {
-      return faviconUrl;
-    }
-    if (!faviconUrl.startsWith('http') && !faviconUrl.startsWith('//')) {
-      return `https://${domain}/${faviconUrl}`;
-    }
-  }
-
-  // Fallback to Google favicon service
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 }
 
 /**

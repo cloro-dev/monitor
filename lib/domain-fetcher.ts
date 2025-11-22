@@ -31,7 +31,7 @@ export async function fetchDomainInfo(
     metadataFetched = true;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.warn(
+    console.info(
       `${logPrefix} Metadata fetch failed for ${domain} (${msg}). Using AI fallback.`,
     );
   }

@@ -53,6 +53,7 @@ export async function processAndSaveSources(
             url: source.url,
             hostname: source.hostname,
             title: source.title,
+            faviconUrl: domainInfo.faviconUrl,
             type: domainInfo.type, // Added type
             results: {
               connect: { id: resultId },

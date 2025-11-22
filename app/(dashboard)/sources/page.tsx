@@ -16,7 +16,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getFaviconUrl } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -67,6 +66,7 @@ interface DbSource {
   url: string;
   hostname: string;
   type?: string | null;
+  faviconUrl?: string | null;
 }
 
 interface DomainStat {
@@ -77,6 +77,7 @@ interface DomainStat {
   uniquePrompts: Set<string>;
   utilization: number;
   type?: string;
+  faviconUrl?: string;
 }
 
 interface URLStat {
@@ -87,6 +88,7 @@ interface URLStat {
   uniquePrompts: Set<string>;
   utilization: number;
   type?: string;
+  faviconUrl?: string;
 }
 
 const typeStyles: Record<string, string> = {
@@ -214,6 +216,7 @@ export default function SourcesPage() {
         url: string,
         position: number | undefined,
         type?: string | null,
+        favicon?: string | null,
       ) => {
         try {
           if (!url) return;
@@ -232,6 +235,9 @@ export default function SourcesPage() {
               uniquePrompts: new Set(),
               utilization: 0,
               type: type || undefined,
+              faviconUrl:
+                favicon ||
+                `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
             });
           }
           const dStat = domainMap.get(domain)!;
@@ -240,8 +246,10 @@ export default function SourcesPage() {
           if (typeof position === 'number') {
             dStat.totalPosition += position;
           }
-          // Update type if we found a better one (e.g. from DB)
+          // Update type/favicon if we found a better one (e.g. from DB)
           if (type && !dStat.type) dStat.type = type;
+          if (favicon && !dStat.faviconUrl?.includes('google.com'))
+            dStat.faviconUrl = favicon;
 
           // URL Stats
           if (!urlMap.has(cleanUrl)) {
@@ -253,6 +261,9 @@ export default function SourcesPage() {
               uniquePrompts: new Set(),
               utilization: 0,
               type: type || undefined,
+              faviconUrl:
+                favicon ||
+                `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
             });
           }
           const uStat = urlMap.get(cleanUrl)!;
@@ -261,8 +272,10 @@ export default function SourcesPage() {
           if (typeof position === 'number') {
             uStat.totalPosition += position;
           }
-          // Update type if we found a better one
+          // Update type/favicon if we found a better one
           if (type && !uStat.type) uStat.type = type;
+          if (favicon && !uStat.faviconUrl?.includes('google.com'))
+            uStat.faviconUrl = favicon;
         } catch (e) {
           // Invalid URL
         }
@@ -279,7 +292,7 @@ export default function SourcesPage() {
             if (match) position = match.position;
           }
 
-          processSource(source.url, position, source.type);
+          processSource(source.url, position, source.type, source.faviconUrl);
         });
       }
       // If no DB sources, we skip. Since DB is reset, we assume data will be correct going forward.
@@ -569,7 +582,7 @@ export default function SourcesPage() {
                         <div className="flex items-center gap-2">
                           <Avatar className="h-5 w-5 rounded-sm">
                             <AvatarImage
-                              src={getFaviconUrl(stat.domain)}
+                              src={stat.faviconUrl}
                               alt={stat.domain}
                             />
                             <AvatarFallback className="rounded-sm text-[10px]">
@@ -645,10 +658,7 @@ export default function SourcesPage() {
                       >
                         <div className="flex items-center gap-2">
                           <Avatar className="h-5 w-5 rounded-sm">
-                            <AvatarImage
-                              src={getFaviconUrl(stat.hostname)}
-                              alt={stat.url}
-                            />
+                            <AvatarImage src={stat.faviconUrl} alt={stat.url} />
                             <AvatarFallback className="rounded-sm text-[10px]">
                               U
                             </AvatarFallback>

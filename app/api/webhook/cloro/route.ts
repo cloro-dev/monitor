@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { analyzeBrandMetrics, getCompetitorDomain } from '@/lib/ai-service';
 import { processAndSaveSources } from '@/lib/source-service';
 import { waitUntil } from '@vercel/functions';
+import { fetchDomainInfo } from '@/lib/domain-fetcher';
 
 export const maxDuration = 60; // Allow up to 60s for the webhook handler to run
 
@@ -98,12 +99,30 @@ async function processWebhook(body: any) {
                   });
 
                   if (!competitorBrand) {
+                    // Fetch domain info to get description and official name
+                    // We catch errors to ensure one failed fetch doesn't break the whole webhook
+                    let domainInfo;
+                    try {
+                      domainInfo = await fetchDomainInfo(competitorDomain);
+                    } catch (e) {
+                      console.warn(
+                        `Failed to fetch domain info for ${competitorDomain} during competitor creation:`,
+                        e,
+                      );
+                      domainInfo = {
+                        domain: competitorDomain,
+                        name: competitorNameRaw,
+                        description: null,
+                      };
+                    }
+
                     // Try to create. If it fails (race condition), fetch it again.
                     try {
                       competitorBrand = await prisma.brand.create({
                         data: {
-                          domain: competitorDomain,
-                          name: competitorNameRaw,
+                          domain: domainInfo.domain,
+                          name: domainInfo.name || competitorNameRaw,
+                          description: domainInfo.description,
                           organizationId: null,
                         },
                       });
@@ -171,7 +190,10 @@ async function processWebhook(body: any) {
 
     // Extract and save sources asynchronously (non-blocking)
     await processAndSaveSources(resultId, responseData).catch((err) => {
-      console.error(`Failed to process sources for result ${resultId}:`, err);
+      console.error(
+        `[${orgId}] Failed to process sources for result ${resultId}:`,
+        err,
+      );
     });
 
     console.log(

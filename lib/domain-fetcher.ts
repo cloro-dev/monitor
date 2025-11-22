@@ -1,6 +1,8 @@
 import urlMetadata from 'url-metadata';
-import { generateObject } from 'ai';
-import { z } from 'zod';
+import {
+  enrichDomainInfoWithAI,
+  generateDomainInfoWithAI,
+} from '@/lib/ai-service';
 
 export interface DomainInfo {
   domain: string;
@@ -12,45 +14,82 @@ export interface DomainInfo {
 /**
  * Extract brand information from a domain including name and favicon
  */
-export async function fetchDomainInfo(domain: string): Promise<DomainInfo> {
-  try {
-    // Normalize the domain
-    const normalizedDomain = normalizeDomain(domain);
-    const url = `https://${normalizedDomain}`;
+export async function fetchDomainInfo(
+  domain: string,
+  resultId?: string,
+): Promise<DomainInfo> {
+  const logPrefix = resultId ? `[${resultId}]` : '[DomainFetcher]';
+  const normalizedDomain = normalizeDomain(domain);
+  let metadata;
+  let metadataFetched = false;
 
-    // Get metadata using url-metadata
-    const metadata = await urlMetadata(url, {
+  try {
+    const url = `https://${normalizedDomain}`;
+    metadata = await urlMetadata(url, {
       timeout: 10000, // 10 second timeout
     });
-
-    // Extract information using AI (combines name and type extraction)
-    const enrichedInfo = await enrichDomainInfoWithAI(
-      metadata,
-      normalizedDomain,
-    );
-
-    // Extract description from metadata
-    const description = extractDescriptionFromMetadata(metadata);
-
-    return {
-      domain: normalizedDomain,
-      name: enrichedInfo.name,
-      type: enrichedInfo.type,
-      description,
-    };
+    metadataFetched = true;
   } catch (error) {
-    console.warn(`Error fetching domain info for ${domain}:`, error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `${logPrefix} Metadata fetch failed for ${domain} (${msg}). Using AI fallback.`,
+    );
+  }
 
-    // Fallback: use domain-based extraction
-    const normalizedDomain = normalizeDomain(domain);
+  // 1. Attempt AI enrichment if metadata was fetched
+  if (metadataFetched) {
+    try {
+      const enrichedInfo = await enrichDomainInfoWithAI(
+        metadata,
+        normalizedDomain,
+      );
 
+      return {
+        domain: normalizedDomain,
+        name: enrichedInfo.name,
+        description: enrichedInfo.description,
+        type: enrichedInfo.type,
+      };
+    } catch (aiEnrichmentError) {
+      const msg =
+        aiEnrichmentError instanceof Error
+          ? aiEnrichmentError.message
+          : String(aiEnrichmentError);
+      console.warn(
+        `${logPrefix} AI enrichment failed for ${domain} (${msg}). Falling back to AI generation.`,
+      );
+      // Fall through to AI generation
+    }
+  }
+
+  // 2. Fallback: AI generation from scratch (if metadata failed OR enrichment failed)
+  try {
+    const aiGeneratedInfo = await generateDomainInfoWithAI(normalizedDomain);
     return {
       domain: normalizedDomain,
-      name: normalizedDomain,
-      description: null,
-      type: 'WEBSITE', // Default fallback type
+      name: aiGeneratedInfo.name,
+      description: aiGeneratedInfo.description,
+      type: aiGeneratedInfo.type,
     };
+  } catch (aiGenerationError) {
+    const msg =
+      aiGenerationError instanceof Error
+        ? aiGenerationError.message
+        : String(aiGenerationError);
+    console.warn(`${logPrefix} AI generation failed for ${domain}: ${msg}`);
   }
+
+  // 3. Final Fallback: Use metadata if available (even if enrichment failed), otherwise basic info
+  const metadataDescription = metadata
+    ? extractDescriptionFromMetadata(metadata)
+    : null;
+
+  return {
+    domain: normalizedDomain,
+    name: normalizedDomain,
+    description: metadataDescription,
+    type: 'WEBSITE',
+  };
 }
 
 /**
@@ -67,99 +106,6 @@ function extractDescriptionFromMetadata(metadata: any): string | null {
   }
 
   return null;
-}
-
-/**
- * Extract brand name and type from URL metadata using AI
- */
-async function enrichDomainInfoWithAI(
-  metadata: any,
-  domain: string,
-): Promise<{ name: string; type: string }> {
-  // Try multiple sources for the title/name in order of preference
-  const titleSource =
-    metadata['og:site_name'] ||
-    metadata['twitter:site'] ||
-    metadata['application-name'] ||
-    metadata.title ||
-    domain;
-
-  // Extract og:type for hint
-  const ogType = metadata['og:type'] || '';
-
-  try {
-    // Import AI models (same as ai-service.ts)
-    const { openai } = require('@ai-sdk/openai');
-    const { google } = require('@ai-sdk/google');
-
-    let model;
-    if (process.env.OPENAI_API_KEY) {
-      model = openai('gpt-4o-mini');
-    } else if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-      model = google('gemini-2.5-flash-lite');
-    } else {
-      throw new Error('No LLM provider API key found');
-    }
-
-    const { object } = await generateObject({
-      model,
-      schema: z.object({
-        brandName: z.string().max(100).describe('The cleaned brand name'),
-        sourceType: z
-          .enum([
-            'NEWS',
-            'BLOG',
-            'SOCIAL_MEDIA',
-            'FORUM',
-            'CORPORATE',
-            'E_COMMERCE',
-            'WIKI',
-            'GOVERNMENT',
-            'REVIEW',
-            'OTHER',
-          ])
-          .describe('The classification of the website source'),
-      }),
-      prompt: `
-Analyze this website metadata to extract the Brand Name and Classify the Source Type.
-
-Given:
-- Domain: "${domain}"
-- Page Title/Site Name: "${titleSource}"
-- OG Type: "${ogType}"
-
-1. **Brand Name**: Extract the core brand name. Remove generic text ("Official Site", "Home", "Inc", "LLC").
-2. **Source Type**: Classify the website into one of these categories:
-   - NEWS: News outlets, newspapers, magazines (e.g., NYT, CNN, TechCrunch).
-   - BLOG: Personal or niche blogs, Substack, Medium.
-   - SOCIAL_MEDIA: Social platforms (e.g., Twitter, Reddit, LinkedIn, Instagram).
-   - FORUM: Discussion boards, Q&A sites (e.g., Quora, StackOverflow).
-   - CORPORATE: Business websites, SaaS landing pages, company portfolios.
-   - E_COMMERCE: Online stores (e.g., Amazon, Shopify stores).
-   - WIKI: Encyclopedias, documentation, wikis (e.g., Wikipedia).
-   - GOVERNMENT: .gov sites, official agencies.
-   - REVIEW: Review aggregators (e.g., G2, Capterra, Yelp, TripAdvisor).
-   - OTHER: Anything else.
-
-Examples:
-- "nytimes.com" -> Name: "The New York Times", Type: "NEWS"
-- "reddit.com" -> Name: "Reddit", Type: "SOCIAL_MEDIA"
-- "hubspot.com" -> Name: "HubSpot", Type: "CORPORATE"
-- "medium.com" -> Name: "Medium", Type: "BLOG"
-      `.trim(),
-    });
-
-    return {
-      name: object.brandName,
-      type: object.sourceType,
-    };
-  } catch (error) {
-    // Fallback if AI fails
-    return {
-      name: domain,
-      type: 'WEBSITE',
-    };
-  }
 }
 
 /**

@@ -37,6 +37,50 @@ const generatedPromptsSchema = z.object({
     ),
 });
 
+const enrichedDomainInfoSchema = z.object({
+  brandName: z.string().max(100).describe('The cleaned brand name'),
+  description: z
+    .string()
+    .max(200)
+    .describe('A short description of what the website is/does'),
+  sourceType: z
+    .enum([
+      'NEWS',
+      'BLOG',
+      'SOCIAL_MEDIA',
+      'FORUM',
+      'CORPORATE',
+      'E_COMMERCE',
+      'WIKI',
+      'GOVERNMENT',
+      'REVIEW',
+      'OTHER',
+    ])
+    .describe('The classification of the website source'),
+});
+
+const generatedDomainInfoSchema = z.object({
+  brandName: z.string().max(100).describe('The cleaned brand name'),
+  description: z
+    .string()
+    .max(200)
+    .describe('A short description of what the website is/does'),
+  sourceType: z
+    .enum([
+      'NEWS',
+      'BLOG',
+      'SOCIAL_MEDIA',
+      'FORUM',
+      'CORPORATE',
+      'E_COMMERCE',
+      'WIKI',
+      'GOVERNMENT',
+      'REVIEW',
+      'OTHER',
+    ])
+    .describe('The classification of the website source'),
+});
+
 // Hardcoded model instances
 const models = {
   openai: openai('gpt-4o-mini'),
@@ -184,4 +228,115 @@ export async function getCompetitorDomain(
   });
 
   return object.domain;
+}
+
+/**
+ * Extract brand name and type from URL metadata using AI
+ */
+export async function enrichDomainInfoWithAI(
+  metadata: any,
+  domain: string,
+): Promise<{ name: string; description: string | null; type: string }> {
+  // Try multiple sources for the title/name in order of preference
+  const titleSource =
+    metadata['og:site_name'] ||
+    metadata['twitter:site'] ||
+    metadata['application-name'] ||
+    metadata.title ||
+    domain;
+
+  // Extract og:type for hint
+  const ogType = metadata['og:type'] || '';
+
+  let model: LanguageModel;
+
+  // Select the LLM provider based on available environment variables.
+  if (process.env.OPENAI_API_KEY) {
+    model = models.openai;
+  } else if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    model = models.google;
+  } else {
+    throw new Error(
+      'No LLM provider API key found. Please set OPENAI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY.',
+    );
+  }
+
+  const { object } = await generateObject({
+    model,
+    schema: enrichedDomainInfoSchema,
+    prompt: `
+Analyze this website metadata to extract the Brand Name, Description, and Classify the Source Type.
+
+Given:
+- Domain: "${domain}"
+- Page Title/Site Name: "${titleSource}"
+- OG Type: "${ogType}"
+
+1. **Brand Name**: Extract the core brand name. Remove generic text ("Official Site", "Home", "Inc", "LLC").
+2. **Description**: A concise summary (max 200 chars) of what this website/brand is known for. If not explicitly clear, infer it from the context or brand name.
+3. **Source Type**: Classify the website into one of these categories:
+   - NEWS: News outlets, newspapers, magazines (e.g., NYT, CNN, TechCrunch).
+   - BLOG: Personal or niche blogs, Substack, Medium.
+   - SOCIAL_MEDIA: Social platforms (e.g., Twitter, Reddit, LinkedIn, Instagram).
+   - FORUM: Discussion boards, Q&A sites (e.g., Quora, StackOverflow).
+   - CORPORATE: Business websites, SaaS landing pages, company portfolios.
+   - E_COMMERCE: Online stores (e.g., Amazon, Shopify stores).
+   - WIKI: Encyclopedias, documentation, wikis (e.g., Wikipedia).
+   - GOVERNMENT: .gov sites, official agencies.
+   - REVIEW: Review aggregators (e.g., G2, Capterra, Yelp, TripAdvisor).
+   - OTHER: Anything else.
+
+Examples:
+- "nytimes.com" -> Name: "The New York Times", Description: "Leading global news organization.", Type: "NEWS"
+- "reddit.com" -> Name: "Reddit", Description: "Social news aggregation and discussion website.", Type: "SOCIAL_MEDIA"
+- "hubspot.com" -> Name: "HubSpot", Description: "CRM platform for scaling companies.", Type: "CORPORATE"
+- "medium.com" -> Name: "Medium", Description: "Open platform for reading and writing.", Type: "BLOG"
+      `.trim(),
+  });
+
+  return {
+    name: object.brandName,
+    description: object.description,
+    type: object.sourceType,
+  };
+}
+
+/**
+ * Generate domain info using AI when scraping fails
+ */
+export async function generateDomainInfoWithAI(
+  domain: string,
+): Promise<{ name: string; description: string | null; type: string }> {
+  let model: LanguageModel;
+
+  // Select the LLM provider based on available environment variables.
+  if (process.env.OPENAI_API_KEY) {
+    model = models.openai;
+  } else if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    model = models.google;
+  } else {
+    throw new Error(
+      'No LLM provider API key found. Please set OPENAI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY.',
+    );
+  }
+
+  const { object } = await generateObject({
+    model,
+    schema: generatedDomainInfoSchema,
+    prompt: `
+The website "${domain}" is currently inaccessible for scraping.
+Based on your knowledge, please identify the Brand Name, write a short Description, and Classify the Source Type.
+
+1. **Brand Name**: The core name of the entity.
+2. **Description**: A concise summary (max 200 chars) of what this website/brand is known for.
+3. **Source Type**: Choose the best fit:
+   - NEWS, BLOG, SOCIAL_MEDIA, FORUM, CORPORATE, E_COMMERCE, WIKI, GOVERNMENT, REVIEW, OTHER.
+    `.trim(),
+  });
+
+  return {
+    name: object.brandName,
+    description: object.description,
+    type: object.sourceType,
+  };
 }

@@ -45,7 +45,7 @@ export async function processAndSaveSources(
 
         // 2. If new source, fetch metadata (favicon)
         // We use the domain-fetcher utility which handles favicon extraction
-        const domainInfo = await fetchDomainInfo(source.hostname);
+        const domainInfo = await fetchDomainInfo(source.hostname, resultId);
 
         // 3. Create new Source and link to Result
         await prisma.source.create({

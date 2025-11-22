@@ -98,6 +98,7 @@ export function usePrompts(
       revalidateOnFocus: true,
       dedupingInterval: 2 * 60 * 1000,
       refreshInterval: 5 * 60 * 1000,
+      keepPreviousData: true,
     },
   );
 

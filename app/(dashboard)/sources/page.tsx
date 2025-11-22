@@ -81,6 +81,7 @@ interface DomainStat {
 
 interface URLStat {
   url: string;
+  hostname: string;
   mentions: number;
   totalPosition: number;
   avgPosition: number;
@@ -247,6 +248,7 @@ export default function SourcesPage() {
           if (!urlMap.has(cleanUrl)) {
             urlMap.set(cleanUrl, {
               url: cleanUrl,
+              hostname,
               mentions: 0,
               totalPosition: 0,
               avgPosition: 0,

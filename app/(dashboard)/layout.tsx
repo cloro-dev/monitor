@@ -46,7 +46,7 @@ export default async function DashboardLayout({
       <AppSidebar session={session} />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4 pt-0">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4 px-8 pt-0">
           <DashboardErrorBoundary>
             {needsOrganization ? <OrganizationRequiredLayout /> : children}
           </DashboardErrorBoundary>

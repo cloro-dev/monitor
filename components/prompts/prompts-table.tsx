@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Trash2, Check, Archive } from 'lucide-react';
+import { MoreHorizontal, Trash2, Check, Archive, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,7 @@ import {
 import { useDeletePrompt, useUpdatePrompt, Prompt } from '@/hooks/use-prompts';
 import { toast } from 'sonner';
 import { getCountryFlag } from '@/lib/countries';
+import { PromptDialog } from './prompt-dialog';
 
 interface PromptsTableProps {
   data: Prompt[];
@@ -42,6 +43,8 @@ export function PromptsTable({
 }: PromptsTableProps) {
   const [deletingPrompt, setDeletingPrompt] = useState<Prompt | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { deletePrompt } = useDeletePrompt();
   const { updatePrompt } = useUpdatePrompt();
 
@@ -190,6 +193,15 @@ export function PromptsTable({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => {
+                            setEditingPrompt(prompt);
+                            setIsEditOpen(true);
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
                             setDeletingPrompt(prompt);
                             setIsDeleteDialogOpen(true);
                           }}
@@ -215,6 +227,17 @@ export function PromptsTable({
           </TableBody>
         </Table>
       </div>
+
+      {editingPrompt && (
+        <PromptDialog
+          open={isEditOpen}
+          onOpenChange={(open) => {
+            setIsEditOpen(open);
+            if (!open) setEditingPrompt(null);
+          }}
+          prompt={editingPrompt}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

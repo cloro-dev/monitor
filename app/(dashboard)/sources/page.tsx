@@ -412,6 +412,28 @@ export default function SourcesPage() {
     return { data, config };
   }, [stats, activeTab, filteredResults, date]);
 
+  // 4. Compute Type Stats
+  const typeStats = useMemo(() => {
+    const data = activeTab === 'domain' ? stats.domainStats : stats.urlStats;
+    const typeMap = new Map<string, number>();
+    let total = 0;
+
+    data.forEach((stat) => {
+      const type = stat.type || 'OTHER';
+      const count = stat.mentions;
+      typeMap.set(type, (typeMap.get(type) || 0) + count);
+      total += count;
+    });
+
+    return Array.from(typeMap.entries())
+      .map(([type, count]) => ({
+        type,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [stats, activeTab]);
+
   // Pagination Logic
   const getPaginatedData = (data: any[]) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -478,72 +500,114 @@ export default function SourcesPage() {
           </TabsList>
         </div>
 
-        {/* Chart Section */}
-        <Card className="mb-2">
-          <CardHeader>
-            <CardTitle>
-              {activeTab === 'domain' ? 'Top domains' : 'Top URLs'} utilization
-              over time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={chartData.config}
-              className="h-[200px] w-full"
-            >
-              <AreaChart data={chartData.data} margin={{ left: 12, right: 12 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  minTickGap={32}
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return date.toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    });
-                  }}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `${value.toFixed(1)}%`}
-                  domain={[0, 100]}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      indicator="dot"
-                      labelFormatter={(value) => {
-                        return new Date(value).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        });
-                      }}
-                    />
-                  }
-                />
-                {Object.keys(chartData.config).map((key) => (
-                  <Area
-                    key={key}
-                    dataKey={key}
-                    type="monotone"
-                    fill={chartData.config[key].color}
-                    fillOpacity={0.1}
-                    stroke={chartData.config[key].color}
-                    stackId={undefined}
-                    strokeWidth={2}
+        <div className="mb-2 grid gap-4 md:grid-cols-3">
+          {/* Chart Section */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>
+                {activeTab === 'domain' ? 'Top domains' : 'Top URLs'}{' '}
+                utilization over time
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={chartData.config}
+                className="h-[200px] w-full"
+              >
+                <AreaChart
+                  data={chartData.data}
+                  margin={{ left: 12, right: 12 }}
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    minTickGap={32}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      });
+                    }}
                   />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `${value.toFixed(1)}%`}
+                    domain={[0, 100]}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={
+                      <ChartTooltipContent
+                        indicator="dot"
+                        labelFormatter={(value) => {
+                          return new Date(value).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          });
+                        }}
+                      />
+                    }
+                  />
+                  {Object.keys(chartData.config).map((key) => (
+                    <Area
+                      key={key}
+                      dataKey={key}
+                      type="monotone"
+                      fill={chartData.config[key].color}
+                      fillOpacity={0.1}
+                      stroke={chartData.config[key].color}
+                      stackId={undefined}
+                      strokeWidth={2}
+                    />
+                  ))}
+                  <ChartLegend content={<ChartLegendContent />} />
+                </AreaChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Source Type Panel */}
+          <Card className="flex flex-col">
+            <CardHeader>
+              <CardTitle>Source type</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-auto">
+              <div className="space-y-2">
+                {typeStats.slice(0, 6).map((stat) => (
+                  <div key={stat.type} className="flex items-center gap-1">
+                    <div className="w-32">
+                      <Badge
+                        variant="secondary"
+                        className={typeStyles[stat.type] || typeStyles.OTHER}
+                      >
+                        {formatType(stat.type)}
+                      </Badge>
+                    </div>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full bg-primary/50"
+                        style={{ width: `${stat.percentage}%` }}
+                      />
+                    </div>
+                    <span className="w-10 text-right text-xs text-muted-foreground">
+                      {stat.percentage.toFixed(0)}%
+                    </span>
+                  </div>
                 ))}
-                <ChartLegend content={<ChartLegendContent />} />
-              </AreaChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+                {typeStats.length === 0 && (
+                  <div className="py-4 text-center text-sm text-muted-foreground">
+                    No data available
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <TabsContent value="domain">
           <div className="relative w-full overflow-auto">

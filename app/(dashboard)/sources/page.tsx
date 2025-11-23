@@ -525,7 +525,7 @@ export default function SourcesPage() {
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `${value.toFixed(1)}%`}
+                    tickFormatter={(value) => `${value.toFixed(0)}%`}
                     domain={[0, 100]}
                   />
                   <ChartTooltip
@@ -539,6 +539,9 @@ export default function SourcesPage() {
                             day: 'numeric',
                           });
                         }}
+                        valueFormatter={(value) =>
+                          `${Number(value).toFixed(0)}%`
+                        }
                       />
                     }
                   />

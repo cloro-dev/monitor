@@ -147,6 +147,7 @@ export function CompetitorVisibilityChart({
                       year: 'numeric',
                     })
                   }
+                  valueFormatter={(value) => `${Number(value).toFixed(0)}%`}
                 />
               }
             />

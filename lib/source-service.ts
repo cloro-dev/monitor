@@ -26,12 +26,41 @@ export async function processAndSaveSources(
     sources.map(async (source) => {
       try {
         // 1. Check if source already exists by URL
-        const existingSource = await prisma.source.findUnique({
+        let existingSource = await prisma.source.findUnique({
           where: { url: source.url },
         });
 
+        if (!existingSource) {
+          // 2. If new source, fetch metadata
+          const domainInfo = await fetchDomainInfo(source.hostname, resultId);
+          try {
+            // 3. Try to Create new Source and link to Result
+            await prisma.source.create({
+              data: {
+                url: source.url,
+                hostname: source.hostname,
+                title: source.title,
+                type: domainInfo.type,
+                results: {
+                  connect: { id: resultId },
+                },
+              },
+            });
+            return;
+          } catch (createError: any) {
+            // Handle race condition: Unique constraint failed means it was created by another process
+            if (createError.code === 'P2002') {
+              existingSource = await prisma.source.findUnique({
+                where: { url: source.url },
+              });
+            } else {
+              throw createError;
+            }
+          }
+        }
+
+        // 4. Link existing source (found initially or after race condition) to this result
         if (existingSource) {
-          // Link existing source to this result
           await prisma.result.update({
             where: { id: resultId },
             data: {
@@ -40,25 +69,7 @@ export async function processAndSaveSources(
               },
             },
           });
-          return;
         }
-
-        // 2. If new source, fetch metadata (favicon)
-        // We use the domain-fetcher utility which handles favicon extraction
-        const domainInfo = await fetchDomainInfo(source.hostname, resultId);
-
-        // 3. Create new Source and link to Result
-        await prisma.source.create({
-          data: {
-            url: source.url,
-            hostname: source.hostname,
-            title: source.title,
-            type: domainInfo.type, // Added type
-            results: {
-              connect: { id: resultId },
-            },
-          },
-        });
       } catch (error) {
         console.warn(`Failed to process source ${source.url}:`, error);
       }

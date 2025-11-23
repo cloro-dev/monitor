@@ -13,7 +13,7 @@ export interface DomainInfo {
 }
 
 /**
- * Extract brand information from a domain including name and favicon
+ * Extract brand information from a domain
  */
 export async function fetchDomainInfo(
   domain: string,
@@ -70,7 +70,7 @@ export async function fetchDomainInfo(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.info(
-      `${logPrefix} Metadata fetch failed for ${domain} (${msg}). Using AI fallback.`,
+      `${logPrefix} Metadata fetch failed for ${domain} (${msg}). Using AI fallback...`,
     );
   }
 

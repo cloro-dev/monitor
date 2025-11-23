@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'cloro - Monitor',
   description: 'Track your brand mentions in this new AI world',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

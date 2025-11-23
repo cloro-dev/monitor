@@ -461,7 +461,7 @@ export default function SourcesPage() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Sources</h2>
           <p className="text-muted-foreground">
-            Domains mentioned in AI search results across your prompts.
+            Domains mentioned in AI search results across your prompts
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

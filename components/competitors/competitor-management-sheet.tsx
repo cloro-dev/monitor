@@ -102,6 +102,7 @@ export function CompetitorManagementSheet({
         <div className="max-h-[calc(100vh-10rem)] flex-1 overflow-auto px-4">
           <div className="mb-2 flex justify-end">
             <Select
+              value={selectedBrand || 'all'}
               onValueChange={(value) =>
                 setSelectedBrand(value === 'all' ? null : value)
               }

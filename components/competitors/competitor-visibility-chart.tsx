@@ -1,15 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  XAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import {
   Card,
   CardContent,
@@ -18,6 +10,14 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { DateRangeSelect } from '@/components/ui/date-range-select';
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
 
 interface ChartDataPoint {
   date: string;
@@ -30,19 +30,19 @@ interface CompetitorVisibilityChartProps {
 }
 
 const COLORS = [
-  '#2563eb', // blue-600
-  '#16a34a', // green-600
-  '#dc2626', // red-600
-  '#d97706', // amber-600
-  '#9333ea', // purple-600
-  '#0891b2', // cyan-600
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+  'hsl(var(--chart-1))', // Fallback/Repeat if more than 5
 ];
 
 export function CompetitorVisibilityChart({
   data,
   competitors,
 }: CompetitorVisibilityChartProps) {
-  const [timeRange, setTimeRange] = React.useState('90d');
+  const [timeRange, setTimeRange] = React.useState('30d');
 
   const filteredData = React.useMemo(() => {
     const referenceDate = new Date();
@@ -61,6 +61,17 @@ export function CompetitorVisibilityChart({
     });
   }, [data, timeRange]);
 
+  const chartConfig = React.useMemo(() => {
+    const config: ChartConfig = {};
+    competitors.forEach((comp, index) => {
+      config[comp.name] = {
+        label: comp.name,
+        color: COLORS[index % COLORS.length],
+      };
+    });
+    return config;
+  }, [competitors]);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
@@ -75,108 +86,85 @@ export function CompetitorVisibilityChart({
         />
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={filteredData}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-            >
-              <defs>
-                {competitors.map((comp, index) => (
-                  <linearGradient
-                    key={comp.id}
-                    id={`fill${comp.id}`}
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor={COLORS[index % COLORS.length]}
-                      stopOpacity={0.8}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor={COLORS[index % COLORS.length]}
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                ))}
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tickFormatter={(value) => {
-                  const date = new Date(value);
-                  return date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                  });
-                }}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="rounded-lg border bg-background p-2 shadow-sm">
-                        <div className="grid grid-cols-2 gap-2">
-                          <span className="text-xs font-bold text-muted-foreground">
-                            {new Date(label).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </span>
-                        </div>
-                        <div className="mt-2 grid grid-cols-1 gap-1.5">
-                          {payload.map((entry: any) => (
-                            <div
-                              key={entry.name}
-                              className="flex items-center gap-2"
-                            >
-                              <div
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: entry.color }}
-                              />
-                              <span className="text-xs font-medium text-foreground">
-                                {entry.name}: {Number(entry.value).toFixed(0)}%
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Legend
-                iconType="circle"
-                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-              />
-              {competitors.map((comp, index) => (
-                <Area
+        <ChartContainer config={chartConfig} className="h-[300px] w-full">
+          <AreaChart
+            data={filteredData}
+            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          >
+            <defs>
+              {competitors.map((comp) => (
+                <linearGradient
                   key={comp.id}
-                  type="monotone"
-                  dataKey={comp.name}
-                  stackId="1" // Stack them? Or overlap? Usually visibility is relative, so stacking might make sense if it adds to 100%. But here it's independent visibility.
-                  // If I stack, it implies they share a pie. If I don't stack, they overlap.
-                  // Visibility is "percentage of results where it appears". It can be > 100% total if multiple brands appear in same result.
-                  // So I should NOT use stackId if I want absolute values.
-                  // But Area charts without stacking can be messy.
-                  // Let's try without stackId first.
-                  stroke={COLORS[index % COLORS.length]}
-                  fill={`url(#fill${comp.id})`}
-                  fillOpacity={0.4}
-                />
+                  id={`fill${comp.id}`}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor={chartConfig[comp.name]?.color}
+                    stopOpacity={0.8}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={chartConfig[comp.name]?.color}
+                    stopOpacity={0.1}
+                  />
+                </linearGradient>
               ))}
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+            </defs>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              minTickGap={32}
+              tickFormatter={(value) => {
+                const date = new Date(value);
+                return date.toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                });
+              }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => `${value.toFixed(0)}%`}
+              domain={[0, 100]}
+            />
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  indicator="dot"
+                  labelFormatter={(value) =>
+                    new Date(value).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })
+                  }
+                />
+              }
+            />
+            {competitors.map((comp) => (
+              <Area
+                key={comp.id}
+                dataKey={comp.name}
+                type="monotone"
+                fill={chartConfig[comp.name]?.color}
+                fillOpacity={0.1}
+                stroke={chartConfig[comp.name]?.color}
+                strokeWidth={2}
+                stackId={undefined}
+              />
+            ))}
+            <ChartLegend content={<ChartLegendContent />} />
+          </AreaChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   );

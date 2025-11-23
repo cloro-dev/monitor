@@ -22,7 +22,7 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import Image from 'next/image';
-import { isValidDomain } from '@/lib/domain-fetcher';
+import { isValidDomain } from '@/lib/client-utils';
 import {
   AlertDialog,
   AlertDialogAction,

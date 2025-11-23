@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { fetchDomainInfo, isValidDomain } from '@/lib/domain-fetcher';
+import { fetchDomainInfo } from '@/lib/domain-fetcher';
+import { isValidDomain } from '@/lib/client-utils';
 import { generateBrandPrompts } from '@/lib/ai-service';
 import { COUNTRY_NAME_MAP } from '@/lib/countries';
 import { z } from 'zod';

@@ -3,6 +3,7 @@ import {
   enrichDomainInfoWithAI,
   generateDomainInfoWithAI,
 } from '@/lib/ai-service';
+import prisma from '@/lib/prisma';
 
 export interface DomainInfo {
   domain: string;
@@ -20,6 +21,43 @@ export async function fetchDomainInfo(
 ): Promise<DomainInfo> {
   const logPrefix = resultId ? `[${resultId}]` : '[DomainFetcher]';
   const normalizedDomain = normalizeDomain(domain);
+
+  // 0. Cache Check: Check DB for existing Brand or Source info to save resources
+  try {
+    // Check Brand first (usually has description)
+    const existingBrand = await prisma.brand.findUnique({
+      where: { domain: normalizedDomain },
+    });
+
+    if (existingBrand) {
+      console.log(`${logPrefix} Cache hit (Brand) for ${normalizedDomain}`);
+      return {
+        domain: existingBrand.domain,
+        name: existingBrand.name,
+        description: existingBrand.description,
+        type: 'CORPORATE', // Brands are typically corporate/product entities
+      };
+    }
+
+    // Check Source second (has type)
+    const existingSource = await prisma.source.findFirst({
+      where: { hostname: normalizedDomain },
+      orderBy: { createdAt: 'desc' }, // Use most recent
+    });
+
+    if (existingSource && existingSource.type) {
+      console.log(`${logPrefix} Cache hit (Source) for ${normalizedDomain}`);
+      return {
+        domain: existingSource.hostname,
+        name: existingSource.title || existingSource.hostname,
+        description: null, // Sources don't store description yet
+        type: existingSource.type,
+      };
+    }
+  } catch (dbError) {
+    console.warn(`${logPrefix} DB Cache check failed for ${domain}:`, dbError);
+  }
+
   let metadata;
   let metadataFetched = false;
 
@@ -138,22 +176,4 @@ function normalizeDomain(domain: string): string {
       .toLowerCase()
       .trim();
   }
-}
-
-/**
- * Validate if a string is a valid domain format
- */
-export function isValidDomain(domain: string): boolean {
-  const normalizedDomain = normalizeDomain(domain);
-
-  // Basic domain regex
-  const domainRegex =
-    /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])*$/;
-
-  return (
-    domainRegex.test(normalizedDomain) &&
-    normalizedDomain.length <= 253 &&
-    !normalizedDomain.startsWith('.') &&
-    !normalizedDomain.endsWith('.')
-  );
 }

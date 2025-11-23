@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { IconLoader, IconWorld, IconPlus } from '@tabler/icons-react';
-import { isValidDomain } from '@/lib/domain-fetcher';
+import { isValidDomain } from '@/lib/client-utils';
 
 const addBrandSchema = z.object({
   domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {

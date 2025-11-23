@@ -17,13 +17,7 @@ import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFaviconUrl } from '@/lib/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { DateRangeSelect } from '@/components/ui/date-range-select';
 import {
   subDays,
   isWithinInterval,
@@ -343,8 +337,8 @@ export default function SourcesPage() {
       if (activeTab === 'url') {
         label = label.replace(/^(https?:\/\/)?(www\.)?/, '');
 
-        if (label.length > 30) {
-          label = `${label.substring(0, 27)}...`;
+        if (label.length > 20) {
+          label = `${label.substring(0, 17)}...`;
         }
       }
 
@@ -471,16 +465,11 @@ export default function SourcesPage() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Select time range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-            </SelectContent>
-          </Select>
+          <DateRangeSelect
+            value={timeRange}
+            onValueChange={setTimeRange}
+            className="w-[160px]"
+          />
           <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
         </div>
       </div>
@@ -719,7 +708,9 @@ export default function SourcesPage() {
                               U
                             </AvatarFallback>
                           </Avatar>
-                          <span className="truncate">{stat.url}</span>
+                          <span className="truncate">
+                            {stat.url.replace(/^(https?:\/\/)?(www\.)?/, '')}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="py-2">

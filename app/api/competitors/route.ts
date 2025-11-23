@@ -84,7 +84,7 @@ export async function GET(req: Request) {
   });
 
   // 4. Format the response
-  const competitors = competitorsRel.map((rel: any) => ({
+  let formattedCompetitors = competitorsRel.map((rel: any) => ({
     id: rel.id,
     brandId: rel.brandId,
     name: rel.competitor.name,
@@ -93,9 +93,143 @@ export async function GET(req: Request) {
     mentions: rel.mentions,
     createdAt: rel.createdAt,
     brand: brandMap.get(rel.brandId) || 'Unknown',
+    // Initialize metrics
+    visibilityScore: null as number | null,
+    averageSentiment: null as number | null,
+    averagePosition: null as number | null,
   }));
 
-  return NextResponse.json(competitors);
+  const includeStats = searchParams.get('includeStats') === 'true';
+
+  if (includeStats && brandId) {
+    const selectedBrandName = brandMap.get(brandId) || 'Unknown Brand';
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const results = await prisma.result.findMany({
+      where: {
+        prompt: { brandId },
+        status: 'SUCCESS',
+        createdAt: { gte: ninetyDaysAgo },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        competitors: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Calculate aggregate metrics for all competitors for the table
+    formattedCompetitors = formattedCompetitors.map((comp: any) => {
+      const compName = comp.name;
+      let mentionCount = 0;
+      let totalPosition = 0;
+      let positionCount = 0;
+
+      results.forEach((r: any) => {
+        const comps = (r.competitors as string[]) || [];
+        const index = comps.findIndex(
+          (c) => c.toLowerCase() === compName.toLowerCase(),
+        );
+
+        if (index !== -1) {
+          mentionCount++;
+          totalPosition += index + 1;
+          positionCount++;
+        }
+      });
+
+      return {
+        ...comp,
+        visibilityScore:
+          results.length > 0 ? (mentionCount / results.length) * 100 : 0,
+        averagePosition:
+          positionCount > 0 ? totalPosition / positionCount : null,
+        averageSentiment: null, // Placeholder: sentiment for competitors not calculated here
+      };
+    });
+
+    // Determine top 5 accepted competitors for the chart based on mentions
+    const top5AcceptedCompetitors = formattedCompetitors
+      .filter((c: any) => c.status === 'ACCEPTED')
+      .sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
+      .slice(0, 5);
+
+    // Prepare all brands to be charted (selected brand + top 5 accepted competitors)
+    const brandsToChart = [
+      { id: brandId, name: selectedBrandName }, // Primary brand
+      ...top5AcceptedCompetitors.map((comp) => ({
+        id: comp.id,
+        name: comp.name,
+      })),
+    ];
+
+    // Generate Chart Data (Daily Visibility for selected brand and top 5 competitors)
+    const chartMap = new Map<string, any>();
+
+    // Pre-fill chartMap with all dates in the 90-day range
+    const today = new Date();
+    for (
+      let d = new Date(ninetyDaysAgo);
+      d <= today;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dateKey = d.toISOString().split('T')[0];
+      const dailyEntry: { date: string; [key: string]: number | string } = {
+        date: dateKey,
+      };
+      brandsToChart.forEach((b) => {
+        dailyEntry[b.name] = 0; // Initialize mention counts for each brand to 0
+      });
+      dailyEntry['__dailyTotalResults'] = 0; // Keep track of total results for the day
+      chartMap.set(dateKey, dailyEntry);
+    }
+
+    // Populate chartMap with actual data from results
+    results.forEach((r: any) => {
+      const dateKey = r.createdAt.toISOString().split('T')[0];
+      const entry = chartMap.get(dateKey);
+      if (entry) {
+        entry['__dailyTotalResults']++; // Increment total results for this day
+
+        const allMentionsInResult = (r.competitors as string[]) || [];
+
+        brandsToChart.forEach((brand) => {
+          if (
+            allMentionsInResult.some(
+              (c) => c.toLowerCase() === brand.name.toLowerCase(),
+            )
+          ) {
+            entry[brand.name] = (entry[brand.name] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    // Finalize chartData by calculating percentages
+    const chartData = Array.from(chartMap.values()).map((entry: any) => {
+      const point: any = { date: entry.date };
+      const dailyTotalResults = entry['__dailyTotalResults'];
+
+      brandsToChart.forEach((brand) => {
+        point[brand.name] =
+          dailyTotalResults > 0
+            ? ((entry[brand.name] || 0) / dailyTotalResults) * 100
+            : 0;
+      });
+      return point;
+    });
+
+    return NextResponse.json({
+      selectedBrandName: selectedBrandName,
+      competitors: formattedCompetitors, // Return all competitors for the table
+      brandsToChart: brandsToChart, // The specific brands (primary + top 5) to use for the chart legend/series
+      chartData: chartData,
+    });
+  }
+
+  return NextResponse.json(formattedCompetitors);
 }
 
 export async function PATCH(req: Request) {

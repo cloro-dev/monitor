@@ -24,21 +24,29 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCompetitors } from '@/hooks/use-competitors';
+import {
+  useCompetitors,
+  Competitor,
+  CompetitorsApiResponse,
+} from '@/hooks/use-competitors';
 import { useBrands } from '@/hooks/use-brands';
 import { Check, X, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface CompetitorManagementSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialBrandId?: string | null;
 }
 
 export function CompetitorManagementSheet({
   open,
   onOpenChange,
+  initialBrandId,
 }: CompetitorManagementSheetProps) {
-  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(
+    initialBrandId || null,
+  );
   const { competitors, isLoading, mutate, error } =
     useCompetitors(selectedBrand);
   const { brands } = useBrands();
@@ -49,9 +57,20 @@ export function CompetitorManagementSheet({
   ) => {
     // Optimistic UI update
     mutate(
-      (currentData: any[] | undefined) => {
-        if (!currentData) return [];
-        return currentData.map((c) => (c.id === id ? { ...c, status } : c));
+      (currentData: Competitor[] | CompetitorsApiResponse | undefined) => {
+        if (!currentData) return undefined;
+
+        if (Array.isArray(currentData)) {
+          // Handle array of Competitor (when includeStats is false)
+          return currentData.map((c) => (c.id === id ? { ...c, status } : c));
+        } else if (currentData && currentData.competitors) {
+          // Handle CompetitorsApiResponse object (when includeStats is true)
+          const updatedCompetitors = currentData.competitors.map((c) =>
+            c.id === id ? { ...c, status } : c,
+          );
+          return { ...currentData, competitors: updatedCompetitors };
+        }
+        return currentData; // Fallback, return original data if neither matched
       },
       { revalidate: false },
     );

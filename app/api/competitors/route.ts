@@ -126,17 +126,44 @@ export async function GET(req: Request) {
       let mentionCount = 0;
       let totalPosition = 0;
       let positionCount = 0;
+      let totalSentiment = 0;
+      let sentimentCount = 0;
 
       results.forEach((r: any) => {
-        const comps = (r.competitors as string[]) || [];
-        const index = comps.findIndex(
-          (c) => c.toLowerCase() === compName.toLowerCase(),
-        );
+        const rawComps = r.competitors || [];
+        let found = false;
+        let sentiment: number | null = null;
+        let position = -1;
 
-        if (index !== -1) {
+        if (Array.isArray(rawComps) && rawComps.length > 0) {
+          // Handle both string (old) and object (new) formats
+          const index = rawComps.findIndex((c: any) => {
+            const name = typeof c === 'string' ? c : c?.name;
+            return name && name.toLowerCase() === compName.toLowerCase();
+          });
+
+          if (index !== -1) {
+            found = true;
+            position = index + 1;
+            const match = rawComps[index];
+            if (
+              typeof match === 'object' &&
+              match !== null &&
+              typeof match.sentiment === 'number'
+            ) {
+              sentiment = match.sentiment;
+            }
+          }
+        }
+
+        if (found) {
           mentionCount++;
-          totalPosition += index + 1;
+          totalPosition += position;
           positionCount++;
+          if (sentiment !== null) {
+            totalSentiment += sentiment;
+            sentimentCount++;
+          }
         }
       });
 
@@ -146,7 +173,8 @@ export async function GET(req: Request) {
           results.length > 0 ? (mentionCount / results.length) * 100 : 0,
         averagePosition:
           positionCount > 0 ? totalPosition / positionCount : null,
-        averageSentiment: null, // Placeholder: sentiment for competitors not calculated here
+        averageSentiment:
+          sentimentCount > 0 ? totalSentiment / sentimentCount : null,
       };
     });
 
@@ -193,7 +221,17 @@ export async function GET(req: Request) {
       if (entry) {
         entry['__dailyTotalResults']++; // Increment total results for this day
 
-        const allMentionsInResult = (r.competitors as string[]) || [];
+        const rawComps = r.competitors || [];
+        let allMentionsInResult: string[] = [];
+
+        if (Array.isArray(rawComps) && rawComps.length > 0) {
+          allMentionsInResult = (rawComps as any[])
+            .map((c) => {
+              if (typeof c === 'string') return c;
+              return c?.name;
+            })
+            .filter((name) => name);
+        }
 
         brandsToChart.forEach((brand) => {
           if (

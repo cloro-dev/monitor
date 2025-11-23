@@ -21,9 +21,19 @@ const brandMetricsSchema = z.object({
     )
     .nullable(),
   competitors: z
-    .array(z.string())
+    .array(
+      z.object({
+        name: z.string(),
+        sentiment: z
+          .number()
+          .min(0)
+          .max(100)
+          .describe('Sentiment score 0-100')
+          .nullable(),
+      }),
+    )
     .describe(
-      'A ranked list of all brand names mentioned in the text, including the primary brand, ordered by prominence.',
+      'A ranked list of all brand names mentioned in the text, including the primary brand, ordered by prominence. Each object contains the name and its sentiment.',
     )
     .nullable(),
 });
@@ -117,16 +127,16 @@ export async function analyzeBrandMetrics(text: string, brandName: string) {
       Please perform the following analysis:
       1.  Read the text carefully to identify all brand names mentioned.
       2.  Create a ranked list of all brand names based on their prominence in the text. The most prominent brand should be at rank 1.
-      3.  Determine if "${brandName}" is mentioned in the text.
-      4.  If "${brandName}" IS mentioned:
+      3.  Determine if "${brandName}" (or any variation of it, e.g. case-insensitive, partial match, or domain) is mentioned in the text.
+      4.  If "${brandName}" (or variation) IS mentioned:
           a.  Calculate its sentiment on a scale of 0-100 (0=very negative, 50=neutral, 100=very positive).
           b.  Identify its rank in the list.
-      5.  If "${brandName}" is NOT mentioned, its 'sentiment' and 'position' should be null.
+      5.  If "${brandName}" (or variation) is NOT mentioned, its 'sentiment' and 'position' should be null.
 
       Return a JSON object with the following structure:
       - sentiment: The numerical sentiment score (0-100) for "${brandName}". Should be null if the brand is not mentioned.
       - position: The integer rank of "${brandName}" in the prominence list. Should be null if the brand is not mentioned.
-      - competitors: A JSON array of ALL brand names you identified, ordered by their rank. If no brands are mentioned at all, this should be null.
+      - competitors: A JSON array of objects { name: string, sentiment: number | null } for ALL brand names identified, ordered by their rank. If no brands are mentioned at all, this should be null.
 
       Text to analyze:
       ---

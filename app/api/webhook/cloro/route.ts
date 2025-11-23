@@ -60,7 +60,7 @@ async function processWebhook(body: any) {
 
     let sentiment: number | null = null;
     let position: number | null = null;
-    let competitors: string[] | null = null;
+    let competitors: any = null;
 
     if (responseData?.text) {
       try {
@@ -74,7 +74,8 @@ async function processWebhook(body: any) {
         if (metrics.competitors && metrics.competitors.length > 0) {
           // Process all competitors in parallel to avoid timeouts
           await Promise.all(
-            metrics.competitors.map(async (competitorNameRaw) => {
+            metrics.competitors.map(async (competitorObj) => {
+              const competitorNameRaw = competitorObj.name;
               try {
                 let competitorDomain: string | null = null;
 

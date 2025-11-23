@@ -32,6 +32,7 @@ import {
 import { useBrands } from '@/hooks/use-brands';
 import { Check, X, RotateCcw } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useSWRConfig } from 'swr';
 
 interface CompetitorManagementSheetProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function CompetitorManagementSheet({
   const { competitors, isLoading, mutate, error } =
     useCompetitors(selectedBrand);
   const { brands } = useBrands();
+  const { mutate: globalMutate } = useSWRConfig();
 
   const handleUpdateStatus = async (
     id: string,
@@ -86,6 +88,13 @@ export function CompetitorManagementSheet({
 
     // Trigger a revalidation to ensure data is in sync with the server
     mutate();
+
+    // Also revalidate the main page's data which uses includeStats=true
+    const params = new URLSearchParams();
+    if (selectedBrand) params.append('brandId', selectedBrand);
+    params.append('includeStats', 'true');
+    const mainPageKey = `/api/competitors?${params.toString()}`;
+    globalMutate(mainPageKey);
   };
 
   return (

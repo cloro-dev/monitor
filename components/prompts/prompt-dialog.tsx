@@ -263,11 +263,6 @@ export function PromptDialog({
                       <SelectItem key={brand.id} value={brand.id}>
                         <div className="flex items-center gap-2">
                           <span>{brand.name || brand.domain}</span>
-                          {brand.defaultCountry && (
-                            <span className="rounded bg-muted px-1 py-0.5 text-xs font-medium text-muted-foreground">
-                              {brand.defaultCountry}
-                            </span>
-                          )}
                         </div>
                       </SelectItem>
                     ))}

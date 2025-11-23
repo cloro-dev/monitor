@@ -27,10 +27,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useDeletePrompt, useUpdatePrompt, Prompt } from '@/hooks/use-prompts';
 import { toast } from 'sonner';
 import { getCountryFlag } from '@/lib/countries';
 import { PromptDialog } from './prompt-dialog';
+import { getFaviconUrl } from '@/lib/utils';
 
 interface PromptsTableProps {
   data: Prompt[];
@@ -136,7 +138,24 @@ export function PromptsTable({
                   </div>
                 </TableCell>
                 <TableCell className="py-2 align-middle">
-                  {prompt.brand?.name || prompt.brand?.domain || 'N/A'}
+                  <div className="flex items-center gap-2">
+                    {prompt.brand?.domain && (
+                      <Avatar className="h-4 w-4 rounded-sm">
+                        <AvatarImage
+                          src={getFaviconUrl(prompt.brand.domain)}
+                          alt={prompt.brand.name || prompt.brand.domain}
+                        />
+                        <AvatarFallback className="rounded-sm text-[8px]">
+                          {(prompt.brand.name || prompt.brand.domain || 'B')
+                            .charAt(0)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    <span>
+                      {prompt.brand?.name || prompt.brand?.domain || 'N/A'}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap py-2 align-middle">
                   <div className="flex items-center">

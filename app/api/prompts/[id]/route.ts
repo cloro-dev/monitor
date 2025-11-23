@@ -106,16 +106,24 @@ export async function DELETE(
       return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
     }
 
-    await prisma.prompt.update({
-      where: {
-        id: id,
-      },
-      data: {
-        status: 'ARCHIVED',
-      },
-    });
-
-    return NextResponse.json({ message: 'Prompt archived successfully' });
+    // If prompt is already archived, permanently delete it
+    if (existingPrompt.status === 'ARCHIVED') {
+      await prisma.prompt.delete({
+        where: { id: id },
+      });
+      return NextResponse.json({ message: 'Prompt deleted permanently' });
+    } else {
+      // If prompt is active or suggested, archive it
+      await prisma.prompt.update({
+        where: {
+          id: id,
+        },
+        data: {
+          status: 'ARCHIVED',
+        },
+      });
+      return NextResponse.json({ message: 'Prompt archived successfully' });
+    }
   } catch (error) {
     console.error('Error deleting prompt:', error);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
-import { SourceProcessingLogger, shouldLog, logInfo } from '@/lib/logger';
+import { logInfo, logError, shouldLog } from '@/lib/logger';
 
 interface ExtractedSource {
   url: string;
@@ -22,9 +22,10 @@ export async function processAndSaveSources(
 
   if (sources.length === 0) return;
 
-  const logger = new SourceProcessingLogger(resultId);
-
-  logger.logStart(sources.length);
+  logInfo('SourceProcess', 'Processing sources', {
+    resultId,
+    sourcesCount: sources.length,
+  });
 
   let failureCount = 0;
   let createdCount = 0;
@@ -64,7 +65,11 @@ export async function processAndSaveSources(
                 where: { url: source.url },
               });
             } else {
-              logger.logSourceFailed(source.url, createError, 'create');
+              logError('SourceProcess', 'Source create failed', createError, {
+                resultId,
+                url: source.url,
+                operation: 'SourceCreate',
+              });
               failureCount++;
               return;
             }
@@ -85,13 +90,21 @@ export async function processAndSaveSources(
 
             linkedCount++;
           } catch (linkError) {
-            logger.logSourceFailed(source.url, linkError, 'link');
+            logError('SourceProcess', 'Source link failed', linkError, {
+              resultId,
+              url: source.url,
+              operation: 'SourceLink',
+            });
             failureCount++;
           }
         }
       } catch (error) {
         // Log any unexpected errors
-        logger.logSourceFailed(source.url, error, 'create');
+        logError('SourceProcess', 'Unexpected error processing source', error, {
+          resultId,
+          url: source.url,
+          operation: 'SourceCreate',
+        });
         failureCount++;
       }
     }),

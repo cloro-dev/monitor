@@ -4,7 +4,7 @@ import {
   generateDomainInfoWithAI,
 } from '@/lib/ai-service';
 import prisma from '@/lib/prisma';
-import { DomainInfoLogger, logError, logWarn } from '@/lib/logger';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 // In-flight request cache to prevent duplicate processing
 const inFlightRequests = new Map<string, Promise<DomainInfo>>();
@@ -24,7 +24,6 @@ export async function fetchDomainInfo(
   resultId?: string,
 ): Promise<DomainInfo> {
   const normalizedDomain = normalizeDomain(domain);
-  const logger = new DomainInfoLogger({ resultId });
 
   // Check if there's already an in-flight request for this domain
   const existingRequest = inFlightRequests.get(normalizedDomain);
@@ -42,7 +41,11 @@ export async function fetchDomainInfo(
       });
 
       if (existingBrand) {
-        logger.trackCacheHit();
+        logInfo('DomainFetch', 'Using cached brand data', {
+          resultId,
+          domain: normalizedDomain,
+          source: 'brand_cache',
+        });
         return {
           domain: existingBrand.domain,
           name: existingBrand.name,
@@ -57,7 +60,11 @@ export async function fetchDomainInfo(
       });
 
       if (existingSource && existingSource.type) {
-        logger.trackCacheHit();
+        logInfo('DomainFetch', 'Using cached source data', {
+          resultId,
+          domain: normalizedDomain,
+          source: 'source_cache',
+        });
         return {
           domain: existingSource.hostname,
           name: existingSource.title || existingSource.hostname,
@@ -78,18 +85,16 @@ export async function fetchDomainInfo(
         timeout: 10000,
       });
       metadataFetched = true;
-      logger.trackScraping(true);
     } catch (error) {
       logWarn(
         'DomainFetch',
         'Scraping failed, will use AI generation fallback',
         {
-          ...logger.context,
+          resultId,
           domain: normalizedDomain,
           error: error instanceof Error ? error.message : String(error),
         },
       );
-      logger.trackScraping(false);
     }
 
     // AI enrichment if metadata was fetched
@@ -100,7 +105,6 @@ export async function fetchDomainInfo(
           normalizedDomain,
         );
 
-        logger.trackAIEnrichment(true);
         return {
           domain: normalizedDomain,
           name: enrichedInfo.name,
@@ -109,21 +113,19 @@ export async function fetchDomainInfo(
         };
       } catch (aiEnrichmentError) {
         logWarn('DomainFetch', 'AI enrichment failed, using basic metadata', {
-          ...logger.context,
+          resultId,
           domain: normalizedDomain,
           error:
             aiEnrichmentError instanceof Error
               ? aiEnrichmentError.message
               : String(aiEnrichmentError),
         });
-        logger.trackAIEnrichment(false);
       }
     }
 
     // Fallback: AI generation from scratch
     try {
       const aiGeneratedInfo = await generateDomainInfoWithAI(normalizedDomain);
-      logger.trackAIGeneration();
       return {
         domain: normalizedDomain,
         name: aiGeneratedInfo.name,

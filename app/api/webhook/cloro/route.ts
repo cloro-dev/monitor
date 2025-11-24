@@ -4,12 +4,7 @@ import { analyzeBrandMetrics, getCompetitorDomain } from '@/lib/ai-service';
 import { processAndSaveSources } from '@/lib/source-service';
 import { waitUntil } from '@vercel/functions';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
-import {
-  logWebhookReceived,
-  logWebhookCompleted,
-  logError,
-  logWarn,
-} from '@/lib/logger';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 export const maxDuration = 60; // Allow up to 60s for the webhook handler to run
 
@@ -234,7 +229,10 @@ async function processWebhook(body: any) {
       });
     });
 
-    logWebhookCompleted(resultId, orgId);
+    logInfo('Webhook', 'Webhook processed', {
+      resultId,
+      organizationId: orgId,
+    });
   } catch (error) {
     logError('Webhook', 'Webhook processing failed', error, {
       critical: true,
@@ -247,7 +245,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const resultId = body.task?.idempotencyKey;
 
-    logWebhookReceived(resultId);
+    logInfo('Webhook', 'Webhook received', {
+      resultId,
+    });
 
     // Validate the webhook payload structure
     if (

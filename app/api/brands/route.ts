@@ -6,7 +6,7 @@ import { isValidDomain } from '@/lib/client-utils';
 import { generateBrandPrompts } from '@/lib/ai-service';
 import { COUNTRY_NAME_MAP } from '@/lib/countries';
 import { z } from 'zod';
-import { logBrandCreated, logError, logWarn } from '@/lib/logger';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 // Validation schema
 const createBrandSchema = z.object({
@@ -204,12 +204,12 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      logBrandCreated(
-        activeOrganization.id,
-        brand.domain,
-        brand.name || '',
-        brand.id,
-      );
+      logInfo('BrandCreate', 'Brand created', {
+        organizationId: activeOrganization.id,
+        domain: brand.domain,
+        name: brand.name || '',
+        brandId: brand.id,
+      });
     } else {
       // Update existing brand with defaultCountry if needed
       if (

@@ -21,9 +21,13 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let session: any = null;
+  let paramsId: string | null = null;
+
   try {
     const { id } = await params;
-    const session = await auth.api.getSession({ headers: request.headers });
+    paramsId = id;
+    session = await auth.api.getSession({ headers: request.headers });
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -82,7 +86,7 @@ export async function PUT(
     }
 
     logError('PromptUpdate', 'Error updating prompt', error, {
-      promptId: await params.then((p) => p.id),
+      promptId: paramsId,
       userId: session?.user?.id,
     });
     return NextResponse.json(
@@ -96,9 +100,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let session: any = null;
+  let paramsId: string | null = null;
+
   try {
     const { id } = await params;
-    const session = await auth.api.getSession({ headers: request.headers });
+    paramsId = id;
+    session = await auth.api.getSession({ headers: request.headers });
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -151,7 +159,7 @@ export async function DELETE(
     }
   } catch (error) {
     logError('PromptDelete', 'Error deleting prompt', error, {
-      promptId: await params.then((p) => p.id),
+      promptId: paramsId,
       userId: session?.user?.id,
     });
     return NextResponse.json(

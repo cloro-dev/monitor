@@ -86,7 +86,7 @@ export async function fetchDomainInfo(
         {
           ...logger.context,
           domain: normalizedDomain,
-          error: error?.message || String(error),
+          error: error instanceof Error ? error.message : String(error),
         },
       );
       logger.trackScraping(false);
@@ -111,7 +111,10 @@ export async function fetchDomainInfo(
         logWarn('DomainFetch', 'AI enrichment failed, using basic metadata', {
           ...logger.context,
           domain: normalizedDomain,
-          error: aiEnrichmentError?.message || String(aiEnrichmentError),
+          error:
+            aiEnrichmentError instanceof Error
+              ? aiEnrichmentError.message
+              : String(aiEnrichmentError),
         });
         logger.trackAIEnrichment(false);
       }

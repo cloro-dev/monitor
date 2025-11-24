@@ -2,7 +2,7 @@ import { openai } from '@ai-sdk/openai';
 import { google } from '@ai-sdk/google';
 import { LanguageModel, generateObject } from 'ai';
 import { z } from 'zod';
-import { shouldLog, logDebug, logError } from '@/lib/logger';
+import { shouldLog, logDebug, logError, logWarn } from '@/lib/logger';
 
 // Define the schema for the structured object we want the LLM to return.
 const brandMetricsSchema = z.object({
@@ -367,7 +367,10 @@ Focus on providing meaningful descriptions that accurately represent the brand/w
       'Schema validation error during AI enrichment, retrying with fallback',
       {
         domain,
-        error: schemaError?.message || String(schemaError),
+        error:
+          schemaError instanceof Error
+            ? schemaError.message
+            : String(schemaError),
       },
     );
     // Try with a simpler fallback prompt

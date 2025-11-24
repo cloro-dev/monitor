@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
               })),
             });
           }
-        } catch (err) {
+        } catch (err: any) {
           logWarn(
             'BrandPromptGeneration',
             'Error generating suggested prompts, brand creation succeeded',
@@ -287,6 +287,8 @@ export async function POST(request: NextRequest) {
 
 // PATCH: Update an existing brand
 export async function PATCH(request: NextRequest) {
+  let body: any = null;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -296,7 +298,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    body = await request.json();
     const { brandId, name, description, defaultCountry } = body;
 
     if (!brandId) {
@@ -386,6 +388,9 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE: Delete a brand
 export async function DELETE(request: NextRequest) {
+  let url: URL;
+  let brandId: string | null = null;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -395,8 +400,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const url = new URL(request.url);
-    const brandId = url.searchParams.get('brandId');
+    url = new URL(request.url);
+    brandId = url.searchParams.get('brandId');
 
     if (!brandId) {
       return NextResponse.json(
@@ -444,7 +449,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     logError('BrandDelete', 'Error deleting brand', error, {
-      brandId: url.searchParams.get('brandId'),
+      brandId: brandId || undefined,
     });
     return NextResponse.json(
       { error: 'Internal server error' },

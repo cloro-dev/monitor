@@ -74,6 +74,7 @@ async function trackSingleModel(
 ) {
   const model = modelString as ProviderModel;
   let result: Result | null = null;
+  let orgId: string | undefined;
 
   try {
     // Create a Result for this model
@@ -93,7 +94,7 @@ async function trackSingleModel(
 
     // Use country code directly
     const countryCode = prompt.country;
-    const orgId = organizationId || 'N/A';
+    orgId = organizationId || 'N/A';
 
     await trackPromptAsync(prompt.text, countryCode, model, result.id);
 

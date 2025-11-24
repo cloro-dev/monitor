@@ -7,13 +7,17 @@ import { logError, logInfo } from '@/lib/logger';
  * API route to set the active organization for the current user's session.
  */
 export async function POST(request: NextRequest) {
+  let session: any = null;
+  let body: any = null;
+
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
+    session = await auth.api.getSession({ headers: request.headers });
     if (!session?.user?.id || !session.session?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { organizationId } = await request.json();
+    body = await request.json();
+    const { organizationId } = body;
     if (!organizationId) {
       return NextResponse.json(
         { error: 'Organization ID is required' },
@@ -61,7 +65,7 @@ export async function POST(request: NextRequest) {
       {
         userId: session?.user?.id,
         sessionId: session?.session?.id,
-        organizationId: request?.body?.organizationId,
+        organizationId: body?.organizationId,
       },
     );
     return NextResponse.json(

@@ -193,7 +193,7 @@ async function processWebhook(body: any) {
                     resultId,
                     competitorName: competitorNameRaw,
                     critical: false,
-                    error: err?.message || String(err),
+                    error: err instanceof Error ? err.message : String(err),
                   },
                 );
               }
@@ -204,7 +204,10 @@ async function processWebhook(body: any) {
         logWarn('Webhook', 'Metrics analysis failed, continuing with webhook', {
           resultId,
           critical: false, // Continue processing even if metrics fail
-          error: metricsError?.message || String(metricsError),
+          error:
+            metricsError instanceof Error
+              ? metricsError.message
+              : String(metricsError),
         });
         // Continue to save the raw response even if analysis fails
       }

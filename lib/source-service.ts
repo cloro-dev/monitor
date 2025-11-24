@@ -105,7 +105,7 @@ export async function processAndSaveSources(
       : '0';
 
   if (shouldLog('INFO') || failureCount > 0) {
-    logInfo('Sources processed', {
+    logInfo('SourceProcess', 'Sources processed', {
       resultId,
       operation: 'SourceProcess',
       totalCount: sources.length,

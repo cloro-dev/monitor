@@ -3,9 +3,11 @@ import prisma from '@/lib/prisma';
 import { logError, logInfo } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
+  let slug: string | null = null;
+
   try {
     const { searchParams } = new URL(request.url);
-    const slug = searchParams.get('slug');
+    slug = searchParams.get('slug');
 
     if (!slug) {
       return NextResponse.json(

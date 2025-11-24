@@ -20,7 +20,7 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // Check if user has any organizations
+  // Check if user has any organizations and handle active organization
   let userOrganizations;
   try {
     userOrganizations = await prisma.organization.findMany({
@@ -32,6 +32,21 @@ export default async function DashboardLayout({
         },
       },
     });
+
+    // If user has organizations but no active organization is set, set the first one as active
+    if (
+      userOrganizations.length > 0 &&
+      !session.session?.activeOrganizationId
+    ) {
+      await prisma.session.update({
+        where: {
+          id: session.session.id,
+        },
+        data: {
+          activeOrganizationId: userOrganizations[0].id,
+        },
+      });
+    }
   } catch (error) {
     console.error('Error fetching organizations:', error);
     // Continue without organizations check - let client handle it

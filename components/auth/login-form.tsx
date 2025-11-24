@@ -104,14 +104,8 @@ export function LoginForm({
                 />
               </div>
               <div className="grid gap-3">
-                <div className="flex items-center">
+                <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/reset-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
                 </div>
                 <Input
                   onChange={(e) => setPassword(e.target.value)}
@@ -120,6 +114,14 @@ export function LoginForm({
                   type="password"
                   required
                 />
+                <div className="flex justify-end">
+                  <Link
+                    href="/reset-password"
+                    className="inline-block text-sm underline-offset-4 hover:underline"
+                  >
+                    Forgot your password?
+                  </Link>
+                </div>
               </div>
               <div className="flex flex-col gap-3">
                 <Button disabled={loading} type="submit" className="w-full">

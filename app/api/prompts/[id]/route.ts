@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { trackPromptById } from '@/lib/tracking-service';
 import { waitUntil } from '@vercel/functions';
+import { logError, logInfo } from '@/lib/logger';
 
 const updatePromptSchema = z.object({
   text: z
@@ -65,6 +66,12 @@ export async function PUT(
       waitUntil(trackPromptById(updatedPrompt.id));
     }
 
+    logInfo('PromptUpdate', 'Prompt updated successfully', {
+      promptId: updatedPrompt.id,
+      userId: session.user.id,
+      updates: validatedData,
+    });
+
     return NextResponse.json(updatedPrompt);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -74,7 +81,10 @@ export async function PUT(
       );
     }
 
-    console.error('Error updating prompt:', error);
+    logError('PromptUpdate', 'Error updating prompt', error, {
+      promptId: await params.then((p) => p.id),
+      userId: session?.user?.id,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -111,6 +121,13 @@ export async function DELETE(
       await prisma.prompt.delete({
         where: { id: id },
       });
+
+      logInfo('PromptDelete', 'Prompt deleted permanently', {
+        promptId: id,
+        userId: session.user.id,
+        action: 'permanent_delete',
+      });
+
       return NextResponse.json({ message: 'Prompt deleted permanently' });
     } else {
       // If prompt is active or suggested, archive it
@@ -122,10 +139,21 @@ export async function DELETE(
           status: 'ARCHIVED',
         },
       });
+
+      logInfo('PromptDelete', 'Prompt archived successfully', {
+        promptId: id,
+        userId: session.user.id,
+        action: 'archive',
+        previousStatus: existingPrompt.status,
+      });
+
       return NextResponse.json({ message: 'Prompt archived successfully' });
     }
   } catch (error) {
-    console.error('Error deleting prompt:', error);
+    logError('PromptDelete', 'Error deleting prompt', error, {
+      promptId: await params.then((p) => p.id),
+      userId: session?.user?.id,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

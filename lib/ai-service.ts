@@ -2,6 +2,7 @@ import { openai } from '@ai-sdk/openai';
 import { google } from '@ai-sdk/google';
 import { LanguageModel, generateObject } from 'ai';
 import { z } from 'zod';
+import { shouldLog, logDebug, logError } from '@/lib/logger';
 
 // Define the schema for the structured object we want the LLM to return.
 const brandMetricsSchema = z.object({
@@ -293,16 +294,19 @@ export async function enrichDomainInfoWithAI(
   // Extract og:type for hint
   const ogType = metadata['og:type'] || '';
 
-  // Log the description source for tracking
-  console.log(
-    `AI enrichment for ${domain}: scraped description "${descriptionSource}"`,
-  );
+  // Log the description source for debugging (DEBUG level only)
+  if (shouldLog('DEBUG')) {
+    logDebug('AIEnrichment', 'AI enrichment details', {
+      domain,
+      descriptionSource: descriptionSource.substring(0, 100), // Truncate for logs
+      descriptionLength: descriptionSource.length,
+    });
+  }
 
   // Check cache first
   const cacheKey = generateCacheKey(domain, descriptionSource);
   const cachedResult = getFromCache(cacheKey);
   if (cachedResult) {
-    console.log(`AI enrichment for ${domain}: cache hit`);
     return {
       name: cachedResult.name,
       description: cachedResult.description,
@@ -358,7 +362,14 @@ Focus on providing meaningful descriptions that accurately represent the brand/w
     });
     object = result.object;
   } catch (schemaError) {
-    console.error(`Schema validation error for ${domain}:`, schemaError);
+    logWarn(
+      'AIEnrichment',
+      'Schema validation error during AI enrichment, retrying with fallback',
+      {
+        domain,
+        error: schemaError?.message || String(schemaError),
+      },
+    );
     // Try with a simpler fallback prompt
     const result = await generateObject({
       model,
@@ -398,7 +409,13 @@ Focus on providing meaningful, accurate descriptions. Prefer concise description
 export async function generateDomainInfoWithAI(
   domain: string,
 ): Promise<{ name: string; description: string | null; type: string }> {
-  console.log(`AI generation for ${domain}: no scraped data available`);
+  // Log AI generation fallback for debugging
+  if (shouldLog('DEBUG')) {
+    logDebug('AIGeneration', 'AI generation fallback', {
+      domain,
+      reason: 'No scraped data available',
+    });
+  }
 
   let model: LanguageModel;
 

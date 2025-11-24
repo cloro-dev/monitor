@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { logError, logInfo } from '@/lib/logger';
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -291,9 +292,19 @@ export async function PATCH(req: Request) {
       data: { status },
     });
 
+    logInfo('CompetitorUpdate', 'Competitor status updated successfully', {
+      competitorId: id,
+      userId: session.user.id,
+      newStatus: status,
+    });
+
     return NextResponse.json(updatedCompetitor);
   } catch (error) {
-    console.error('Error updating competitor status:', error);
+    logError('CompetitorUpdate', 'Error updating competitor status', error, {
+      competitorId: id,
+      userId: session?.user?.id,
+      requestedStatus: status,
+    });
     return NextResponse.json(
       { error: 'Failed to update competitor status' },
       { status: 500 },

@@ -4,6 +4,7 @@ import {
   generateDomainInfoWithAI,
 } from '@/lib/ai-service';
 import prisma from '@/lib/prisma';
+import { DomainInfoLogger, logError, logWarn } from '@/lib/logger';
 
 // In-flight request cache to prevent duplicate processing
 const inFlightRequests = new Map<string, Promise<DomainInfo>>();
@@ -22,15 +23,12 @@ export async function fetchDomainInfo(
   domain: string,
   resultId?: string,
 ): Promise<DomainInfo> {
-  const logPrefix = resultId ? `[${resultId}]` : '[DomainFetcher]';
   const normalizedDomain = normalizeDomain(domain);
+  const logger = new DomainInfoLogger({ resultId });
 
   // Check if there's already an in-flight request for this domain
   const existingRequest = inFlightRequests.get(normalizedDomain);
   if (existingRequest) {
-    console.log(
-      `${logPrefix} Reusing in-flight request for ${normalizedDomain}`,
-    );
     return existingRequest;
   }
 
@@ -44,27 +42,26 @@ export async function fetchDomainInfo(
       });
 
       if (existingBrand) {
-        console.log(`${logPrefix} Cache hit (Brand) for ${normalizedDomain}`);
+        logger.trackCacheHit();
         return {
           domain: existingBrand.domain,
           name: existingBrand.name,
           description: existingBrand.description,
-          type: 'CORPORATE', // Brands are typically corporate/product entities
+          type: 'CORPORATE',
         };
       }
 
-      // Check Source second (has type)
       const existingSource = await prisma.source.findFirst({
         where: { hostname: normalizedDomain },
-        orderBy: { createdAt: 'desc' }, // Use most recent
+        orderBy: { createdAt: 'desc' },
       });
 
       if (existingSource && existingSource.type) {
-        console.log(`${logPrefix} Cache hit (Source) for ${normalizedDomain}`);
+        logger.trackCacheHit();
         return {
           domain: existingSource.hostname,
           name: existingSource.title || existingSource.hostname,
-          description: null, // Sources don't store description yet
+          description: null,
           type: existingSource.type,
         };
       }
@@ -78,14 +75,24 @@ export async function fetchDomainInfo(
     try {
       const url = `https://${normalizedDomain}`;
       metadata = await urlMetadata(url, {
-        timeout: 10000, // 10 second timeout
+        timeout: 10000,
       });
       metadataFetched = true;
+      logger.trackScraping(true);
     } catch (error) {
-      // Scraping failed, will fall back to AI generation
+      logWarn(
+        'DomainFetch',
+        'Scraping failed, will use AI generation fallback',
+        {
+          ...logger.context,
+          domain: normalizedDomain,
+          error: error?.message || String(error),
+        },
+      );
+      logger.trackScraping(false);
     }
 
-    // 1. Attempt AI enrichment if metadata was fetched
+    // AI enrichment if metadata was fetched
     if (metadataFetched) {
       try {
         const enrichedInfo = await enrichDomainInfoWithAI(
@@ -93,6 +100,7 @@ export async function fetchDomainInfo(
           normalizedDomain,
         );
 
+        logger.trackAIEnrichment(true);
         return {
           domain: normalizedDomain,
           name: enrichedInfo.name,
@@ -100,18 +108,19 @@ export async function fetchDomainInfo(
           type: enrichedInfo.type,
         };
       } catch (aiEnrichmentError) {
-        const msg =
-          aiEnrichmentError instanceof Error
-            ? aiEnrichmentError.message
-            : String(aiEnrichmentError);
-        console.error(`AI enrichment failed for ${normalizedDomain}: ${msg}`);
-        // Fall through to AI generation
+        logWarn('DomainFetch', 'AI enrichment failed, using basic metadata', {
+          ...logger.context,
+          domain: normalizedDomain,
+          error: aiEnrichmentError?.message || String(aiEnrichmentError),
+        });
+        logger.trackAIEnrichment(false);
       }
     }
 
-    // 2. Fallback: AI generation from scratch (if metadata failed OR enrichment failed)
+    // Fallback: AI generation from scratch
     try {
       const aiGeneratedInfo = await generateDomainInfoWithAI(normalizedDomain);
+      logger.trackAIGeneration();
       return {
         domain: normalizedDomain,
         name: aiGeneratedInfo.name,
@@ -122,7 +131,7 @@ export async function fetchDomainInfo(
       // Continue to final fallback
     }
 
-    // 3. Final Fallback: Use metadata if available (even if enrichment failed), otherwise basic info
+    // Final fallback: Use metadata if available
     const metadataDescription = metadata
       ? extractDescriptionFromMetadata(metadata)
       : null;

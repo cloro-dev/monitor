@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { logError } from '@/lib/logger';
 
 // GET: Fetch user's organizations
 export async function GET(request: NextRequest) {
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ organizations });
   } catch (error) {
-    console.error('Error fetching organizations:', error);
+    logError('OrganizationsGET', 'Error fetching organizations', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ organization });
   } catch (error) {
-    console.error('Error creating organization:', error);
+    logError('OrganizationCreate', 'Error creating organization', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -200,7 +201,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ organization: updatedOrganization });
   } catch (error) {
-    console.error('Error updating organization:', error);
+    logError('OrganizationUpdate', 'Error updating organization', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

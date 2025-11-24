@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
+import { SourceProcessingLogger, shouldLog, logInfo } from '@/lib/logger';
 
 interface ExtractedSource {
   url: string;
@@ -21,9 +22,13 @@ export async function processAndSaveSources(
 
   if (sources.length === 0) return;
 
-  console.log(
-    `[SourceProcess] Processing ${sources.length} sources for result ${resultId}`,
-  );
+  const logger = new SourceProcessingLogger(resultId);
+
+  logger.logStart(sources.length);
+
+  let failureCount = 0;
+  let createdCount = 0;
+  let linkedCount = 0;
 
   // Process sources in parallel
   await Promise.all(
@@ -35,13 +40,9 @@ export async function processAndSaveSources(
         });
 
         if (!existingSource) {
-          // 2. If new source, fetch metadata
+          // 2. If new source, fetch metadata and create
           const domainInfo = await fetchDomainInfo(source.hostname, resultId);
           try {
-            console.log(
-              `[SourceCreate] Creating new source for ${source.url} and linking to result ${resultId}`,
-            );
-            // 3. Try to Create new Source and link to Result
             const createdSource = await prisma.source.create({
               data: {
                 url: source.url,
@@ -53,44 +54,26 @@ export async function processAndSaveSources(
                 },
               },
             });
-            console.log(
-              `[SourceCreate] SUCCESS: Created source ${createdSource.id} (${createdSource.hostname}) linked to result ${resultId}`,
-            );
+
+            createdCount++;
             return;
           } catch (createError: any) {
             // Handle race condition: Unique constraint failed means it was created by another process
             if (createError.code === 'P2002') {
-              console.log(
-                `[SourceCreate] Race condition detected for ${source.url} - finding existing source`,
-              );
               existingSource = await prisma.source.findUnique({
                 where: { url: source.url },
               });
-              if (existingSource) {
-                console.log(
-                  `[SourceCreate] Found existing source ${existingSource.id} due to race condition`,
-                );
-              } else {
-                console.error(
-                  `[SourceCreate] Race condition but no existing source found for ${source.url}`,
-                );
-              }
             } else {
-              console.error(
-                `[SourceCreate] UNEXPECTED ERROR creating source ${source.url}:`,
-                createError,
-              );
-              throw createError;
+              logger.logSourceFailed(source.url, createError, 'create');
+              failureCount++;
+              return;
             }
           }
         }
 
-        // 4. Link existing source (found initially or after race condition) to this result
+        // 3. Link existing source (found initially or after race condition) to this result
         if (existingSource) {
           try {
-            console.log(
-              `[SourceLink] Attempting to link existing source ${existingSource.id} to result ${resultId}`,
-            );
             await prisma.result.update({
               where: { id: resultId },
               data: {
@@ -99,40 +82,40 @@ export async function processAndSaveSources(
                 },
               },
             });
-            console.log(
-              `[SourceLink] SUCCESS: Linked source ${existingSource.id} to result ${resultId}`,
-            );
+
+            linkedCount++;
           } catch (linkError) {
-            const errorMsg =
-              linkError instanceof Error
-                ? linkError.message
-                : String(linkError);
-            console.error(
-              `[SourceLink] FAILED: Could not link source ${existingSource.id} to result ${resultId}:`,
-              linkError,
-            );
-            console.error(`[SourceLink] Error details:`, {
-              sourceId: existingSource.id,
-              resultId,
-              error: errorMsg,
-            });
-            throw linkError; // Re-throw to make it visible in the main catch block
+            logger.logSourceFailed(source.url, linkError, 'link');
+            failureCount++;
           }
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(
-          `[SourceProcess] FAILED to process source ${source.url}:`,
-          {
-            error: errorMsg,
-            url: source.url,
-            resultId,
-            stack: error instanceof Error ? error.stack : undefined,
-          },
-        );
+        // Log any unexpected errors
+        logger.logSourceFailed(source.url, error, 'create');
+        failureCount++;
       }
     }),
   );
+
+  // Log enhanced final processing summary
+  const successCount = createdCount + linkedCount;
+  const successRate =
+    sources.length > 0
+      ? ((successCount / sources.length) * 100).toFixed(1)
+      : '0';
+
+  if (shouldLog('INFO') || failureCount > 0) {
+    logInfo('Sources processed', {
+      resultId,
+      operation: 'SourceProcess',
+      totalCount: sources.length,
+      created: createdCount,
+      linked: linkedCount,
+      successCount,
+      failureCount,
+      successRate: `${successRate}%`,
+    });
+  }
 }
 
 /**

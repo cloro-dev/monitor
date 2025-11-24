@@ -4,6 +4,12 @@ import { analyzeBrandMetrics, getCompetitorDomain } from '@/lib/ai-service';
 import { processAndSaveSources } from '@/lib/source-service';
 import { waitUntil } from '@vercel/functions';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
+import {
+  logWebhookReceived,
+  logWebhookCompleted,
+  logError,
+  logWarn,
+} from '@/lib/logger';
 
 export const maxDuration = 60; // Allow up to 60s for the webhook handler to run
 
@@ -33,7 +39,9 @@ async function processWebhook(body: any) {
     });
 
     if (!result) {
-      console.error(`Result with ID ${resultId} not found.`);
+      logError('Webhook', 'Webhook result not found', null, {
+        resultId,
+      });
       return;
     }
 
@@ -46,7 +54,11 @@ async function processWebhook(body: any) {
           response: { error: `Task failed with status: ${status}` } as any,
         },
       });
-      console.log(`Result ${resultId} marked as FAILED`);
+      logError('Webhook', 'Webhook task failed', null, {
+        resultId,
+        status,
+        reason: `Task failed with status: ${status}`,
+      });
       return;
     }
 
@@ -114,9 +126,15 @@ async function processWebhook(body: any) {
                     try {
                       domainInfo = await fetchDomainInfo(competitorDomain);
                     } catch (e) {
-                      console.warn(
-                        `Failed to fetch domain info for ${competitorDomain} during competitor creation:`,
-                        e,
+                      logWarn(
+                        'CompetitorCreation',
+                        'Failed to fetch domain info for competitor during creation',
+                        {
+                          competitorDomain,
+                          competitorName: competitorNameRaw,
+                          resultId,
+                          critical: false,
+                        },
                       );
                       domainInfo = {
                         domain: competitorDomain,
@@ -167,19 +185,27 @@ async function processWebhook(body: any) {
                   }
                 }
               } catch (err) {
-                console.warn(
-                  `Failed to process competitor ${competitorNameRaw}:`,
-                  err,
+                // Competitor processing failure - log as warning but continue
+                logWarn(
+                  'Webhook',
+                  'Competitor processing failed, continuing with webhook',
+                  {
+                    resultId,
+                    competitorName: competitorNameRaw,
+                    critical: false,
+                    error: err?.message || String(err),
+                  },
                 );
               }
             }),
           );
         }
       } catch (metricsError) {
-        console.error(
-          `Failed to analyze metrics for result ${resultId}:`,
-          metricsError,
-        );
+        logWarn('Webhook', 'Metrics analysis failed, continuing with webhook', {
+          resultId,
+          critical: false, // Continue processing even if metrics fail
+          error: metricsError?.message || String(metricsError),
+        });
         // Continue to save the raw response even if analysis fails
       }
     }
@@ -198,23 +224,27 @@ async function processWebhook(body: any) {
 
     // Extract and save sources asynchronously (non-blocking)
     await processAndSaveSources(resultId, responseData).catch((err) => {
-      console.error(
-        `[${orgId}] Failed to process sources for result ${resultId}:`,
-        err,
-      );
+      logError('Webhook', 'Source processing failed', err, {
+        resultId,
+        organizationId: orgId,
+        critical: true,
+      });
     });
 
-    console.log(
-      `[${orgId}] Successfully processed webhook for resultId: ${resultId}`,
-    );
+    logWebhookCompleted(resultId, orgId);
   } catch (error) {
-    console.error('Background webhook processing failed:', error);
+    logError('Webhook', 'Webhook processing failed', error, {
+      critical: true,
+    });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const resultId = body.task?.idempotencyKey;
+
+    logWebhookReceived(resultId);
 
     // Validate the webhook payload structure
     if (
@@ -223,18 +253,30 @@ export async function POST(req: Request) {
       !body.task.idempotencyKey ||
       !body.response
     ) {
-      console.error('Invalid webhook payload:', body);
+      logError('Webhook', 'Webhook invalid payload', null, {
+        resultId,
+        error: 'Missing required fields',
+      });
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
     // Offload processing to background
-    waitUntil(processWebhook(body));
+    waitUntil(
+      processWebhook(body).catch((error) => {
+        logError('Webhook', 'Webhook background processing failed', error, {
+          resultId,
+          critical: true,
+        });
+      }),
+    );
 
     return NextResponse.json({
       message: 'Webhook received, processing in background',
     });
   } catch (error) {
-    console.error('Webhook processing failed:', error);
+    logError('Webhook', 'Webhook endpoint failed', error, {
+      critical: true,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

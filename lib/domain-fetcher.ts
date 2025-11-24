@@ -55,7 +55,7 @@ export async function fetchDomainInfo(
       };
     }
   } catch (dbError) {
-    console.warn(`${logPrefix} DB Cache check failed for ${domain}:`, dbError);
+    // Continue to scraping if cache check fails
   }
 
   let metadata;
@@ -68,10 +68,7 @@ export async function fetchDomainInfo(
     });
     metadataFetched = true;
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.info(
-      `${logPrefix} Metadata fetch failed for ${domain} (${msg}). Using AI fallback...`,
-    );
+    // Scraping failed, will fall back to AI generation
   }
 
   // 1. Attempt AI enrichment if metadata was fetched
@@ -89,13 +86,6 @@ export async function fetchDomainInfo(
         type: enrichedInfo.type,
       };
     } catch (aiEnrichmentError) {
-      const msg =
-        aiEnrichmentError instanceof Error
-          ? aiEnrichmentError.message
-          : String(aiEnrichmentError);
-      console.warn(
-        `${logPrefix} AI enrichment failed for ${domain} (${msg}). Falling back to AI generation.`,
-      );
       // Fall through to AI generation
     }
   }
@@ -110,11 +100,7 @@ export async function fetchDomainInfo(
       type: aiGeneratedInfo.type,
     };
   } catch (aiGenerationError) {
-    const msg =
-      aiGenerationError instanceof Error
-        ? aiGenerationError.message
-        : String(aiGenerationError);
-    console.warn(`${logPrefix} AI generation failed for ${domain}: ${msg}`);
+    // Continue to final fallback
   }
 
   // 3. Final Fallback: Use metadata if available (even if enrichment failed), otherwise basic info

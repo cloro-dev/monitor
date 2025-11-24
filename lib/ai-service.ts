@@ -255,6 +255,13 @@ export async function enrichDomainInfoWithAI(
     metadata.title ||
     domain;
 
+  // Extract description from metadata in order of preference
+  const descriptionSource =
+    metadata['og:description'] ||
+    metadata['twitter:description'] ||
+    metadata.description ||
+    '';
+
   // Extract og:type for hint
   const ogType = metadata['og:type'] || '';
 
@@ -280,10 +287,14 @@ Analyze this website metadata to extract the Brand Name, Description, and Classi
 Given:
 - Domain: "${domain}"
 - Page Title/Site Name: "${titleSource}"
+- Scraped Description: "${descriptionSource}"
 - OG Type: "${ogType}"
 
 1. **Brand Name**: Extract the core brand name. Remove generic text ("Official Site", "Home", "Inc", "LLC").
-2. **Description**: A concise summary (max 200 chars) of what this website/brand is known for. If not explicitly clear, infer it from the context or brand name.
+2. **Description**:
+   - PRIORITY 1: If a meaningful scraped description is provided above, use it verbatim or clean it up (max 200 chars).
+   - PRIORITY 2: If scraped description is empty or generic, create a concise summary based on the title and context.
+   - AVOID generic patterns like "Official website for [Brand]" at all costs.
 3. **Source Type**: Classify the website into one of these categories:
    - NEWS: News outlets, newspapers, magazines (e.g., NYT, CNN, TechCrunch).
    - BLOG: Personal or niche blogs, Substack, Medium.
@@ -297,10 +308,12 @@ Given:
    - OTHER: Anything else.
 
 Examples:
-- "nytimes.com" -> Name: "The New York Times", Description: "Leading global news organization.", Type: "NEWS"
-- "reddit.com" -> Name: "Reddit", Description: "Social news aggregation and discussion website.", Type: "SOCIAL_MEDIA"
-- "hubspot.com" -> Name: "HubSpot", Description: "CRM platform for scaling companies.", Type: "CORPORATE"
-- "medium.com" -> Name: "Medium", Description: "Open platform for reading and writing.", Type: "BLOG"
+- "nytimes.com" with scraped description "Leading global news organization" -> Name: "The New York Times", Description: "Leading global news organization", Type: "NEWS"
+- "reddit.com" with scraped description "Social news aggregation and discussion website" -> Name: "Reddit", Description: "Social news aggregation and discussion website", Type: "SOCIAL_MEDIA"
+- "hubspot.com" with scraped description "CRM platform for scaling companies" -> Name: "HubSpot", Description: "CRM platform for scaling companies", Type: "CORPORATE"
+- "fidforward.com" with scraped description "AI-powered recruiting software that finds and outreaches top talent 10x faster. 85% contact discovery rate and 35% reply rate." -> Name: "FidForward", Description: "AI-powered recruiting software that finds and outreaches top talent 10x faster.", Type: "CORPORATE"
+
+IMPORTANT: Always prefer the scraped description when it's meaningful and specific. NEVER use "Official website for [Brand]" format.
       `.trim(),
   });
 
@@ -317,6 +330,8 @@ Examples:
 export async function generateDomainInfoWithAI(
   domain: string,
 ): Promise<{ name: string; description: string | null; type: string }> {
+  console.log(`AI generation for ${domain}: no scraped data available`);
+
   let model: LanguageModel;
 
   // Select the LLM provider based on available environment variables.

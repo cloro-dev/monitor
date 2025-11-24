@@ -167,6 +167,7 @@ enum ProviderModel {
   CHATGPT
   PERPLEXITY
   COPILOT
+  GEMINI
   AIMODE
   AIOVERVIEW
 }

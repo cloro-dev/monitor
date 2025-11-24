@@ -13,6 +13,7 @@ import { PerplexityLogo } from './logos/perplexity-logo';
 import { CopilotLogo } from './logos/copilot-logo';
 import { AIModeLogo } from './logos/ai-mode-logo';
 import { AIOverviewLogo } from './logos/ai-overview-logo';
+import { GeminiLogo } from './logos/gemini-logo';
 
 interface AIModel {
   id: string;
@@ -35,6 +36,11 @@ const AI_MODELS: AIModel[] = [
     id: 'COPILOT',
     name: 'Microsoft Copilot',
     icon: CopilotLogo,
+  },
+  {
+    id: 'GEMINI',
+    name: 'Google Gemini',
+    icon: GeminiLogo,
   },
   {
     id: 'AIMODE',
@@ -62,6 +68,7 @@ export function AIModelsSettings() {
         'CHATGPT',
         'PERPLEXITY',
         'COPILOT',
+        'GEMINI',
         'AIMODE',
         'AIOVERVIEW',
       ];

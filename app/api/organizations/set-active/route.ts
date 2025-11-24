@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { logError, logInfo } from '@/lib/logger';
 
 /**
  * API route to set the active organization for the current user's session.
  */
 export async function POST(request: NextRequest) {
+  let session: any = null;
+  let body: any = null;
+
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
+    session = await auth.api.getSession({ headers: request.headers });
     if (!session?.user?.id || !session.session?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { organizationId } = await request.json();
+    body = await request.json();
+    const { organizationId } = body;
     if (!organizationId) {
       return NextResponse.json(
         { error: 'Organization ID is required' },
@@ -45,9 +50,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    logInfo('OrganizationSetActive', 'Active organization set successfully', {
+      userId: session.user.id,
+      sessionId: session.session.id,
+      organizationId,
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error setting active organization:', error);
+    logError(
+      'OrganizationSetActive',
+      'Error setting active organization',
+      error,
+      {
+        userId: session?.user?.id,
+        sessionId: session?.session?.id,
+        organizationId: body?.organizationId,
+      },
+    );
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

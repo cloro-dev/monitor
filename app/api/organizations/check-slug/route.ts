@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { logError, logInfo } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
+  let slug: string | null = null;
+
   try {
     const { searchParams } = new URL(request.url);
-    const slug = searchParams.get('slug');
+    slug = searchParams.get('slug');
 
     if (!slug) {
       return NextResponse.json(
@@ -26,9 +29,22 @@ export async function GET(request: NextRequest) {
       where: { slug },
     });
 
+    logInfo('OrganizationCheckSlug', 'Slug availability check completed', {
+      slug,
+      exists: !!existingOrg,
+      existingOrgId: existingOrg?.id,
+    });
+
     return NextResponse.json({ exists: !!existingOrg });
   } catch (error) {
-    console.error('Error checking slug availability:', error);
+    logError(
+      'OrganizationCheckSlug',
+      'Error checking slug availability',
+      error,
+      {
+        slug,
+      },
+    );
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { trackPromptById } from '@/lib/tracking-service';
 import { waitUntil } from '@vercel/functions';
+import { logError, logInfo } from '@/lib/logger';
 
 const createPromptSchema = z.object({
   text: z
@@ -171,7 +172,7 @@ export async function GET(request: NextRequest) {
       counts,
     });
   } catch (error) {
-    console.error('Error fetching prompts:', error);
+    logError('PromptsGET', 'Error fetching prompts', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -180,14 +181,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let session: any = null;
+  let body: any = null;
+
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
+    session = await auth.api.getSession({ headers: request.headers });
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    body = await request.json();
     const validatedData = createPromptSchema.parse(body);
 
     // Get user's active organization from session
@@ -289,6 +293,14 @@ export async function POST(request: NextRequest) {
     // Don't await, let it run in the background
     waitUntil(trackPromptById(newPrompt.id));
 
+    logInfo('PromptsCreate', 'Prompt created successfully', {
+      promptId: newPrompt.id,
+      userId: session.user.id,
+      organizationId: activeOrganization.id,
+      brandId: validatedData.brandId,
+      country: newPrompt.country,
+    });
+
     return NextResponse.json(newPrompt, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -298,7 +310,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Error creating prompt:', error);
+    logError('PromptsCreate', 'Error creating prompt', error, {
+      userId: session?.user?.id,
+      brandId: body?.brandId,
+      country: body?.country,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -312,15 +328,22 @@ const bulkUpdateSchema = z.object({
 });
 
 export async function PUT(request: NextRequest) {
+  let session: any = null;
+  let body: any = null;
+  let ids: string[] = [];
+  let status: 'ACTIVE' | 'SUGGESTED' | 'ARCHIVED' = 'SUGGESTED';
+
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
+    session = await auth.api.getSession({ headers: request.headers });
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { ids, status } = bulkUpdateSchema.parse(body);
+    body = await request.json();
+    const validatedData = bulkUpdateSchema.parse(body);
+    ids = validatedData.ids;
+    status = validatedData.status;
 
     // Fetch user session to get active org
     const userSession = await prisma.session.findFirst({
@@ -371,6 +394,14 @@ export async function PUT(request: NextRequest) {
       });
     }
 
+    logInfo('PromptsBulkUpdate', 'Prompts bulk updated successfully', {
+      userId: session.user.id,
+      organizationId: userSession.activeOrganizationId,
+      updatedCount: result.count,
+      requestedCount: ids.length,
+      status,
+    });
+
     return NextResponse.json({ updated: result.count });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -379,7 +410,11 @@ export async function PUT(request: NextRequest) {
         { status: 400 },
       );
     }
-    console.error('Error bulk updating prompts:', error);
+    logError('PromptsBulkUpdate', 'Error bulk updating prompts', error, {
+      userId: session?.user?.id,
+      requestedIds: body?.ids,
+      requestedStatus: body?.status,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

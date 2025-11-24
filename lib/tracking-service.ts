@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { trackPromptAsync } from './cloro';
 import { ProviderModel, Result } from '@prisma/client';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 export async function trackAllPrompts(concurrency = 20) {
   const prompts = await prisma.prompt.findMany({
@@ -73,6 +74,7 @@ async function trackSingleModel(
 ) {
   const model = modelString as ProviderModel;
   let result: Result | null = null;
+  let orgId: string | undefined;
 
   try {
     // Create a Result for this model
@@ -92,18 +94,28 @@ async function trackSingleModel(
 
     // Use country code directly
     const countryCode = prompt.country;
-    const orgId = organizationId || 'N/A';
+    orgId = organizationId || 'N/A';
 
     await trackPromptAsync(prompt.text, countryCode, model, result.id);
 
-    console.log(
-      `[${orgId}] Async task initiated for prompt:${promptId}, model:${model}, resultId:${result.id}`,
-    );
+    logInfo('PromptTracking', 'Async task initiated', {
+      resultId: result.id,
+      organizationId: orgId,
+      promptId,
+      model,
+    });
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error';
-    console.error(
-      `Failed to initiate tracking for prompt ${promptId} with model ${model}: ${errorMessage}`,
+    logError(
+      'PromptTracking',
+      'Failed to initiate tracking for prompt',
+      error,
+      {
+        promptId,
+        model,
+        organizationId: orgId,
+      },
     );
 
     // Try to update the Result to FAILED status
@@ -145,13 +157,19 @@ export async function trackPromptById(promptId: string) {
   });
 
   if (!prompt) {
-    console.error(`Prompt with id ${promptId} not found`);
+    logWarn('PromptTracking', 'Prompt not found, skipping tracking', {
+      promptId,
+    });
     return;
   }
 
   if (prompt.brand.organizationBrands.length === 0) {
-    console.warn(
-      `Prompt ${promptId} belongs to a brand with no organization access.`,
+    logWarn(
+      'PromptTracking',
+      'Prompt belongs to brand with no organization access',
+      {
+        promptId,
+      },
     );
     return;
   }
@@ -161,8 +179,13 @@ export async function trackPromptById(promptId: string) {
   for (const orgBrand of prompt.brand.organizationBrands) {
     const enabledModels = (orgBrand.organization.aiModels as string[]) || [];
     if (enabledModels.length === 0) {
-      console.warn(
-        `No AI models enabled for organization ${orgBrand.organization.name}`,
+      logWarn(
+        'PromptTracking',
+        'No AI models enabled for organization, skipping tracking',
+        {
+          organizationId: orgBrand.organizationId,
+          organizationName: orgBrand.organization.name,
+        },
       );
       continue;
     }
@@ -178,8 +201,14 @@ export async function trackPromptById(promptId: string) {
   }
 
   if (taskQueue.length === 0) {
-    console.warn(
-      `No AI models enabled for any organization that has access to brand ${prompt.brand.name}`,
+    logWarn(
+      'PromptTracking',
+      'No AI models enabled for any organization with brand access, skipping tracking',
+      {
+        brandId: prompt.brand.id,
+        brandName: prompt.brand.name,
+        promptId,
+      },
     );
     return;
   }

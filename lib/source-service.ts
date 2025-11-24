@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
+import { logInfo, logError, shouldLog } from '@/lib/logger';
 
 interface ExtractedSource {
   url: string;
@@ -21,6 +22,15 @@ export async function processAndSaveSources(
 
   if (sources.length === 0) return;
 
+  logInfo('SourceProcess', 'Processing sources', {
+    resultId,
+    sourcesCount: sources.length,
+  });
+
+  let failureCount = 0;
+  let createdCount = 0;
+  let linkedCount = 0;
+
   // Process sources in parallel
   await Promise.all(
     sources.map(async (source) => {
@@ -31,11 +41,10 @@ export async function processAndSaveSources(
         });
 
         if (!existingSource) {
-          // 2. If new source, fetch metadata
+          // 2. If new source, fetch metadata and create
           const domainInfo = await fetchDomainInfo(source.hostname, resultId);
           try {
-            // 3. Try to Create new Source and link to Result
-            await prisma.source.create({
+            const createdSource = await prisma.source.create({
               data: {
                 url: source.url,
                 hostname: source.hostname,
@@ -46,6 +55,8 @@ export async function processAndSaveSources(
                 },
               },
             });
+
+            createdCount++;
             return;
           } catch (createError: any) {
             // Handle race condition: Unique constraint failed means it was created by another process
@@ -54,27 +65,70 @@ export async function processAndSaveSources(
                 where: { url: source.url },
               });
             } else {
-              throw createError;
+              logError('SourceProcess', 'Source create failed', createError, {
+                resultId,
+                url: source.url,
+                operation: 'SourceCreate',
+              });
+              failureCount++;
+              return;
             }
           }
         }
 
-        // 4. Link existing source (found initially or after race condition) to this result
+        // 3. Link existing source (found initially or after race condition) to this result
         if (existingSource) {
-          await prisma.result.update({
-            where: { id: resultId },
-            data: {
-              sources: {
-                connect: { id: existingSource.id },
+          try {
+            await prisma.result.update({
+              where: { id: resultId },
+              data: {
+                sources: {
+                  connect: { id: existingSource.id },
+                },
               },
-            },
-          });
+            });
+
+            linkedCount++;
+          } catch (linkError) {
+            logError('SourceProcess', 'Source link failed', linkError, {
+              resultId,
+              url: source.url,
+              operation: 'SourceLink',
+            });
+            failureCount++;
+          }
         }
       } catch (error) {
-        console.warn(`Failed to process source ${source.url}:`, error);
+        // Log any unexpected errors
+        logError('SourceProcess', 'Unexpected error processing source', error, {
+          resultId,
+          url: source.url,
+          operation: 'SourceCreate',
+        });
+        failureCount++;
       }
     }),
   );
+
+  // Log enhanced final processing summary
+  const successCount = createdCount + linkedCount;
+  const successRate =
+    sources.length > 0
+      ? ((successCount / sources.length) * 100).toFixed(1)
+      : '0';
+
+  if (shouldLog('INFO') || failureCount > 0) {
+    logInfo('SourceProcess', 'Sources processed', {
+      resultId,
+      operation: 'SourceProcess',
+      totalCount: sources.length,
+      created: createdCount,
+      linked: linkedCount,
+      successCount,
+      failureCount,
+      successRate: `${successRate}%`,
+    });
+  }
 }
 
 /**

@@ -6,6 +6,7 @@ import { isValidDomain } from '@/lib/client-utils';
 import { generateBrandPrompts } from '@/lib/ai-service';
 import { COUNTRY_NAME_MAP } from '@/lib/countries';
 import { z } from 'zod';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 // Validation schema
 const createBrandSchema = z.object({
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ brands });
   } catch (error) {
-    console.error('Error fetching brands:', error);
+    logError('BrandsGET', 'Error fetching brands', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -192,7 +193,7 @@ export async function POST(request: NextRequest) {
 
     // Create new brand if it doesn't exist
     if (!brand) {
-      const domainInfo = await fetchDomainInfo(domain);
+      const domainInfo = await fetchDomainInfo(domain, activeOrganization.id);
 
       brand = await prisma.brand.create({
         data: {
@@ -201,6 +202,13 @@ export async function POST(request: NextRequest) {
           description: domainInfo.description,
           defaultCountry: defaultCountry?.toUpperCase(),
         },
+      });
+
+      logInfo('BrandCreate', 'Brand created', {
+        organizationId: activeOrganization.id,
+        domain: brand.domain,
+        name: brand.name || '',
+        brandId: brand.id,
       });
     } else {
       // Update existing brand with defaultCountry if needed
@@ -245,15 +253,23 @@ export async function POST(request: NextRequest) {
               })),
             });
           }
-        } catch (err) {
-          console.error('Error generating suggested prompts:', err);
+        } catch (err: any) {
+          logWarn(
+            'BrandPromptGeneration',
+            'Error generating suggested prompts, brand creation succeeded',
+            {
+              brandId: brand.id,
+              brandDomain: brand.domain,
+              error: err?.message || String(err),
+            },
+          );
         }
       })();
     }
 
     return NextResponse.json({ brand });
   } catch (error) {
-    console.error('Error creating brand:', error);
+    logError('BrandCreate', 'Error creating brand', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -271,6 +287,8 @@ export async function POST(request: NextRequest) {
 
 // PATCH: Update an existing brand
 export async function PATCH(request: NextRequest) {
+  let body: any = null;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -280,7 +298,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    body = await request.json();
     const { brandId, name, description, defaultCountry } = body;
 
     if (!brandId) {
@@ -350,7 +368,9 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ brand: updatedBrand });
   } catch (error) {
-    console.error('Error updating brand:', error);
+    logError('BrandUpdate', 'Error updating brand', error, {
+      brandId: body?.brandId,
+    });
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -368,6 +388,9 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE: Delete a brand
 export async function DELETE(request: NextRequest) {
+  let url: URL;
+  let brandId: string | null = null;
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -377,8 +400,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const url = new URL(request.url);
-    const brandId = url.searchParams.get('brandId');
+    url = new URL(request.url);
+    brandId = url.searchParams.get('brandId');
 
     if (!brandId) {
       return NextResponse.json(
@@ -425,7 +448,9 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting brand:', error);
+    logError('BrandDelete', 'Error deleting brand', error, {
+      brandId: brandId || undefined,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

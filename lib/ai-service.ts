@@ -49,10 +49,7 @@ const generatedPromptsSchema = z.object({
 
 const enrichedDomainInfoSchema = z.object({
   brandName: z.string().max(100).describe('The cleaned brand name'),
-  description: z
-    .string()
-    .max(200)
-    .describe('A short description of what the website is/does'),
+  description: z.string().describe('A description of what the website is/does'),
   sourceType: z
     .enum([
       'NEWS',
@@ -71,10 +68,7 @@ const enrichedDomainInfoSchema = z.object({
 
 const generatedDomainInfoSchema = z.object({
   brandName: z.string().max(100).describe('The cleaned brand name'),
-  description: z
-    .string()
-    .max(200)
-    .describe('A short description of what the website is/does'),
+  description: z.string().describe('A description of what the website is/does'),
   sourceType: z
     .enum([
       'NEWS',
@@ -90,6 +84,40 @@ const generatedDomainInfoSchema = z.object({
     ])
     .describe('The classification of the website source'),
 });
+
+// In-memory cache for domain enrichment (simple Map-based cache)
+const enrichmentCache = new Map<
+  string,
+  { data: any; timestamp: number; ttl: number }
+>();
+
+// Cache helper functions
+function getFromCache(key: string): any | null {
+  const cached = enrichmentCache.get(key);
+  if (!cached) return null;
+
+  if (Date.now() - cached.timestamp > cached.ttl) {
+    enrichmentCache.delete(key);
+    return null;
+  }
+
+  return cached.data;
+}
+
+function setCache(key: string, data: any, ttlMinutes: number = 30): void {
+  enrichmentCache.set(key, {
+    data,
+    timestamp: Date.now(),
+    ttl: ttlMinutes * 60 * 1000, // Convert minutes to milliseconds
+  });
+}
+
+// Generate cache key from domain and description
+function generateCacheKey(domain: string, description: string): string {
+  // Use domain + first 50 chars of description for uniqueness
+  const descKey = description.substring(0, 50).replace(/\s+/g, ' ').trim();
+  return `${domain}:${descKey}`;
+}
 
 // Hardcoded model instances
 const models = {
@@ -265,6 +293,23 @@ export async function enrichDomainInfoWithAI(
   // Extract og:type for hint
   const ogType = metadata['og:type'] || '';
 
+  // Log the description source for tracking
+  console.log(
+    `AI enrichment for ${domain}: scraped description "${descriptionSource}"`,
+  );
+
+  // Check cache first
+  const cacheKey = generateCacheKey(domain, descriptionSource);
+  const cachedResult = getFromCache(cacheKey);
+  if (cachedResult) {
+    console.log(`AI enrichment for ${domain}: cache hit`);
+    return {
+      name: cachedResult.name,
+      description: cachedResult.description,
+      type: cachedResult.type,
+    };
+  }
+
   let model: LanguageModel;
 
   // Select the LLM provider based on available environment variables.
@@ -278,50 +323,73 @@ export async function enrichDomainInfoWithAI(
     );
   }
 
-  const { object } = await generateObject({
-    model,
-    schema: enrichedDomainInfoSchema,
-    prompt: `
-Analyze this website metadata to extract the Brand Name, Description, and Classify the Source Type.
+  let object;
+  try {
+    const result = await generateObject({
+      model,
+      schema: enrichedDomainInfoSchema,
+      prompt: `
+Extract brand information for "${domain}".
 
-Given:
+CONTEXT:
 - Domain: "${domain}"
-- Page Title/Site Name: "${titleSource}"
+- Title: "${titleSource}"
 - Scraped Description: "${descriptionSource}"
-- OG Type: "${ogType}"
+- Type: "${ogType}"
 
-1. **Brand Name**: Extract the core brand name. Remove generic text ("Official Site", "Home", "Inc", "LLC").
-2. **Description**:
-   - PRIORITY 1: If a meaningful scraped description is provided above, use it verbatim or clean it up (max 200 chars).
-   - PRIORITY 2: If scraped description is empty or generic, create a concise summary based on the title and context.
-   - AVOID generic patterns like "Official website for [Brand]" at all costs.
-3. **Source Type**: Classify the website into one of these categories:
-   - NEWS: News outlets, newspapers, magazines (e.g., NYT, CNN, TechCrunch).
-   - BLOG: Personal or niche blogs, Substack, Medium.
-   - SOCIAL_MEDIA: Social platforms (e.g., Twitter, Reddit, LinkedIn, Instagram).
-   - FORUM: Discussion boards, Q&A sites (e.g., Quora, StackOverflow).
-   - CORPORATE: Business websites, SaaS landing pages, company portfolios.
-   - E_COMMERCE: Online stores (e.g., Amazon, Shopify stores).
-   - WIKI: Encyclopedias, documentation, wikis (e.g., Wikipedia).
-   - GOVERNMENT: .gov sites, official agencies.
-   - REVIEW: Review aggregators (e.g., G2, Capterra, Yelp, TripAdvisor).
-   - OTHER: Anything else.
+INSTRUCTIONS:
+1. **Brand Name**: Extract the core brand name (max 100 chars).
 
-Examples:
-- "nytimes.com" with scraped description "Leading global news organization" -> Name: "The New York Times", Description: "Leading global news organization", Type: "NEWS"
-- "reddit.com" with scraped description "Social news aggregation and discussion website" -> Name: "Reddit", Description: "Social news aggregation and discussion website", Type: "SOCIAL_MEDIA"
-- "hubspot.com" with scraped description "CRM platform for scaling companies" -> Name: "HubSpot", Description: "CRM platform for scaling companies", Type: "CORPORATE"
-- "fidforward.com" with scraped description "AI-powered recruiting software that finds and outreaches top talent 10x faster. 85% contact discovery rate and 35% reply rate." -> Name: "FidForward", Description: "AI-powered recruiting software that finds and outreaches top talent 10x faster.", Type: "CORPORATE"
+2. **Description**: Create a clear, informative description (ideally under 200 chars):
+   - If scraped description is available: Use and clean up as needed (summarize if very long)
+   - If scraped description is empty: Research and generate based on domain/title
+   - Focus on what the website/company actually does
+   - Aim for concise but comprehensive descriptions
 
-IMPORTANT: Always prefer the scraped description when it's meaningful and specific. NEVER use "Official website for [Brand]" format.
+3. **Source Type**: Choose one: NEWS, BLOG, SOCIAL_MEDIA, FORUM, CORPORATE, E_COMMERCE, WIKI, GOVERNMENT, REVIEW, OTHER
+
+EXAMPLES:
+- Corporate: "Custom software development company providing web development, mobile applications, and enterprise solutions."
+- Platform: "No-code platform for building AI apps, automations, and internal tools efficiently."
+- Service: "AI research and writing partner that helps users learn faster and work smarter."
+
+Focus on providing meaningful descriptions that accurately represent the brand/website. Prefer concise descriptions under 200 characters when possible.
       `.trim(),
-  });
+    });
+    object = result.object;
+  } catch (schemaError) {
+    console.error(`Schema validation error for ${domain}:`, schemaError);
+    // Try with a simpler fallback prompt
+    const result = await generateObject({
+      model,
+      schema: enrichedDomainInfoSchema,
+      prompt: `
+Simplified extraction for "${domain}".
 
-  return {
+Brand Name (max 100 chars):
+
+Description (ideally under 200 chars):
+- If scraped available: "${descriptionSource}" → Use and clean up as needed
+- If empty: research domain "${domain}" and generate informative description
+
+Type (choose one: NEWS, BLOG, SOCIAL_MEDIA, FORUM, CORPORATE, E_COMMERCE, WIKI, GOVERNMENT, REVIEW, OTHER):
+
+Focus on providing meaningful, accurate descriptions. Prefer concise descriptions under 200 characters when possible.
+      `.trim(),
+    });
+    object = result.object;
+  }
+
+  // Cache the result before returning
+  const result = {
     name: object.brandName,
     description: object.description,
     type: object.sourceType,
   };
+
+  setCache(cacheKey, result, 30); // Cache for 30 minutes
+
+  return result;
 }
 
 /**
@@ -353,9 +421,10 @@ The website "${domain}" is currently inaccessible for scraping.
 Based on your knowledge, please identify the Brand Name, write a short Description, and Classify the Source Type.
 
 1. **Brand Name**: The core name of the entity.
-2. **Description**: A concise summary (max 200 chars) of what this website/brand is known for.
+2. **Description**: A descriptive summary of what this website/brand is known for (ideally under 200 chars).
 3. **Source Type**: Choose the best fit:
    - NEWS, BLOG, SOCIAL_MEDIA, FORUM, CORPORATE, E_COMMERCE, WIKI, GOVERNMENT, REVIEW, OTHER.
+
     `.trim(),
   });
 

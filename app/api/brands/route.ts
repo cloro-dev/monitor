@@ -192,7 +192,11 @@ export async function POST(request: NextRequest) {
 
     // Create new brand if it doesn't exist
     if (!brand) {
-      const domainInfo = await fetchDomainInfo(domain);
+      const domainInfo = await fetchDomainInfo(domain, activeOrganization.id);
+
+      console.log(
+        `[${activeOrganization.id}] Brand creation for ${domain}, description "${domainInfo.description}"`,
+      );
 
       brand = await prisma.brand.create({
         data: {

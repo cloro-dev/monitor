@@ -21,6 +21,10 @@ export async function processAndSaveSources(
 
   if (sources.length === 0) return;
 
+  console.log(
+    `[SourceProcess] Processing ${sources.length} sources for result ${resultId}`,
+  );
+
   // Process sources in parallel
   await Promise.all(
     sources.map(async (source) => {
@@ -34,8 +38,11 @@ export async function processAndSaveSources(
           // 2. If new source, fetch metadata
           const domainInfo = await fetchDomainInfo(source.hostname, resultId);
           try {
+            console.log(
+              `[SourceCreate] Creating new source for ${source.url} and linking to result ${resultId}`,
+            );
             // 3. Try to Create new Source and link to Result
-            await prisma.source.create({
+            const createdSource = await prisma.source.create({
               data: {
                 url: source.url,
                 hostname: source.hostname,
@@ -46,14 +53,33 @@ export async function processAndSaveSources(
                 },
               },
             });
+            console.log(
+              `[SourceCreate] SUCCESS: Created source ${createdSource.id} (${createdSource.hostname}) linked to result ${resultId}`,
+            );
             return;
           } catch (createError: any) {
             // Handle race condition: Unique constraint failed means it was created by another process
             if (createError.code === 'P2002') {
+              console.log(
+                `[SourceCreate] Race condition detected for ${source.url} - finding existing source`,
+              );
               existingSource = await prisma.source.findUnique({
                 where: { url: source.url },
               });
+              if (existingSource) {
+                console.log(
+                  `[SourceCreate] Found existing source ${existingSource.id} due to race condition`,
+                );
+              } else {
+                console.error(
+                  `[SourceCreate] Race condition but no existing source found for ${source.url}`,
+                );
+              }
             } else {
+              console.error(
+                `[SourceCreate] UNEXPECTED ERROR creating source ${source.url}:`,
+                createError,
+              );
               throw createError;
             }
           }
@@ -61,17 +87,49 @@ export async function processAndSaveSources(
 
         // 4. Link existing source (found initially or after race condition) to this result
         if (existingSource) {
-          await prisma.result.update({
-            where: { id: resultId },
-            data: {
-              sources: {
-                connect: { id: existingSource.id },
+          try {
+            console.log(
+              `[SourceLink] Attempting to link existing source ${existingSource.id} to result ${resultId}`,
+            );
+            await prisma.result.update({
+              where: { id: resultId },
+              data: {
+                sources: {
+                  connect: { id: existingSource.id },
+                },
               },
-            },
-          });
+            });
+            console.log(
+              `[SourceLink] SUCCESS: Linked source ${existingSource.id} to result ${resultId}`,
+            );
+          } catch (linkError) {
+            const errorMsg =
+              linkError instanceof Error
+                ? linkError.message
+                : String(linkError);
+            console.error(
+              `[SourceLink] FAILED: Could not link source ${existingSource.id} to result ${resultId}:`,
+              linkError,
+            );
+            console.error(`[SourceLink] Error details:`, {
+              sourceId: existingSource.id,
+              resultId,
+              error: errorMsg,
+            });
+            throw linkError; // Re-throw to make it visible in the main catch block
+          }
         }
       } catch (error) {
-        console.warn(`Failed to process source ${source.url}:`, error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(
+          `[SourceProcess] FAILED to process source ${source.url}:`,
+          {
+            error: errorMsg,
+            url: source.url,
+            resultId,
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        );
       }
     }),
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { usePathname } from 'next/navigation';
+import { useMemo } from 'react';
 import { IconName } from '@/components/ui/icon';
 import { authClient } from '@/lib/auth-client';
 import { NavMain } from '@/components/nav-main';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/sidebar';
 import Image from 'next/image';
 import { useActiveOrganization } from '@/hooks/use-organizations';
+import { useActiveOrganizationManager } from '@/hooks/use-active-organization-manager';
 import { getNavigationRoutes } from '@/lib/routes';
 
 export interface NavbarItem {
@@ -34,7 +35,7 @@ export interface NavbarItem {
   className?: string;
 }
 
-export function AppSidebar({
+export const AppSidebar = React.memo(function AppSidebar({
   session: serverSession,
   ...props
 }: React.ComponentProps<typeof Sidebar> & { session?: any }) {
@@ -43,6 +44,9 @@ export function AppSidebar({
   const [mounted, setMounted] = React.useState(false);
   const { activeOrganization } = useActiveOrganization();
 
+  // Auto-manage active organization selection
+  useActiveOrganizationManager();
+
   // Use server session if provided, otherwise fall back to client session
   const session = serverSession || clientSession;
 
@@ -50,38 +54,46 @@ export function AppSidebar({
     setMounted(true);
   }, []);
 
-  const navigationRoutes = getNavigationRoutes();
+  // Memoize navigation routes and filtering to prevent unnecessary recalculations
+  const navigationItems = useMemo(() => {
+    const navigationRoutes = getNavigationRoutes();
 
-  // Split routes into main sections and secondary items
-  const mainSections: { title: string; items: NavbarItem[] }[] = [
-    {
-      title: '',
-      items: navigationRoutes
-        .filter((route) =>
-          ['/prompts', '/sources', '/competitors'].includes(route.url),
-        )
-        .map((route) => ({
-          title: route.title,
-          url: route.url,
-          icon: route.icon as IconName,
-        })),
-    },
-  ];
+    // Split routes into main sections and secondary items
+    const mainSections: { title: string; items: NavbarItem[] }[] = [
+      {
+        title: '',
+        items: navigationRoutes
+          .filter((route) =>
+            ['/prompts', '/sources', '/competitors'].includes(route.url),
+          )
+          .map((route) => ({
+            title: route.title,
+            url: route.url,
+            icon: route.icon as IconName,
+          })),
+      },
+    ];
 
-  const supportSecondaryItems = navigationRoutes
-    .filter((route) => route.url === '/settings') // Currently only Settings is secondary
-    .map((route) => ({
-      title: route.title,
-      url: route.url,
-      icon: route.icon as IconName,
-    }));
+    const supportSecondaryItems = navigationRoutes
+      .filter((route) => route.url === '/settings') // Currently only Settings is secondary
+      .map((route) => ({
+        title: route.title,
+        url: route.url,
+        icon: route.icon as IconName,
+      }));
 
-  // Ensure consistent user data for hydration
-  const user = {
-    name: (mounted ? session?.user?.name : 'User') || 'User',
-    email: (mounted ? session?.user?.email : '') || '',
-    avatar: (mounted ? session?.user?.image : '') || '',
-  };
+    return { mainSections, supportSecondaryItems };
+  }, []);
+
+  // Memoize user data to prevent unnecessary re-renders
+  const user = useMemo(
+    () => ({
+      name: (mounted ? session?.user?.name : 'User') || 'User',
+      email: (mounted ? session?.user?.email : '') || '',
+      avatar: (mounted ? session?.user?.image : '') || '',
+    }),
+    [mounted, session?.user?.name, session?.user?.email, session?.user?.image],
+  );
 
   // Don't render user-specific content while loading or during hydration
   if (isPending || !mounted) {
@@ -100,8 +112,11 @@ export function AppSidebar({
           </div>
         </SidebarHeader>
         <SidebarContent>
-          <NavMain sections={mainSections} />
-          <NavSecondary items={supportSecondaryItems} className="mt-auto" />
+          <NavMain sections={navigationItems.mainSections} />
+          <NavSecondary
+            items={navigationItems.supportSecondaryItems}
+            className="mt-auto"
+          />
         </SidebarContent>
       </Sidebar>
     );
@@ -120,7 +135,10 @@ export function AppSidebar({
               alt={activeOrganization.name}
               width={32}
               height={32}
-              className="rounded-lg"
+              className="rounded-lg object-cover"
+              loading="lazy"
+              sizes="32px"
+              unoptimized={false}
             />
           ) : (
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg border bg-white text-black">
@@ -137,12 +155,17 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
       <SidebarContent className="pt-4">
-        <NavMain sections={mainSections} />
-        <NavSecondary items={supportSecondaryItems} className="mt-auto" />
+        <NavMain sections={navigationItems.mainSections} />
+        <NavSecondary
+          items={navigationItems.supportSecondaryItems}
+          className="mt-auto"
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   );
-}
+});
+
+AppSidebar.displayName = 'AppSidebar';

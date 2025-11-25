@@ -4,57 +4,20 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { SiteHeader } from '@/components/site-header';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { DashboardErrorBoundary } from '@/components/error/dashboard-error-boundary';
-import { OrganizationRequiredLayout } from '@/components/auth/organization-required-layout';
+import { DashboardLoadingLayout } from '@/components/auth/dashboard-loading-layout';
 import { headers } from 'next/headers';
-import prisma from '@/lib/prisma';
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Check authentication on server-side
+  // Check authentication on server-side (no database queries)
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user?.id) {
     redirect('/login');
   }
-
-  // Check if user has any organizations and handle active organization
-  let userOrganizations;
-  try {
-    userOrganizations = await prisma.organization.findMany({
-      where: {
-        members: {
-          some: {
-            userId: session.user.id,
-          },
-        },
-      },
-    });
-
-    // If user has organizations but no active organization is set, set the first one as active
-    if (
-      userOrganizations.length > 0 &&
-      !session.session?.activeOrganizationId
-    ) {
-      await prisma.session.update({
-        where: {
-          id: session.session.id,
-        },
-        data: {
-          activeOrganizationId: userOrganizations[0].id,
-        },
-      });
-    }
-  } catch (error) {
-    console.error('Error fetching organizations:', error);
-    // Continue without organizations check - let client handle it
-    userOrganizations = [];
-  }
-
-  // Determine if user needs organization
-  const needsOrganization = userOrganizations.length === 0;
 
   return (
     <SidebarProvider>
@@ -63,7 +26,9 @@ export default async function DashboardLayout({
         <SiteHeader />
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden p-4 px-8 pt-0">
           <DashboardErrorBoundary>
-            {needsOrganization ? <OrganizationRequiredLayout /> : children}
+            <DashboardLoadingLayout session={session}>
+              {children}
+            </DashboardLoadingLayout>
           </DashboardErrorBoundary>
         </div>
       </SidebarInset>

@@ -22,12 +22,34 @@ export interface Session {
 export function useAuth() {
   const { data: session, isPending, error } = authClient.useSession();
 
+  const updateSession = async (updates: Partial<Session>) => {
+    try {
+      const response = await fetch('/api/auth/session', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update session');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error updating session:', error);
+      return false;
+    }
+  };
+
   return {
     session: session as Session | null,
     user: session?.user || null,
     isAuthenticated: !!session?.user,
     isPending,
     error,
+    updateSession,
   };
 }
 

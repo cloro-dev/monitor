@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { logError } from '@/lib/logger';
+import { withAuth, apiSuccess, handleApiError } from '@/lib/api-middleware';
 
 // GET: Fetch user's organizations
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const { session, error } = await withAuth(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error) {
+      return error;
     }
 
     // Fetch organizations where the user is a member
@@ -39,25 +37,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ organizations });
+    return apiSuccess({ organizations });
   } catch (error) {
-    logError('OrganizationsGET', 'Error fetching organizations', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return handleApiError(error, 'Organizations', 'GET');
   }
 }
 
 // POST: Create a new organization
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const { session, error } = await withAuth(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error) {
+      return error;
     }
 
     const body = await request.json();
@@ -124,25 +116,19 @@ export async function POST(request: NextRequest) {
       return newOrg;
     });
 
-    return NextResponse.json({ organization });
+    return apiSuccess({ organization });
   } catch (error) {
-    logError('OrganizationCreate', 'Error creating organization', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return handleApiError(error, 'Organization', 'Create');
   }
 }
 
 // PATCH: Update an existing organization
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const { session, error } = await withAuth(request);
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error) {
+      return error;
     }
 
     const body = await request.json();
@@ -199,12 +185,8 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ organization: updatedOrganization });
+    return apiSuccess({ organization: updatedOrganization });
   } catch (error) {
-    logError('OrganizationUpdate', 'Error updating organization', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 },
-    );
+    return handleApiError(error, 'Organization', 'Update');
   }
 }

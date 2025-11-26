@@ -1,7 +1,7 @@
 'use client';
 
 import { CSS } from '@dnd-kit/utilities';
-import { useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
 import { Row, ColumnDef, flexRender } from '@tanstack/react-table';
 import {
   IconGripVertical,

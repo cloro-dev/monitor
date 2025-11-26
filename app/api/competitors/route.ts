@@ -68,6 +68,10 @@ export async function GET(req: Request) {
 
   const includeStats = searchParams.get('includeStats') === 'true';
 
+  // Get selected brand name for API response
+  const selectedBrand = brandId ? brandsById.get(brandId) : null;
+  const selectedBrandName = selectedBrand?.name || null;
+
   const LOOKBACK_DAYS = 90;
 
   if (includeStats && brandId) {

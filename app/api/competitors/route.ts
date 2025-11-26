@@ -70,7 +70,7 @@ export async function GET(req: Request) {
 
   // Get selected brand name for API response
   const selectedBrand = brandId ? brandsById.get(brandId) : null;
-  const selectedBrandName = selectedBrand?.name || null;
+  const selectedBrandName = selectedBrand?.name || 'Unknown';
 
   const LOOKBACK_DAYS = 90;
 

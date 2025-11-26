@@ -5,6 +5,7 @@ import { processAndSaveSources } from '@/lib/source-service';
 import { waitUntil } from '@vercel/functions';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
 import { logInfo, logError, logWarn } from '@/lib/logger';
+import { metricsService } from '@/lib/metrics-service';
 
 export const maxDuration = 60; // Allow up to 60s for the webhook handler to run
 
@@ -219,6 +220,17 @@ async function processWebhook(body: any) {
         competitors: competitors as any,
       },
     });
+
+    // Process metrics in real-time after successful result storage
+    waitUntil(
+      metricsService.processResult(resultId).catch((err) => {
+        logError('Webhook', 'Metrics processing failed', err, {
+          resultId,
+          organizationId: orgId,
+          critical: false, // Continue even if metrics processing fails
+        });
+      }),
+    );
 
     // Extract and save sources asynchronously (non-blocking)
     await processAndSaveSources(resultId, responseData).catch((err) => {

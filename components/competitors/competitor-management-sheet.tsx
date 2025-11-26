@@ -26,12 +26,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useCompetitors,
-  Competitor,
-  CompetitorsApiResponse,
+  updateCompetitorStatus,
 } from '@/hooks/use-competitors';
 import { useBrands } from '@/hooks/use-brands';
 import { Check, X, RotateCcw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import useSWRMutation from 'swr/mutation';
 import { useSWRConfig } from 'swr';
 
 interface CompetitorManagementSheetProps {
@@ -53,48 +53,40 @@ export function CompetitorManagementSheet({
   const { brands } = useBrands();
   const { mutate: globalMutate } = useSWRConfig();
 
+  // SWR mutation for updating competitor status
+  const { trigger: updateStatus, isMutating } = useSWRMutation(
+    '/api/competitors',
+    async (
+      url,
+      { arg }: { arg: { id: string; status: 'ACCEPTED' | 'REJECTED' | null } },
+    ) => {
+      await updateCompetitorStatus(arg.id, arg.status);
+    },
+    {
+      // Revalidate all competitor-related keys after mutation
+      onSuccess: () => {
+        // Trigger revalidation for both the current view and the main page
+        mutate();
+
+        // Revalidate the main page's data which uses includeStats=true
+        const params = new URLSearchParams();
+        if (selectedBrand) params.append('brandId', selectedBrand);
+        params.append('includeStats', 'true');
+        globalMutate(`/api/competitors?${params.toString()}`);
+      },
+    },
+  );
+
   const handleUpdateStatus = async (
     id: string,
     status: 'ACCEPTED' | 'REJECTED' | null,
   ) => {
-    // Optimistic UI update
-    mutate(
-      (currentData: Competitor[] | CompetitorsApiResponse | undefined) => {
-        if (!currentData) return undefined;
-
-        if (Array.isArray(currentData)) {
-          // Handle array of Competitor (when includeStats is false)
-          return currentData.map((c) => (c.id === id ? { ...c, status } : c));
-        } else if (currentData && currentData.competitors) {
-          // Handle CompetitorsApiResponse object (when includeStats is true)
-          const updatedCompetitors = currentData.competitors.map((c) =>
-            c.id === id ? { ...c, status } : c,
-          );
-          return { ...currentData, competitors: updatedCompetitors };
-        }
-        return currentData; // Fallback, return original data if neither matched
-      },
-      { revalidate: false },
-    );
-
-    // Send the update to the API
-    await fetch('/api/competitors', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ id, status }),
-    });
-
-    // Trigger a revalidation to ensure data is in sync with the server
-    mutate();
-
-    // Also revalidate the main page's data which uses includeStats=true
-    const params = new URLSearchParams();
-    if (selectedBrand) params.append('brandId', selectedBrand);
-    params.append('includeStats', 'true');
-    const mainPageKey = `/api/competitors?${params.toString()}`;
-    globalMutate(mainPageKey);
+    try {
+      await updateStatus({ id, status });
+    } catch (error) {
+      console.error('Failed to update competitor status:', error);
+      // You could add a toast notification here
+    }
   };
 
   return (
@@ -169,6 +161,7 @@ export function CompetitorManagementSheet({
                               onClick={() =>
                                 handleUpdateStatus(competitor.id, 'ACCEPTED')
                               }
+                              disabled={isMutating}
                               className="h-5 w-5 p-0"
                             >
                               <Check className="h-3 w-3" />
@@ -179,6 +172,7 @@ export function CompetitorManagementSheet({
                               onClick={() =>
                                 handleUpdateStatus(competitor.id, 'REJECTED')
                               }
+                              disabled={isMutating}
                               className="h-5 w-5 p-0"
                             >
                               <X className="h-3 w-3" />
@@ -187,13 +181,14 @@ export function CompetitorManagementSheet({
                         )}
                         {competitor.status === 'ACCEPTED' && (
                           <div className="flex items-center gap-2">
-                            <Check className="h-4 w-4 text-green-500" />
+                            <Check className="h-4 w-4 text-foreground/70" />
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() =>
                                 handleUpdateStatus(competitor.id, null)
                               }
+                              disabled={isMutating}
                               className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
                             >
                               <RotateCcw className="h-3 w-3" />
@@ -209,6 +204,7 @@ export function CompetitorManagementSheet({
                               onClick={() =>
                                 handleUpdateStatus(competitor.id, null)
                               }
+                              disabled={isMutating}
                               className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                             >
                               <RotateCcw className="h-3 w-3" />

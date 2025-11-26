@@ -83,12 +83,7 @@ export function CompetitorsTable({ data }: CompetitorsTableProps) {
               </TableCell>
               <TableCell className="py-2 align-middle">
                 {competitor.status === 'ACCEPTED' && (
-                  <Badge
-                    variant="default"
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    Accepted
-                  </Badge>
+                  <Badge variant="default">Accepted</Badge>
                 )}
                 {competitor.status === 'REJECTED' && (
                   <Badge variant="destructive">Rejected</Badge>

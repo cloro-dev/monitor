@@ -269,7 +269,18 @@ const createColumns = (): ColumnDef<z.infer<typeof schema>>[] => [
     header: 'Section Type',
     cell: ({ row }) => (
       <div className="w-32">
-        <Badge variant="outline" className="px-1.5 text-muted-foreground">
+        <Badge
+          variant="outline"
+          className={`px-1.5 ${
+            row.original.type === 'HEADLINE'
+              ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300'
+              : row.original.type === 'SUBHEADLINE'
+                ? 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                : row.original.type === 'BODY'
+                  ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300'
+                  : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300'
+          }`}
+        >
           {row.original.type}
         </Badge>
       </div>
@@ -279,11 +290,18 @@ const createColumns = (): ColumnDef<z.infer<typeof schema>>[] => [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => (
-      <Badge variant="outline" className="px-1.5 text-muted-foreground">
+      <Badge
+        variant="outline"
+        className={`px-1.5 ${
+          row.original.status === 'Done'
+            ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300'
+            : 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300'
+        }`}
+      >
         {row.original.status === 'Done' ? (
-          <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
+          <IconCircleCheckFilled className="fill-green-600 dark:fill-green-400" />
         ) : (
-          <IconLoader />
+          <IconLoader className="text-yellow-600 dark:text-yellow-400" />
         )}
         {row.original.status}
       </Badge>

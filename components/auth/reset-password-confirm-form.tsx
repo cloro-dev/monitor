@@ -100,8 +100,8 @@ export function ResetPasswordConfirmForm({
         <Card>
           <CardHeader>
             <div className="mb-4 flex items-center justify-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <CheckCircle className="h-6 w-6 text-primary" />
               </div>
             </div>
             <CardTitle className="text-center">

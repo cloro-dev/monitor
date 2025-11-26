@@ -120,19 +120,19 @@ export default function PromptsPage() {
             <TabsList className="grid w-full grid-cols-3 lg:w-[300px]">
               <TabsTrigger value="active" className="items-end px-4">
                 Active
-                <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
+                <span className="rounded-full bg-muted/50 px-1 py-0.5 text-xs dark:bg-border/50 dark:text-foreground/80">
                   {counts?.ACTIVE || 0}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="suggested" className="items-end px-4">
                 Suggested
-                <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
+                <span className="rounded-full bg-muted/50 px-1 py-0.5 text-xs dark:bg-border/50 dark:text-foreground/80">
                   {counts?.SUGGESTED || 0}
                 </span>
               </TabsTrigger>
               <TabsTrigger value="archived" className="items-end px-4">
                 Archived
-                <span className="rounded-full bg-muted px-1 py-0.5 text-xs">
+                <span className="rounded-full bg-muted/50 px-1 py-0.5 text-xs dark:bg-border/50 dark:text-foreground/80">
                   {counts?.ARCHIVED || 0}
                 </span>
               </TabsTrigger>

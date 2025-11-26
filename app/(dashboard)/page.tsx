@@ -87,7 +87,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-4 rounded-md border p-4">
-              <MessageSquare className="h-8 w-8 text-blue-600" />
+              <MessageSquare className="h-8 w-8 text-primary" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium leading-none">
                   Create your first prompt
@@ -100,7 +100,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center space-x-4 rounded-md border p-4">
-              <Users className="h-8 w-8 text-green-600" />
+              <Users className="h-8 w-8 text-foreground/70" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium leading-none">
                   Invite team members
@@ -113,7 +113,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center space-x-4 rounded-md border p-4">
-              <BarChart3 className="h-8 w-8 text-purple-600" />
+              <BarChart3 className="h-8 w-8 text-muted-foreground/50" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium leading-none">
                   Set up API keys
@@ -147,7 +147,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Status</span>
-                <span className="text-sm text-green-600">Active</span>
+                <span className="text-sm text-foreground/70">Active</span>
               </div>
             </div>
           </CardContent>

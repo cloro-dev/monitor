@@ -195,7 +195,7 @@ export function PromptsTable({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700"
+                        className="h-8 w-8 text-foreground/70 hover:bg-primary/10"
                         onClick={() => handleApprovePrompt(prompt)}
                         title="Approve"
                       >

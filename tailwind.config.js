@@ -70,6 +70,12 @@ module.exports = {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        text: {
+          primary: 'hsl(var(--text-primary))',
+          secondary: 'hsl(var(--text-secondary))',
+          muted: 'hsl(var(--text-muted))',
+          tertiary: 'hsl(var(--text-tertiary))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

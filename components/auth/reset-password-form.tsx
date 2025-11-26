@@ -51,8 +51,8 @@ export function ResetPasswordForm({
         <Card>
           <CardHeader>
             <div className="mb-4 flex items-center justify-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <Mail className="h-6 w-6 text-green-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Mail className="h-6 w-6 text-primary" />
               </div>
             </div>
             <CardTitle className="text-center">Check your email</CardTitle>
@@ -61,9 +61,9 @@ export function ResetPasswordForm({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-700">
+            <Alert className="border-primary/20 bg-primary/5">
+              <CheckCircle className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-primary/80">
                 Please check your email and click the reset link to continue.
               </AlertDescription>
             </Alert>

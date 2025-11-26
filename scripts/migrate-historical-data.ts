@@ -59,6 +59,14 @@ async function runMigration() {
 
     const startTime = Date.now();
 
+    // Clean up existing data to prevent double counting
+    console.log('🧹 Cleaning up existing metrics data...');
+    await prisma.brandMetrics.deleteMany({});
+    await prisma.competitor.updateMany({
+      data: { mentions: 0 },
+    });
+    console.log('✅ Existing metrics cleared and competitor mentions reset.\n');
+
     // Get all successful results
     const results = await prisma.result.findMany({
       where: {

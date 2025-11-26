@@ -158,7 +158,7 @@ export class MetricsService {
           competitorId: null,
           date: resultDate,
           model: result.model as any,
-          totalMentions: 1, // Each result represents one mention
+          totalMentions: position !== null && position > 0 ? 1 : 0,
           averagePosition: position,
           averageSentiment: sentiment,
           visibilityScore: this.calculateVisibilityScore(position),

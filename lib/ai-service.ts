@@ -25,6 +25,13 @@ const brandMetricsSchema = z.object({
     .array(
       z.object({
         name: z.string(),
+        position: z
+          .number()
+          .int()
+          .describe(
+            'The rank position of this competitor brand mentioned in the text. 1 is the most prominent.',
+          )
+          .nullable(),
         sentiment: z
           .number()
           .min(0)
@@ -34,7 +41,7 @@ const brandMetricsSchema = z.object({
       }),
     )
     .describe(
-      'A ranked list of all brand names mentioned in the text, including the primary brand, ordered by prominence. Each object contains the name and its sentiment.',
+      'A ranked list of all brand names mentioned in the text, including the primary brand, ordered by prominence. Each object contains the name, position, and sentiment.',
     )
     .nullable(),
 });

@@ -96,6 +96,7 @@ model organization {
   members     member[]
   invitations invitation[]
   organizationBrands organization_brand[]
+  brandMetrics BrandMetrics[]
 }
 
 model brand {
@@ -110,6 +111,8 @@ model brand {
   prompts        prompt[]
   competitors    Competitor[]  @relation("BrandToCompetitor")
   competitorOf   Competitor[]  @relation("CompetitorToBrand")
+  brandMetrics   BrandMetrics[] @relation("BrandMetricsBrand")
+  competitorMetrics BrandMetrics[] @relation("BrandMetricsCompetitor")
 
   @@index([domain])
 }
@@ -225,4 +228,33 @@ model Competitor {
   @@index([brandId])
   @@index([competitorId])
   @@map("competitor")
+}
+
+model BrandMetrics {
+  id               String        @id @default(cuid())
+  brandId          String
+  organizationId   String
+  competitorId     String?       // null for own brand metrics
+  date             DateTime      @db.Date
+  model            ProviderModel
+
+  // Pre-calculated metrics
+  totalMentions    Int           @default(0)
+  averagePosition  Float?
+  averageSentiment Float?
+  visibilityScore  Float         @default(0)
+  totalResults     Int           @default(0)
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  brand            brand         @relation("BrandMetricsBrand", fields: [brandId], references: [id], onDelete: Cascade)
+  organization     organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  competitor       brand?        @relation("BrandMetricsCompetitor", fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, organizationId, competitorId, date, model])
+  @@index([brandId, date(sort: Desc)])
+  @@index([organizationId, date(sort: Desc)])
+  @@index([competitorId, date(sort: Desc)])
+  @@map("brand_metrics")
 }

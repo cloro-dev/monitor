@@ -2,13 +2,11 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 
 import { CompetitorManagementSheet } from '@/components/competitors/competitor-management-sheet';
 import { useCompetitors } from '@/hooks/use-competitors';
-import { useBrands } from '@/hooks/use-brands';
 import { BrandFilter } from '@/components/brands/brand-filter';
 import { CompetitorVisibilityChart } from '@/components/competitors/competitor-visibility-chart';
 import { CompetitorMetricsTable } from '@/components/competitors/competitor-metrics-table';
@@ -18,32 +16,15 @@ export default function CompetitorsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
 
-  const {
-    competitors,
-    chartData,
-    selectedBrandName,
-    brandsToChart,
-    error,
-    isLoading,
-  } = useCompetitors(
-    selectedBrand,
-    true, // includeStats
-  );
-  const { brands } = useBrands();
+  const { competitors, chartData, brandsToChart, error, isLoading } =
+    useCompetitors(
+      selectedBrand,
+      true, // includeStats
+    );
 
-  // Check if there are any competitors with null status
-  const hasNullStatusCompetitors =
-    Array.isArray(competitors) &&
-    competitors.some((competitor: any) => competitor.status === null);
-
-  // Calculate metrics for the overview cards (only for the selected brand's competitors)
-  const pendingCompetitors = Array.isArray(competitors)
-    ? competitors.filter((c: any) => c.status === null).length
-    : 0;
-
-  // Sort all accepted competitors by visibility score for the table
+  // Sort accepted competitors and own brand by visibility score for the table
   const sortedCompetitors = competitors
-    .filter((c: any) => c.status === 'ACCEPTED')
+    .filter((c: any) => c.status === 'ACCEPTED' || c.isOwnBrand)
     .sort(
       (a: any, b: any) => (b.visibilityScore || 0) - (a.visibilityScore || 0),
     );
@@ -84,48 +65,47 @@ export default function CompetitorsPage() {
             </div>
           </div>
         ) : isLoading ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-            <Skeleton className="h-[350px] w-full lg:col-span-3" />
-            <Skeleton className="h-[350px] w-full lg:col-span-2" />
+          <div className="space-y-6">
+            <Skeleton className="h-[350px] w-full" />
+            <Skeleton className="h-[400px] w-full" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-            <div className="lg:col-span-3">
-              {!selectedBrand ? (
-                <Card className="flex h-[350px] items-center justify-center border-dashed">
-                  <CardContent className="text-center">
-                    <p className="text-muted-foreground">
-                      Select a brand to view visibility trends
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : chartData.length === 0 ? (
-                <Card className="flex h-[350px] items-center justify-center border-dashed">
-                  <CardContent className="text-center">
-                    <p className="text-muted-foreground">
-                      No visibility data available for this brand yet
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <CompetitorVisibilityChart
-                  data={chartData}
-                  competitors={brandsToChart}
-                />
-              )}
-            </div>
-            <div className="lg:col-span-2">
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle>All Competitors</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="h-[300px] overflow-auto">
-                    <CompetitorMetricsTable competitors={sortedCompetitors} />
-                  </div>
+          <div className="space-y-6">
+            {/* Chart Section */}
+            {!selectedBrand ? (
+              <Card className="flex h-[350px] items-center justify-center border-dashed">
+                <CardContent className="text-center">
+                  <p className="text-muted-foreground">
+                    Select a brand to view visibility trends
+                  </p>
                 </CardContent>
               </Card>
-            </div>
+            ) : chartData.length === 0 ? (
+              <Card className="flex h-[350px] items-center justify-center border-dashed">
+                <CardContent className="text-center">
+                  <p className="text-muted-foreground">
+                    No visibility data available for this brand yet
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <CompetitorVisibilityChart
+                data={chartData}
+                competitors={brandsToChart}
+              />
+            )}
+
+            {/* Competitors Table Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All Competitors</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[400px] overflow-auto">
+                  <CompetitorMetricsTable competitors={sortedCompetitors} />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

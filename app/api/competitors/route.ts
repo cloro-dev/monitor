@@ -1,7 +1,6 @@
 import { auth } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { logError, logInfo } from '@/lib/logger';
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -60,15 +59,197 @@ export async function GET(req: Request) {
     select: {
       id: true,
       name: true,
+      domain: true,
+      createdAt: true,
     },
   });
   const brandMap = new Map(brands.map((brand: any) => [brand.id, brand.name]));
-  const brandIds = Array.from(brandMap.keys());
+  const brandsById = new Map(brands.map((brand: any) => [brand.id, brand]));
 
-  // 2. Filter brands if brandId is provided
+  const includeStats = searchParams.get('includeStats') === 'true';
+
+  // Get selected brand name for API response
+  const selectedBrand = brandId ? brandsById.get(brandId) : null;
+  const selectedBrandName = selectedBrand?.name || 'Unknown';
+
+  const LOOKBACK_DAYS = 90;
+
+  if (includeStats && brandId) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - LOOKBACK_DAYS);
+
+    // Get pre-calculated metrics from BrandMetrics table
+    const brandMetricsData = await prisma.brandMetrics.findMany({
+      where: {
+        brandId: brandId,
+        organizationId: activeOrganization.id,
+        date: {
+          gte: startDate,
+        },
+      },
+      include: {
+        brand: true,
+        competitor: true,
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    // Get competitor relationships for context
+    const competitorsRel = await prisma.competitor.findMany({
+      where: {
+        brandId: brandId,
+      },
+      include: {
+        competitor: true,
+      },
+    });
+
+    // Create competitor lookup map
+    const competitorMap = new Map(
+      competitorsRel.map((rel: any) => [
+        rel.competitorId,
+        {
+          id: rel.id,
+          status: rel.status,
+          mentions: rel.mentions,
+          createdAt: rel.createdAt,
+        },
+      ]),
+    );
+
+    // Aggregate metrics by competitor (only keep the latest metrics per competitor)
+    const metricsAggregation = new Map<
+      string,
+      {
+        id: string;
+        brandId: string;
+        name: string;
+        domain: string;
+        status: string;
+        mentions: number;
+        createdAt: Date;
+        brand: string;
+        visibilityScore: number;
+        averagePosition: number | null;
+        averageSentiment: number | null;
+        isOwnBrand: boolean;
+      }
+    >();
+
+    // Process the latest metrics for each competitor
+    const processedCompetitors = new Set<string>();
+
+    for (const metric of brandMetricsData) {
+      const key = metric.competitorId
+        ? `competitor_${metric.competitorId}`
+        : `own_${metric.brandId}`;
+
+      if (!processedCompetitors.has(key)) {
+        const competitorInfo = competitorMap.get(metric.competitorId || '');
+        const competitorBrand = metric.competitor;
+        const isOwnBrand = !metric.competitorId;
+
+        metricsAggregation.set(key, {
+          id: metric.competitorId || `own-brand-${metric.brandId}`,
+          brandId: metric.brandId,
+          name: competitorBrand?.name || metric.brand.name || 'Unknown',
+          domain: competitorBrand?.domain || metric.brand.domain || '',
+          status: isOwnBrand ? 'ACCEPTED' : competitorInfo?.status || null,
+          mentions: isOwnBrand ? 0 : competitorInfo?.mentions || 0,
+          createdAt: competitorInfo?.createdAt || metric.brand.createdAt,
+          brand: selectedBrandName,
+          visibilityScore: metric.visibilityScore || 0,
+          averagePosition: metric.averagePosition,
+          averageSentiment: metric.averageSentiment,
+          isOwnBrand,
+        });
+
+        processedCompetitors.add(key);
+      }
+    }
+
+    // Convert to array
+    let formattedCompetitors = Array.from(metricsAggregation.values());
+
+    // Sort by visibility score (highest first)
+    formattedCompetitors.sort((a, b) => b.visibilityScore - a.visibilityScore);
+
+    // For chart data, get top 5 competitors + own brand
+    const topCompetitors = formattedCompetitors
+      .filter((c) => !c.isOwnBrand && c.status === 'ACCEPTED')
+      .slice(0, 5);
+
+    // Include own brand in chart if it has metrics
+    const ownBrandMetrics = formattedCompetitors.find((c) => c.isOwnBrand);
+    const brandsToChart = [
+      ...(ownBrandMetrics ? [{ id: brandId, name: ownBrandMetrics.name }] : []),
+      ...topCompetitors.map((comp) => ({ id: comp.id, name: comp.name })),
+    ];
+
+    // Generate Chart Data (Daily Visibility for selected brand and top 5 competitors)
+    const chartMap = new Map<string, any>();
+
+    // Pre-fill chartMap with all dates in the lookback range
+    for (let i = LOOKBACK_DAYS; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateKey = d.toISOString().split('T')[0];
+      const dailyEntry: { date: string; [key: string]: string | number } = {
+        date: dateKey,
+      };
+      brandsToChart.forEach((brand) => {
+        dailyEntry[brand.name] = 0;
+      });
+      chartMap.set(dateKey, dailyEntry);
+    }
+
+    // Get daily metrics for chart data
+    const dailyMetrics = await prisma.brandMetrics.findMany({
+      where: {
+        brandId,
+        organizationId: activeOrganization.id,
+        date: { gte: startDate },
+        OR: [
+          { competitorId: null }, // Own brand
+          ...brandsToChart
+            .filter((b) => b.id !== brandId) // Exclude own brand from competitor filter
+            .map((b) => ({ competitorId: b.id })),
+        ],
+      },
+      include: { competitor: true },
+      orderBy: { date: 'asc' },
+    });
+
+    // Populate chart data
+    dailyMetrics.forEach((metric) => {
+      const dateKey = metric.date.toISOString().split('T')[0];
+      const entry = chartMap.get(dateKey);
+      const brandName =
+        metric.competitor?.name || brandsById.get(brandId)?.name;
+
+      if (
+        entry &&
+        brandName &&
+        brandsToChart.some((b) => b.name === brandName)
+      ) {
+        entry[brandName] = metric.visibilityScore || 0;
+      }
+    });
+
+    const chartData = Array.from(chartMap.values());
+
+    return NextResponse.json({
+      selectedBrandName,
+      competitors: formattedCompetitors,
+      brandsToChart,
+      chartData,
+    });
+  }
+
+  // If no stats requested, return basic competitor list
+  const brandIds = brands.map((b) => b.id);
   const targetBrandIds = brandId ? [brandId] : brandIds;
 
-  // 3. Fetch competitors associated with the target brands
   const competitorsRel = await prisma.competitor.findMany({
     where: {
       brandId: {
@@ -79,13 +260,12 @@ export async function GET(req: Request) {
       },
     },
     include: {
-      competitor: true, // Include the competitor brand details
+      competitor: true,
     },
     orderBy: [{ mentions: 'desc' }, { createdAt: 'desc' }],
   });
 
-  // 4. Format the response
-  let formattedCompetitors = competitorsRel.map((rel: any) => ({
+  const formattedCompetitors = competitorsRel.map((rel: any) => ({
     id: rel.id,
     brandId: rel.brandId,
     name: rel.competitor.name,
@@ -94,179 +274,10 @@ export async function GET(req: Request) {
     mentions: rel.mentions,
     createdAt: rel.createdAt,
     brand: brandMap.get(rel.brandId) || 'Unknown',
-    // Initialize metrics
-    visibilityScore: null as number | null,
-    averageSentiment: null as number | null,
-    averagePosition: null as number | null,
+    visibilityScore: null,
+    averagePosition: null,
+    averageSentiment: null,
   }));
-
-  const includeStats = searchParams.get('includeStats') === 'true';
-
-  if (includeStats && brandId) {
-    const selectedBrandName = brandMap.get(brandId) || 'Unknown Brand';
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    const results = await prisma.result.findMany({
-      where: {
-        prompt: { brandId },
-        status: 'SUCCESS',
-        createdAt: { gte: ninetyDaysAgo },
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        competitors: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    // Calculate aggregate metrics for all competitors for the table
-    formattedCompetitors = formattedCompetitors.map((comp: any) => {
-      const compName = comp.name;
-      let mentionCount = 0;
-      let totalPosition = 0;
-      let positionCount = 0;
-      let totalSentiment = 0;
-      let sentimentCount = 0;
-
-      results.forEach((r: any) => {
-        const rawComps = r.competitors || [];
-        let found = false;
-        let sentiment: number | null = null;
-        let position = -1;
-
-        if (Array.isArray(rawComps) && rawComps.length > 0) {
-          // Handle both string (old) and object (new) formats
-          const index = rawComps.findIndex((c: any) => {
-            const name = typeof c === 'string' ? c : c?.name;
-            return name && name.toLowerCase() === compName.toLowerCase();
-          });
-
-          if (index !== -1) {
-            found = true;
-            position = index + 1;
-            const match = rawComps[index];
-            if (
-              typeof match === 'object' &&
-              match !== null &&
-              typeof match.sentiment === 'number'
-            ) {
-              sentiment = match.sentiment;
-            }
-          }
-        }
-
-        if (found) {
-          mentionCount++;
-          totalPosition += position;
-          positionCount++;
-          if (sentiment !== null) {
-            totalSentiment += sentiment;
-            sentimentCount++;
-          }
-        }
-      });
-
-      return {
-        ...comp,
-        visibilityScore:
-          results.length > 0 ? (mentionCount / results.length) * 100 : 0,
-        averagePosition:
-          positionCount > 0 ? totalPosition / positionCount : null,
-        averageSentiment:
-          sentimentCount > 0 ? totalSentiment / sentimentCount : null,
-      };
-    });
-
-    // Determine top 5 accepted competitors for the chart based on mentions
-    const top5AcceptedCompetitors = formattedCompetitors
-      .filter((c: any) => c.status === 'ACCEPTED')
-      .sort((a, b) => (b.mentions || 0) - (a.mentions || 0))
-      .slice(0, 5);
-
-    // Prepare all brands to be charted (selected brand + top 5 accepted competitors)
-    const brandsToChart = [
-      { id: brandId, name: selectedBrandName }, // Primary brand
-      ...top5AcceptedCompetitors.map((comp) => ({
-        id: comp.id,
-        name: comp.name,
-      })),
-    ];
-
-    // Generate Chart Data (Daily Visibility for selected brand and top 5 competitors)
-    const chartMap = new Map<string, any>();
-
-    // Pre-fill chartMap with all dates in the 90-day range
-    const today = new Date();
-    for (
-      let d = new Date(ninetyDaysAgo);
-      d <= today;
-      d.setDate(d.getDate() + 1)
-    ) {
-      const dateKey = d.toISOString().split('T')[0];
-      const dailyEntry: { date: string; [key: string]: number | string } = {
-        date: dateKey,
-      };
-      brandsToChart.forEach((b) => {
-        dailyEntry[b.name] = 0; // Initialize mention counts for each brand to 0
-      });
-      dailyEntry['__dailyTotalResults'] = 0; // Keep track of total results for the day
-      chartMap.set(dateKey, dailyEntry);
-    }
-
-    // Populate chartMap with actual data from results
-    results.forEach((r: any) => {
-      const dateKey = r.createdAt.toISOString().split('T')[0];
-      const entry = chartMap.get(dateKey);
-      if (entry) {
-        entry['__dailyTotalResults']++; // Increment total results for this day
-
-        const rawComps = r.competitors || [];
-        let allMentionsInResult: string[] = [];
-
-        if (Array.isArray(rawComps) && rawComps.length > 0) {
-          allMentionsInResult = (rawComps as any[])
-            .map((c) => {
-              if (typeof c === 'string') return c;
-              return c?.name;
-            })
-            .filter((name) => name);
-        }
-
-        brandsToChart.forEach((brand) => {
-          if (
-            allMentionsInResult.some(
-              (c) => c.toLowerCase() === brand.name.toLowerCase(),
-            )
-          ) {
-            entry[brand.name] = (entry[brand.name] || 0) + 1;
-          }
-        });
-      }
-    });
-
-    // Finalize chartData by calculating percentages
-    const chartData = Array.from(chartMap.values()).map((entry: any) => {
-      const point: any = { date: entry.date };
-      const dailyTotalResults = entry['__dailyTotalResults'];
-
-      brandsToChart.forEach((brand) => {
-        point[brand.name] =
-          dailyTotalResults > 0
-            ? ((entry[brand.name] || 0) / dailyTotalResults) * 100
-            : 0;
-      });
-      return point;
-    });
-
-    return NextResponse.json({
-      selectedBrandName: selectedBrandName,
-      competitors: formattedCompetitors, // Return all competitors for the table
-      brandsToChart: brandsToChart, // The specific brands (primary + top 5) to use for the chart legend/series
-      chartData: chartData,
-    });
-  }
 
   return NextResponse.json(formattedCompetitors);
 }
@@ -277,34 +288,37 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id, status } = await req.json();
-
-  if (!id || status === undefined) {
-    return NextResponse.json(
-      { error: 'Missing required fields' },
-      { status: 400 },
-    );
-  }
-
   try {
-    const updatedCompetitor = await prisma.competitor.update({
+    const { id, status } = await req.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Missing competitor ID' },
+        { status: 400 },
+      );
+    }
+
+    // Find the competitor record to update
+    const competitor = await prisma.competitor.findUnique({
       where: { id },
-      data: { status },
     });
 
-    logInfo('CompetitorUpdate', 'Competitor status updated successfully', {
-      competitorId: id,
-      userId: session.user.id,
-      newStatus: status,
+    if (!competitor) {
+      return NextResponse.json(
+        { error: 'Competitor not found' },
+        { status: 404 },
+      );
+    }
+
+    // Update the competitor status
+    const updatedCompetitor = await prisma.competitor.update({
+      where: { id },
+      data: { status: status as 'ACCEPTED' | 'REJECTED' | null },
     });
 
     return NextResponse.json(updatedCompetitor);
   } catch (error) {
-    logError('CompetitorUpdate', 'Error updating competitor status', error, {
-      competitorId: id,
-      userId: session?.user?.id,
-      requestedStatus: status,
-    });
+    console.error('Failed to update competitor status:', error);
     return NextResponse.json(
       { error: 'Failed to update competitor status' },
       { status: 500 },

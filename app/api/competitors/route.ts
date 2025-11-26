@@ -68,10 +68,11 @@ export async function GET(req: Request) {
 
   const includeStats = searchParams.get('includeStats') === 'true';
 
+  const LOOKBACK_DAYS = 90;
+
   if (includeStats && brandId) {
-    const selectedBrandName = brandMap.get(brandId) || 'Unknown Brand';
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - LOOKBACK_DAYS);
 
     // Get pre-calculated metrics from BrandMetrics table
     const brandMetricsData = await prisma.brandMetrics.findMany({
@@ -79,7 +80,7 @@ export async function GET(req: Request) {
         brandId: brandId,
         organizationId: activeOrganization.id,
         date: {
-          gte: ninetyDaysAgo,
+          gte: startDate,
         },
       },
       include: {
@@ -181,16 +182,13 @@ export async function GET(req: Request) {
       ...topCompetitors.map((comp) => ({ id: comp.id, name: comp.name })),
     ];
 
-    // Generate chart data using BrandMetrics for more efficient querying
+    // Generate Chart Data (Daily Visibility for selected brand and top 5 competitors)
     const chartMap = new Map<string, any>();
 
-    // Pre-fill chartMap with all dates in the 90-day range
-    const today = new Date();
-    for (
-      let d = new Date(ninetyDaysAgo);
-      d <= today;
-      d.setDate(d.getDate() + 1)
-    ) {
+    // Pre-fill chartMap with all dates in the lookback range
+    for (let i = LOOKBACK_DAYS; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
       const dateKey = d.toISOString().split('T')[0];
       const dailyEntry: { date: string; [key: string]: string | number } = {
         date: dateKey,
@@ -206,7 +204,7 @@ export async function GET(req: Request) {
       where: {
         brandId,
         organizationId: activeOrganization.id,
-        date: { gte: ninetyDaysAgo },
+        date: { gte: startDate },
         OR: [
           { competitorId: null }, // Own brand
           ...brandsToChart

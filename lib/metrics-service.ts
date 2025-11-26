@@ -1,19 +1,14 @@
 import prisma from '@/lib/prisma';
 import { analyzeBrandMetrics } from '@/lib/ai-service';
 import { logInfo, logError, logWarn } from '@/lib/logger';
+import { ProviderModel } from '@prisma/client';
 
 interface MetricsData {
   brandId: string;
   organizationId: string;
   competitorId: string | null;
   date: Date;
-  model:
-    | 'CHATGPT'
-    | 'PERPLEXITY'
-    | 'COPILOT'
-    | 'AIMODE'
-    | 'AIOVERVIEW'
-    | 'GEMINI';
+  model: ProviderModel;
   totalMentions: number;
   averagePosition: number | null;
   averageSentiment: number | null;
@@ -286,10 +281,8 @@ export class MetricsService {
         data.totalMentions,
       );
 
-      const newVisibilityScore = Math.max(
-        existing.visibilityScore,
-        data.visibilityScore,
-      );
+      const newVisibilityScore =
+        newTotalResults > 0 ? (newTotalMentions / newTotalResults) * 100 : 0;
 
       await prisma.brandMetrics.update({
         where: {

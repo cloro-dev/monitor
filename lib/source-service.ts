@@ -248,7 +248,7 @@ function getRootDomain(hostname: string): string {
 function normalizeUrl(url: string): string {
   try {
     const urlObj = new URL(url);
-    return urlObj.origin + urlObj.pathname;
+    return urlObj.href;
   } catch {
     return url;
   }

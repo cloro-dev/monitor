@@ -149,15 +149,16 @@ export default function SourcesPage() {
       };
     });
 
-    // Generate simplified chart data (matches original behavior)
+    // Generate chart data with real utilization percentages
     const data = days.map((day) => {
       const dayData: any = {
         date: format(day, 'MMM dd'),
       };
 
-      topItems.forEach((_: DomainStat | URLStat, index: number) => {
+      topItems.forEach((item: DomainStat | URLStat, index: number) => {
         const safeId = `item_${index}`;
-        dayData[safeId] = Math.floor(Math.random() * 10) + 1; // Placeholder data matching original
+        // Use the actual utilization percentage for each item
+        dayData[safeId] = item.utilization;
       });
 
       return dayData;

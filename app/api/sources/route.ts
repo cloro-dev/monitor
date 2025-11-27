@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
 
     const validatedParams = sourcesQuerySchema.parse(queryParams);
 
+    console.log(`[SourcesAPI] Request params:`, validatedParams);
+
     logInfo('SourcesAPI', 'Fetching sources data', {
       userId: session.user.id,
       params: validatedParams,
@@ -41,6 +43,7 @@ export async function GET(request: NextRequest) {
     );
 
     const duration = Date.now() - startTime;
+    console.log(`[SourcesAPI] Request completed in ${duration}ms`);
 
     logInfo('SourcesAPI', 'Successfully fetched optimized sources data', {
       userId: session.user.id,
@@ -60,6 +63,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const duration = Date.now() - startTime;
+    console.error(`[SourcesAPI] Error:`, error);
 
     if (error instanceof z.ZodError) {
       logError('SourcesAPI', 'Validation error', error, {

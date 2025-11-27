@@ -299,7 +299,8 @@ export async function getSourcesAnalyticsData(
         },
       },
     },
-    include: {
+    select: {
+      id: true,
       results: {
         where: {
           status: 'SUCCESS',
@@ -308,7 +309,8 @@ export async function getSourcesAnalyticsData(
             lte: dateRange.to,
           },
         },
-        include: {
+        // optimization: use select to exclude the heavy 'response' JSON field
+        select: {
           sources: {
             select: {
               url: true,

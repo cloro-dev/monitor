@@ -53,11 +53,11 @@ export interface SourcesQueryParams {
 /**
  * Hook for fetching sources data efficiently
  */
-export function useSources(params: SourcesQueryParams) {
+export function useSources(params: SourcesQueryParams | null) {
   const { isAuthenticated } = useAuth();
 
   const getKey = () => {
-    if (!isAuthenticated || !params.brandId) return null;
+    if (!isAuthenticated || !params?.brandId) return null;
 
     const queryParams = new URLSearchParams();
 

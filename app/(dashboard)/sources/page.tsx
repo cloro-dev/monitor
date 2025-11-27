@@ -81,23 +81,21 @@ export default function SourcesPage() {
   }, [preferences.timeRange]);
 
   // Only fetch sources data when a brand is selected (brandId is now required)
-  const { data, isLoading } = useSources(
-    useMemo(
-      () => ({
-        brandId: preferences.brandId!, // Non-null assertion since we check below
-        timeRange: preferences.timeRange,
-        tab: preferences.tab,
-        page: currentPage,
-        limit: itemsPerPage,
-      }),
-      [
-        preferences.brandId,
-        preferences.timeRange,
-        preferences.tab,
-        currentPage,
-      ],
-    ),
+  const sourcesParams = useMemo(
+    () =>
+      preferences.brandId
+        ? {
+            brandId: preferences.brandId,
+            timeRange: preferences.timeRange,
+            tab: preferences.tab,
+            page: currentPage,
+            limit: itemsPerPage,
+          }
+        : null,
+    [preferences.brandId, preferences.timeRange, preferences.tab, currentPage],
   );
+
+  const { data, isLoading } = useSources(sourcesParams);
 
   // Get current stats for pagination
   const currentStats = useMemo(() => {

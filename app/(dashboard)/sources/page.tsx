@@ -642,9 +642,9 @@ export default function SourcesPage() {
                   paginatedStats.map(
                     (stat: DomainStat | URLStat, index: number) => (
                       <TableRow key={(stat as URLStat).url || `url-${index}`}>
-                        <TableCell className="max-w-xs truncate py-2 font-medium">
+                        <TableCell className="w-80 py-2 font-medium">
                           <div className="flex items-center gap-2">
-                            <Avatar className="h-5 w-5 rounded-sm">
+                            <Avatar className="h-5 w-5 flex-shrink-0 rounded-sm">
                               <AvatarImage
                                 src={getFaviconUrl(
                                   (stat as URLStat).hostname || '',
@@ -659,7 +659,18 @@ export default function SourcesPage() {
                                   '?'.toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            {(stat as URLStat).url || 'Unknown URL'}
+                            <div
+                              className="truncate text-sm"
+                              style={{
+                                maxWidth: 'calc(100% - 32px)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={(stat as URLStat).url || 'Unknown URL'}
+                            >
+                              {(stat as URLStat).url || 'Unknown URL'}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="py-2">

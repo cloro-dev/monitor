@@ -7,7 +7,6 @@ import { useAuth } from './use-auth';
 export interface DomainStat {
   domain: string;
   mentions: number;
-  avgPosition: number;
   utilization: number;
   type?: string;
   uniquePrompts: number;
@@ -17,7 +16,6 @@ export interface URLStat {
   url: string;
   hostname: string;
   mentions: number;
-  avgPosition: number;
   utilization: number;
   type?: string;
   uniquePrompts: number;
@@ -61,13 +59,17 @@ export function useSources(params: SourcesQueryParams) {
   const getKey = () => {
     if (!isAuthenticated) return null;
 
-    const queryParams = new URLSearchParams({
-      brandId: params.brandId || '',
-      timeRange: params.timeRange,
-      tab: params.tab,
-      page: params.page.toString(),
-      limit: params.limit.toString(),
-    });
+    const queryParams = new URLSearchParams();
+
+    // Only include brandId if it has a value
+    if (params.brandId) {
+      queryParams.append('brandId', params.brandId);
+    }
+
+    queryParams.append('timeRange', params.timeRange);
+    queryParams.append('tab', params.tab);
+    queryParams.append('page', params.page.toString());
+    queryParams.append('limit', params.limit.toString());
 
     return `/api/sources?${queryParams}`;
   };

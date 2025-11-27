@@ -29,6 +29,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 type TimeRange = '7d' | '30d' | '90d';
 
@@ -36,13 +37,6 @@ type DateRange = {
   from: Date | undefined;
   to?: Date | undefined;
 };
-
-interface SourceItem {
-  url: string;
-  label: string;
-  position: number;
-  description: string;
-}
 
 // Type styles for source badges
 const typeStyles: Record<string, string> = {
@@ -77,12 +71,16 @@ export default function SourcesPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const [activeTab, setActiveTab] = useState<'domain' | 'url'>('domain');
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'mentions' | 'utilization'>(
+    'utilization',
+  );
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const itemsPerPage = 15;
 
   // Memoize query parameters to prevent unnecessary re-renders
   const queryParams = useMemo(
     () => ({
-      brandId: selectedBrand || undefined,
+      brandId: selectedBrand || null,
       timeRange,
       tab: activeTab,
       page: currentPage,
@@ -175,13 +173,26 @@ export default function SourcesPage() {
     return { data, config };
   }, [currentStats, activeTab, date]);
 
-  // Pagination logic
+  // Sorting and pagination logic
   const totalPages = data?.pagination.totalPages || 1;
+  const sortedStats = useMemo(() => {
+    return [...currentStats].sort((a, b) => {
+      const aValue = sortBy === 'mentions' ? a.mentions : a.utilization;
+      const bValue = sortBy === 'mentions' ? b.mentions : b.utilization;
+
+      if (sortOrder === 'asc') {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
+    });
+  }, [currentStats, sortBy, sortOrder]);
+
   const paginatedStats = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return currentStats.slice(startIndex, endIndex);
-  }, [currentStats, currentPage, itemsPerPage]);
+    return sortedStats.slice(startIndex, endIndex);
+  }, [sortedStats, currentPage, itemsPerPage]);
 
   // Compute type stats for sidebar
   const typeStats = useMemo(() => {
@@ -218,6 +229,16 @@ export default function SourcesPage() {
 
   const handleBrandChange = (val: string | null) => {
     setSelectedBrand(val);
+    setCurrentPage(1);
+  };
+
+  const handleSort = (column: 'mentions' | 'utilization') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
     setCurrentPage(1);
   };
 
@@ -283,67 +304,84 @@ export default function SourcesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer
-                config={chartData.config}
-                className="h-[200px] w-full"
-              >
-                <AreaChart
-                  data={chartData.data}
-                  margin={{ left: 12, right: 12 }}
+              {!selectedBrand ? (
+                <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
+                  <p className="text-center text-muted-foreground">
+                    Select a brand to view{' '}
+                    {activeTab === 'domain' ? 'domain' : 'URL'} utilization
+                    trends
+                  </p>
+                </div>
+              ) : chartData.data.length === 0 ? (
+                <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
+                  <p className="text-center text-muted-foreground">
+                    No {activeTab === 'domain' ? 'domain' : 'URL'} data
+                    available for this brand yet
+                  </p>
+                </div>
+              ) : (
+                <ChartContainer
+                  config={chartData.config}
+                  className="h-[200px] w-full"
                 >
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    minTickGap={32}
-                    tickFormatter={(value) => {
-                      const date = new Date(value);
-                      return date.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      });
-                    }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value.toFixed(0)}%`}
-                    domain={[0, 100]}
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <ChartTooltipContent
-                        indicator="dot"
-                        labelFormatter={(value) => {
-                          return new Date(value).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          });
-                        }}
-                        valueFormatter={(value) =>
-                          `${Number(value).toFixed(0)}%`
-                        }
-                      />
-                    }
-                  />
-                  {Object.keys(chartData.config).map((key) => (
-                    <Area
-                      key={key}
-                      dataKey={key}
-                      type="monotone"
-                      fill={chartData.config[key].color}
-                      fillOpacity={0.1}
-                      stroke={chartData.config[key].color}
-                      stackId={undefined}
-                      strokeWidth={2}
+                  <AreaChart
+                    data={chartData.data}
+                    margin={{ left: 12, right: 12 }}
+                  >
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={32}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        });
+                      }}
                     />
-                  ))}
-                  <ChartLegend content={<ChartLegendContent />} />
-                </AreaChart>
-              </ChartContainer>
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${value.toFixed(0)}%`}
+                      domain={[0, 100]}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          indicator="dot"
+                          labelFormatter={(value) => {
+                            return new Date(value).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            });
+                          }}
+                          valueFormatter={(value) =>
+                            `${Number(value).toFixed(0)}%`
+                          }
+                        />
+                      }
+                    />
+                    {Object.keys(chartData.config).map((key) => (
+                      <Area
+                        key={key}
+                        dataKey={key}
+                        type="monotone"
+                        fill={chartData.config[key].color}
+                        fillOpacity={0.1}
+                        stroke={chartData.config[key].color}
+                        stackId={undefined}
+                        strokeWidth={2}
+                      />
+                    ))}
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </AreaChart>
+                </ChartContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -353,34 +391,43 @@ export default function SourcesPage() {
               <CardTitle>Source type</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto">
-              <div className="space-y-2">
-                {typeStats.slice(0, 6).map((stat) => (
-                  <div key={stat.type} className="flex items-center gap-1">
-                    <div className="w-32">
-                      <Badge
-                        variant="secondary"
-                        className={typeStyles[stat.type] || typeStyles.OTHER}
-                      >
-                        {formatType(stat.type)}
-                      </Badge>
+              {!selectedBrand ? (
+                <div className="flex h-32 items-center justify-center rounded-md border-dashed">
+                  <p className="text-center text-muted-foreground">
+                    Select a brand to view source type distribution
+                  </p>
+                </div>
+              ) : typeStats.length === 0 ? (
+                <div className="flex h-32 items-center justify-center rounded-md border-dashed">
+                  <p className="text-center text-muted-foreground">
+                    No source type data available for this brand yet
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {typeStats.slice(0, 6).map((stat) => (
+                    <div key={stat.type} className="flex items-center gap-1">
+                      <div className="w-32">
+                        <Badge
+                          variant="secondary"
+                          className={typeStyles[stat.type] || typeStyles.OTHER}
+                        >
+                          {formatType(stat.type)}
+                        </Badge>
+                      </div>
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full bg-primary/50"
+                          style={{ width: `${stat.percentage}%` }}
+                        />
+                      </div>
+                      <span className="w-10 text-right text-xs text-muted-foreground">
+                        {stat.percentage.toFixed(0)}%
+                      </span>
                     </div>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full bg-primary/50"
-                        style={{ width: `${stat.percentage}%` }}
-                      />
-                    </div>
-                    <span className="w-10 text-right text-xs text-muted-foreground">
-                      {stat.percentage.toFixed(0)}%
-                    </span>
-                  </div>
-                ))}
-                {typeStats.length === 0 && (
-                  <div className="py-4 text-center text-sm text-muted-foreground">
-                    No data available
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -392,15 +439,59 @@ export default function SourcesPage() {
                 <TableRow>
                   <TableHead>Domain</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Utilization</TableHead>
-                  <TableHead>Mentions</TableHead>
-                  <TableHead>Avg. Position</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('utilization')}
+                      className="flex items-center gap-1 hover:text-foreground"
+                    >
+                      Utilization
+                      {sortBy === 'utilization' ? (
+                        sortOrder === 'asc' ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('mentions')}
+                      className="flex items-center gap-1 hover:text-foreground"
+                    >
+                      Mentions
+                      {sortBy === 'mentions' ? (
+                        sortOrder === 'asc' ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!data?.domainStats || data.domainStats.length === 0 ? (
+                {!selectedBrand ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      <div>
+                        <p className="font-medium">
+                          Select a brand to view sources
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Choose a brand from the filter to see sources
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : !data?.domainStats || data.domainStats.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
                       No sources found in your tracking results.
                     </TableCell>
                   </TableRow>
@@ -449,11 +540,6 @@ export default function SourcesPage() {
                           {stat.utilization.toFixed(1)}%
                         </TableCell>
                         <TableCell className="py-2">{stat.mentions}</TableCell>
-                        <TableCell className="py-2">
-                          {stat.avgPosition > 0
-                            ? stat.avgPosition.toFixed(1)
-                            : 'N/A'}
-                        </TableCell>
                       </TableRow>
                     ),
                   )
@@ -485,15 +571,59 @@ export default function SourcesPage() {
                 <TableRow>
                   <TableHead>URL</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Utilization</TableHead>
-                  <TableHead>Mentions</TableHead>
-                  <TableHead>Avg. Position</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('utilization')}
+                      className="flex items-center gap-1 hover:text-foreground"
+                    >
+                      Utilization
+                      {sortBy === 'utilization' ? (
+                        sortOrder === 'asc' ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('mentions')}
+                      className="flex items-center gap-1 hover:text-foreground"
+                    >
+                      Mentions
+                      {sortBy === 'mentions' ? (
+                        sortOrder === 'asc' ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!data?.urlStats || data.urlStats.length === 0 ? (
+                {!selectedBrand ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      <div>
+                        <p className="font-medium">
+                          Select a brand to view sources
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Choose a brand from the filter to see sources
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : !data?.urlStats || data.urlStats.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
                       No sources found in your tracking results.
                     </TableCell>
                   </TableRow>
@@ -540,11 +670,6 @@ export default function SourcesPage() {
                           {stat.utilization.toFixed(1)}%
                         </TableCell>
                         <TableCell className="py-2">{stat.mentions}</TableCell>
-                        <TableCell className="py-2">
-                          {stat.avgPosition > 0
-                            ? stat.avgPosition.toFixed(1)
-                            : 'N/A'}
-                        </TableCell>
                       </TableRow>
                     ),
                   )

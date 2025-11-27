@@ -192,24 +192,20 @@ function extractSourcesFromResponse(responseData: any): ExtractedSource[] {
 export interface SourcesAnalyticsDomainStat {
   domain: string;
   mentions: number;
-  avgPosition: number;
   utilization: number;
   type?: string;
   uniquePrompts: number; // Number of unique prompts that mentioned this domain
   uniquePromptIds?: Set<string>; // Temporary field for server-side processing only
-  totalPosition?: number; // Sum of all positions for calculating average
 }
 
 export interface SourcesAnalyticsURLStat {
   url: string;
   hostname: string;
   mentions: number;
-  avgPosition: number;
   utilization: number;
   type?: string;
   uniquePrompts: number; // Number of unique prompts that mentioned this URL
   uniquePromptIds?: Set<string>; // Temporary field for server-side processing only
-  totalPosition?: number; // Sum of all positions for calculating average
 }
 
 export interface SourcesAnalyticsResponse {
@@ -361,28 +357,19 @@ export async function getSourcesAnalyticsData(
       // Combine DB sources and legacy sources
       const allSources: Array<{
         url: string;
-        position?: number;
         type?: string;
       }> = [];
 
       // Add DB sources
       result.sources.forEach((source) => {
-        // Find position from legacy sources if available
-        let position: number | undefined = undefined;
-        if (legacySources) {
-          const legacyMatch = legacySources.find((ls) => ls.url === source.url);
-          if (legacyMatch) position = legacyMatch.position;
-        }
-
         allSources.push({
           url: source.url,
-          position,
           type: source.type || undefined,
         });
       });
 
       // Process each source
-      allSources.forEach(({ url, position, type }) => {
+      allSources.forEach(({ url, type }) => {
         try {
           if (!url) return;
 
@@ -396,21 +383,16 @@ export async function getSourcesAnalyticsData(
             domainMap.set(domain, {
               domain,
               mentions: 0,
-              avgPosition: 0,
               utilization: 0,
               type,
               uniquePrompts: 0,
               uniquePromptIds: new Set<string>(), // Temporary Set for tracking unique prompts
-              totalPosition: 0, // Track sum of positions
             });
           }
+
           const domainStat = domainMap.get(domain)!;
           domainStat.mentions += 1;
           domainStat.uniquePromptIds?.add(prompt.id); // Track this prompt ID
-          if (typeof position === 'number') {
-            domainStat.totalPosition =
-              (domainStat.totalPosition || 0) + position;
-          }
           if (type && !domainStat.type) domainStat.type = type;
 
           // Update URL stats
@@ -419,20 +401,16 @@ export async function getSourcesAnalyticsData(
               url: cleanUrl,
               hostname,
               mentions: 0,
-              avgPosition: 0,
               utilization: 0,
               type,
               uniquePrompts: 0,
               uniquePromptIds: new Set<string>(), // Temporary Set for tracking unique prompts
-              totalPosition: 0, // Track sum of positions
             });
           }
+
           const urlStat = urlMap.get(cleanUrl)!;
           urlStat.mentions += 1;
           urlStat.uniquePromptIds?.add(prompt.id); // Track this prompt ID
-          if (typeof position === 'number') {
-            urlStat.totalPosition = (urlStat.totalPosition || 0) + position;
-          }
           if (type && !urlStat.type) urlStat.type = type;
         } catch (e) {
           // Invalid URL, skip
@@ -448,8 +426,6 @@ export async function getSourcesAnalyticsData(
     .map((stat: any) => ({
       domain: stat.domain,
       mentions: stat.mentions,
-      avgPosition:
-        stat.mentions > 0 ? (stat.totalPosition || 0) / stat.mentions : 0,
       utilization:
         totalPromptsWithResults > 0
           ? ((stat.uniquePromptIds?.size || 0) / totalPromptsWithResults) * 100
@@ -465,8 +441,6 @@ export async function getSourcesAnalyticsData(
       url: stat.url,
       hostname: stat.hostname,
       mentions: stat.mentions,
-      avgPosition:
-        stat.mentions > 0 ? (stat.totalPosition || 0) / stat.mentions : 0,
       utilization:
         totalPromptsWithResults > 0
           ? ((stat.uniquePromptIds?.size || 0) / totalPromptsWithResults) * 100

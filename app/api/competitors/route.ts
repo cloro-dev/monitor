@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { eachDayOfInterval, subDays, format } from 'date-fns';
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -189,11 +190,14 @@ export async function GET(req: Request) {
     // Generate Chart Data (Daily Visibility for selected brand and top 5 competitors)
     const chartMap = new Map<string, any>();
 
-    // Pre-fill chartMap with all dates in the lookback range
-    for (let i = LOOKBACK_DAYS; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateKey = d.toISOString().split('T')[0];
+    // Pre-fill chartMap with all dates in the lookback range using date-fns
+    const dates = eachDayOfInterval({
+      start: subDays(new Date(), LOOKBACK_DAYS),
+      end: new Date(),
+    });
+
+    dates.forEach((d) => {
+      const dateKey = format(d, 'yyyy-MM-dd');
       const dailyEntry: { date: string; [key: string]: string | number } = {
         date: dateKey,
       };
@@ -201,7 +205,7 @@ export async function GET(req: Request) {
         dailyEntry[brand.name] = 0;
       });
       chartMap.set(dateKey, dailyEntry);
-    }
+    });
 
     // Get daily metrics for chart data
     const dailyMetrics = await prisma.brandMetrics.findMany({
@@ -222,7 +226,7 @@ export async function GET(req: Request) {
 
     // Populate chart data
     dailyMetrics.forEach((metric) => {
-      const dateKey = metric.date.toISOString().split('T')[0];
+      const dateKey = format(metric.date, 'yyyy-MM-dd');
       const entry = chartMap.get(dateKey);
       const brandName =
         metric.competitor?.name || brandsById.get(brandId)?.name;

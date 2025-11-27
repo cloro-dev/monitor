@@ -2,7 +2,7 @@ import prisma from '@/lib/prisma';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
 import { logInfo, logError, shouldLog } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
-import { startOfDay, endOfDay, subDays } from 'date-fns';
+import { getDateRange } from '@/lib/date-utils';
 
 interface ExtractedSource {
   url: string;
@@ -252,18 +252,6 @@ function normalizeUrl(url: string): string {
   } catch {
     return url;
   }
-}
-
-// Get date range based on timeRange
-function getDateRange(timeRange: string) {
-  const end = new Date();
-  let days = 30;
-  if (timeRange === '7d') days = 7;
-  if (timeRange === '90d') days = 90;
-  return {
-    from: startOfDay(subDays(end, days)),
-    to: endOfDay(end),
-  };
 }
 
 // Main service function to get sources analytics data

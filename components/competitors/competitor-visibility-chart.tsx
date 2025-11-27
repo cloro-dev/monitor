@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { getDaysFromTimeRange, TimeRange } from '@/lib/date-utils';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import {
   Card,
@@ -46,12 +47,7 @@ export function CompetitorVisibilityChart({
 
   const filteredData = React.useMemo(() => {
     const referenceDate = new Date();
-    let daysToSubtract = 90;
-    if (timeRange === '30d') {
-      daysToSubtract = 30;
-    } else if (timeRange === '7d') {
-      daysToSubtract = 7;
-    }
+    const daysToSubtract = getDaysFromTimeRange(timeRange as TimeRange);
     const startDate = new Date(referenceDate);
     startDate.setDate(startDate.getDate() - daysToSubtract);
 

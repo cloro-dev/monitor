@@ -18,7 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFaviconUrl } from '@/lib/utils';
 import { DateRangeSelect } from '@/components/ui/date-range-select';
-import { subDays, eachDayOfInterval, format } from 'date-fns';
+import { eachDayOfInterval, format } from 'date-fns';
+import { getDateRangeForFilter, TimeRange } from '@/lib/date-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartConfig,
@@ -32,8 +33,6 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePagePreferences } from '@/hooks/use-page-preferences';
 import { defaultSourcesPreferences } from '@/lib/preference-defaults';
-
-type TimeRange = '7d' | '30d' | '90d';
 
 type DateRange = {
   from: Date | undefined;
@@ -90,14 +89,7 @@ export default function SourcesPage() {
 
   // Get date range for filtering
   const date = useMemo<DateRange>(() => {
-    const end = new Date();
-    let days = 30;
-    if (preferences.timeRange === '7d') days = 7;
-    if (preferences.timeRange === '90d') days = 90;
-    return {
-      from: subDays(end, days),
-      to: end,
-    };
+    return getDateRangeForFilter(preferences.timeRange as TimeRange);
   }, [preferences.timeRange]);
 
   // Fetch sources data with optimized hook

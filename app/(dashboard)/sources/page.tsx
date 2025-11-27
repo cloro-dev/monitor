@@ -30,6 +30,8 @@ import {
 } from '@/components/ui/chart';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { usePagePreferences } from '@/hooks/use-page-preferences';
+import { defaultSourcesPreferences } from '@/lib/preference-defaults';
 
 type TimeRange = '7d' | '30d' | '90d';
 
@@ -66,56 +68,53 @@ const formatType = (type: string) => {
 };
 
 export default function SourcesPage() {
-  // State management
-  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
-  const [activeTab, setActiveTab] = useState<'domain' | 'url'>('domain');
+  // Preference management
+  const { preferences, updatePreference, updateMultiplePreferences } =
+    usePagePreferences('sources', defaultSourcesPreferences);
+
+  // Local state for pagination (not persisted)
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState<'mentions' | 'utilization'>(
-    'utilization',
-  );
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const itemsPerPage = 15;
 
   // Memoize query parameters to prevent unnecessary re-renders
   const queryParams = useMemo(
     () => ({
-      brandId: selectedBrand || null,
-      timeRange,
-      tab: activeTab,
+      brandId: preferences.brandId || null,
+      timeRange: preferences.timeRange,
+      tab: preferences.tab,
       page: currentPage,
       limit: itemsPerPage,
     }),
-    [selectedBrand, timeRange, activeTab, currentPage],
+    [preferences.brandId, preferences.timeRange, preferences.tab, currentPage],
   );
 
   // Get date range for filtering
   const date = useMemo<DateRange>(() => {
     const end = new Date();
     let days = 30;
-    if (timeRange === '7d') days = 7;
-    if (timeRange === '90d') days = 90;
+    if (preferences.timeRange === '7d') days = 7;
+    if (preferences.timeRange === '90d') days = 90;
     return {
       from: subDays(end, days),
       to: end,
     };
-  }, [timeRange]);
+  }, [preferences.timeRange]);
 
   // Fetch sources data with optimized hook
-  const { data, isLoading, error, mutate } = useSources(queryParams);
+  const { data, isLoading } = useSources(queryParams);
 
   // Get current stats for pagination
   const currentStats = useMemo(() => {
     if (!data) return [];
-    return activeTab === 'domain' ? data.domainStats : data.urlStats;
-  }, [data, activeTab]);
+    return preferences.tab === 'domain' ? data.domainStats : data.urlStats;
+  }, [data, preferences.tab]);
 
   // Generate chart data for top items (original client-side logic)
   const chartData = useMemo(() => {
     if (!date?.from || !date?.to) return { data: [], config: {} };
 
     const topItems =
-      activeTab === 'domain'
+      preferences.tab === 'domain'
         ? currentStats.slice(0, 5)
         : currentStats.slice(0, 5);
 
@@ -134,13 +133,13 @@ export default function SourcesPage() {
 
     topItems.forEach((item: DomainStat | URLStat, index: number) => {
       const key =
-        activeTab === 'domain'
+        preferences.tab === 'domain'
           ? (item as DomainStat).domain
           : (item as URLStat).url;
 
       let label = key;
 
-      if (activeTab === 'url') {
+      if (preferences.tab === 'url') {
         label = label.replace(/^(https?:\/\/)?(www\.)?/, '');
 
         if (label.length > 20) {
@@ -171,22 +170,24 @@ export default function SourcesPage() {
     });
 
     return { data, config };
-  }, [currentStats, activeTab, date]);
+  }, [currentStats, preferences.tab, date]);
 
   // Sorting and pagination logic
   const totalPages = data?.pagination.totalPages || 1;
   const sortedStats = useMemo(() => {
     return [...currentStats].sort((a, b) => {
-      const aValue = sortBy === 'mentions' ? a.mentions : a.utilization;
-      const bValue = sortBy === 'mentions' ? b.mentions : b.utilization;
+      const aValue =
+        preferences.sortBy === 'mentions' ? a.mentions : a.utilization;
+      const bValue =
+        preferences.sortBy === 'mentions' ? b.mentions : b.utilization;
 
-      if (sortOrder === 'asc') {
+      if (preferences.sortOrder === 'asc') {
         return aValue - bValue;
       } else {
         return bValue - aValue;
       }
     });
-  }, [currentStats, sortBy, sortOrder]);
+  }, [currentStats, preferences.sortBy, preferences.sortOrder]);
 
   const paginatedStats = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -218,27 +219,34 @@ export default function SourcesPage() {
 
   // Handler functions
   const handleTabChange = (val: string) => {
-    setActiveTab(val as 'domain' | 'url');
+    updatePreference('tab', val as 'domain' | 'url');
     setCurrentPage(1);
   };
 
   const handleTimeRangeChange = (val: string) => {
-    setTimeRange(val as TimeRange);
+    updatePreference('timeRange', val as TimeRange);
     setCurrentPage(1);
   };
 
   const handleBrandChange = (val: string | null) => {
-    setSelectedBrand(val);
+    updatePreference('brandId', val);
     setCurrentPage(1);
   };
 
   const handleSort = (column: 'mentions' | 'utilization') => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(column);
-      setSortOrder('desc');
-    }
+    const newSortOrder =
+      preferences.sortBy === column
+        ? preferences.sortOrder === 'asc'
+          ? 'desc'
+          : 'asc'
+        : 'desc';
+
+    // Update both preferences atomically
+    updateMultiplePreferences({
+      sortBy: column,
+      sortOrder: newSortOrder,
+    });
+
     setCurrentPage(1);
   };
 
@@ -274,16 +282,19 @@ export default function SourcesPage() {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <DateRangeSelect
-            value={timeRange}
+            value={preferences.timeRange}
             onValueChange={handleTimeRangeChange}
             className="w-[160px]"
           />
-          <BrandFilter value={selectedBrand} onChange={handleBrandChange} />
+          <BrandFilter
+            value={preferences.brandId}
+            onChange={handleBrandChange}
+          />
         </div>
       </div>
 
       <Tabs
-        value={activeTab}
+        value={preferences.tab}
         onValueChange={handleTabChange}
         className="w-full"
       >
@@ -299,23 +310,23 @@ export default function SourcesPage() {
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>
-                {activeTab === 'domain' ? 'Top domains' : 'Top URLs'}{' '}
+                {preferences.tab === 'domain' ? 'Top domains' : 'Top URLs'}{' '}
                 utilization over time
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {!selectedBrand ? (
+              {!preferences.brandId ? (
                 <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
                   <p className="text-center text-muted-foreground">
                     Select a brand to view{' '}
-                    {activeTab === 'domain' ? 'domain' : 'URL'} utilization
-                    trends
+                    {preferences.tab === 'domain' ? 'domain' : 'URL'}{' '}
+                    utilization trends
                   </p>
                 </div>
               ) : chartData.data.length === 0 ? (
                 <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
                   <p className="text-center text-muted-foreground">
-                    No {activeTab === 'domain' ? 'domain' : 'URL'} data
+                    No {preferences.tab === 'domain' ? 'domain' : 'URL'} data
                     available for this brand yet
                   </p>
                 </div>
@@ -391,7 +402,7 @@ export default function SourcesPage() {
               <CardTitle>Source type</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto">
-              {!selectedBrand ? (
+              {!preferences.brandId ? (
                 <div className="flex h-32 items-center justify-center rounded-md border-dashed">
                   <p className="text-center text-muted-foreground">
                     Select a brand to view source type distribution
@@ -445,8 +456,8 @@ export default function SourcesPage() {
                       className="flex items-center gap-1 hover:text-foreground"
                     >
                       Utilization
-                      {sortBy === 'utilization' ? (
-                        sortOrder === 'asc' ? (
+                      {preferences.sortBy === 'utilization' ? (
+                        preferences.sortOrder === 'asc' ? (
                           <ArrowUp className="h-4 w-4" />
                         ) : (
                           <ArrowDown className="h-4 w-4" />
@@ -462,8 +473,8 @@ export default function SourcesPage() {
                       className="flex items-center gap-1 hover:text-foreground"
                     >
                       Mentions
-                      {sortBy === 'mentions' ? (
-                        sortOrder === 'asc' ? (
+                      {preferences.sortBy === 'mentions' ? (
+                        preferences.sortOrder === 'asc' ? (
                           <ArrowUp className="h-4 w-4" />
                         ) : (
                           <ArrowDown className="h-4 w-4" />
@@ -476,7 +487,7 @@ export default function SourcesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!selectedBrand ? (
+                {!preferences.brandId ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
                       <div>
@@ -577,8 +588,8 @@ export default function SourcesPage() {
                       className="flex items-center gap-1 hover:text-foreground"
                     >
                       Utilization
-                      {sortBy === 'utilization' ? (
-                        sortOrder === 'asc' ? (
+                      {preferences.sortBy === 'utilization' ? (
+                        preferences.sortOrder === 'asc' ? (
                           <ArrowUp className="h-4 w-4" />
                         ) : (
                           <ArrowDown className="h-4 w-4" />
@@ -594,8 +605,8 @@ export default function SourcesPage() {
                       className="flex items-center gap-1 hover:text-foreground"
                     >
                       Mentions
-                      {sortBy === 'mentions' ? (
-                        sortOrder === 'asc' ? (
+                      {preferences.sortBy === 'mentions' ? (
+                        preferences.sortOrder === 'asc' ? (
                           <ArrowUp className="h-4 w-4" />
                         ) : (
                           <ArrowDown className="h-4 w-4" />
@@ -608,7 +619,7 @@ export default function SourcesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!selectedBrand ? (
+                {!preferences.brandId ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
                       <div>

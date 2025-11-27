@@ -11,30 +11,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagePreferences } from '@/hooks/use-page-preferences';
+import { defaultPromptsPreferences } from '@/lib/preference-defaults';
 
 // Force dynamic rendering for authentication
 export const dynamic = 'force-dynamic';
 
 export default function PromptsPage() {
   const { activeOrganization } = useActiveOrganization();
-  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('active');
+
+  // Preference management
+  const { preferences, updatePreference } = usePagePreferences(
+    'prompts',
+    defaultPromptsPreferences,
+  );
+
+  // Local state for pagination and loading (not persisted)
   const [currentPage, setCurrentPage] = useState(1);
+  const [isAcceptingAll, setIsAcceptingAll] = useState(false);
   const itemsPerPage = 15;
   const { bulkUpdatePrompts } = useBulkUpdatePrompts();
-  const [isAcceptingAll, setIsAcceptingAll] = useState(false);
 
   // Map UI tab to API status
   const apiStatus = useMemo(() => {
-    if (activeTab === 'active') return 'ACTIVE';
-    if (activeTab === 'suggested') return 'SUGGESTED';
-    if (activeTab === 'archived') return 'ARCHIVED';
+    if (preferences.activeTab === 'active') return 'ACTIVE';
+    if (preferences.activeTab === 'suggested') return 'SUGGESTED';
+    if (preferences.activeTab === 'archived') return 'ARCHIVED';
     return 'ACTIVE';
-  }, [activeTab]);
+  }, [preferences.activeTab]);
 
   // Fetch paginated prompts for the current status
   const { prompts, pagination, counts, error } = usePrompts(
-    selectedBrand,
+    preferences.brandId,
     apiStatus,
     currentPage,
     itemsPerPage,
@@ -68,7 +76,10 @@ export default function PromptsPage() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
+          <BrandFilter
+            value={preferences.brandId}
+            onChange={(val) => updatePreference('brandId', val)}
+          />
           {!hasAIModelsEnabled ? (
             <div className="group relative">
               <AddPromptButton disabled />
@@ -109,9 +120,12 @@ export default function PromptsPage() {
         </div>
       ) : (
         <Tabs
-          value={activeTab}
+          value={preferences.activeTab}
           onValueChange={(val) => {
-            setActiveTab(val);
+            updatePreference(
+              'activeTab',
+              val as 'active' | 'suggested' | 'archived',
+            );
             setCurrentPage(1);
           }}
           className="w-full"
@@ -137,7 +151,7 @@ export default function PromptsPage() {
                 </span>
               </TabsTrigger>
             </TabsList>
-            {activeTab === 'suggested' && prompts.length > 0 && (
+            {preferences.activeTab === 'suggested' && prompts.length > 0 && (
               <Button
                 onClick={handleAcceptAll}
                 disabled={isAcceptingAll}

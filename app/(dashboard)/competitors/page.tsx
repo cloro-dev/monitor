@@ -11,14 +11,22 @@ import { BrandFilter } from '@/components/brands/brand-filter';
 import { CompetitorVisibilityChart } from '@/components/competitors/competitor-visibility-chart';
 import { CompetitorMetricsTable } from '@/components/competitors/competitor-metrics-table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePagePreferences } from '@/hooks/use-page-preferences';
+import { defaultCompetitorsPreferences } from '@/lib/preference-defaults';
 
 export default function CompetitorsPage() {
+  // Preference management
+  const { preferences, updatePreference } = usePagePreferences(
+    'competitors',
+    defaultCompetitorsPreferences,
+  );
+
+  // Local state for sheet (not persisted)
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
 
   const { competitors, chartData, brandsToChart, error, isLoading } =
     useCompetitors(
-      selectedBrand,
+      preferences.brandId,
       true, // includeStats
     );
 
@@ -40,7 +48,10 @@ export default function CompetitorsPage() {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <BrandFilter value={selectedBrand} onChange={setSelectedBrand} />
+            <BrandFilter
+              value={preferences.brandId}
+              onChange={(val) => updatePreference('brandId', val)}
+            />
             <Button
               variant="outline"
               size="sm"
@@ -72,7 +83,7 @@ export default function CompetitorsPage() {
         ) : (
           <div className="space-y-6">
             {/* Chart Section */}
-            {!selectedBrand ? (
+            {!preferences.brandId ? (
               <Card className="flex h-[350px] items-center justify-center border-dashed">
                 <CardContent className="text-center">
                   <p className="text-muted-foreground">
@@ -111,10 +122,10 @@ export default function CompetitorsPage() {
       </div>
 
       <CompetitorManagementSheet
-        key={selectedBrand || 'sheet'}
+        key={preferences.brandId || 'sheet'}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        initialBrandId={selectedBrand}
+        initialBrandId={preferences.brandId}
       />
     </>
   );

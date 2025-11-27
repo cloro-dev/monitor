@@ -245,7 +245,7 @@ export default function SourcesPage() {
   };
 
   // Loading skeleton
-  if (isLoading || (!preferences.brandId && !data)) {
+  if (preferences.brandId && isLoading && !data) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between space-y-2">

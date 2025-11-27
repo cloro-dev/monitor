@@ -73,20 +73,17 @@ export function useSources(params: SourcesQueryParams | null) {
   const { data, error, isLoading, mutate } = useSWR<any>(
     getKey,
     async (url: string) => {
-      console.log(`[useSources] Fetching: ${url}`);
       try {
         const response = await fetch(url);
-        console.log(`[useSources] Response status: ${response.status}`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const jsonData = await response.json();
-        console.log(`[useSources] Data received:`, jsonData);
         return jsonData;
       } catch (error) {
-        console.error('[useSources] Error fetching sources:', error);
+        console.error('Error fetching sources:', error);
         throw error;
       }
     },
@@ -99,11 +96,11 @@ export function useSources(params: SourcesQueryParams | null) {
       keepPreviousData: true, // Keep previous data while loading
       onSuccess: (data) => {
         console.log(
-          `[useSources] Success: Loaded in ${data.meta?.queryTime || 'unknown'}`,
+          `Sources data loaded in ${data.meta?.queryTime || 'unknown'}`,
         );
       },
       onError: (error) => {
-        console.error('[useSources] Failed to load sources data:', error);
+        console.error('Failed to load sources data:', error);
       },
     },
   );

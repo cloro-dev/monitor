@@ -268,11 +268,6 @@ export async function getSourcesAnalyticsData(
     brandId, // Now required for performance
   };
 
-  console.log(
-    `[SourceService] Fetching data for user ${userId}, brand ${brandId}`,
-  );
-  const queryStart = Date.now();
-
   // First, get total counts for summary
   const [totalPrompts, totalResults] = await Promise.all([
     prisma.prompt.count({
@@ -289,10 +284,6 @@ export async function getSourcesAnalyticsData(
       },
     }),
   ]);
-
-  console.log(
-    `[SourceService] Counts - Prompts: ${totalPrompts}, Results: ${totalResults}`,
-  );
 
   // Get paginated prompts with their results and sources for the date range
   const prompts = await prisma.prompt.findMany({
@@ -338,10 +329,6 @@ export async function getSourcesAnalyticsData(
       take: limit,
     }),
   });
-
-  console.log(
-    `[SourceService] Query execution time: ${Date.now() - queryStart}ms. Fetched ${prompts.length} prompts.`,
-  );
 
   // Process all sources server-side
   const domainMap = new Map<string, SourcesAnalyticsDomainStat>();

@@ -230,7 +230,7 @@ export interface SourcesAnalyticsResponse {
 }
 
 export interface SourcesQueryParams {
-  brandId?: string;
+  brandId: string;
   timeRange: '7d' | '30d' | '90d';
   tab: 'domain' | 'url';
   page: number;
@@ -265,7 +265,7 @@ export async function getSourcesAnalyticsData(
   // Build where clause for prompts with user's organization access
   const baseWhereClause: Prisma.promptWhereInput = {
     userId,
-    ...(brandId && { brandId }),
+    brandId, // Now required for performance
   };
 
   // First, get total counts for summary
@@ -337,12 +337,7 @@ export async function getSourcesAnalyticsData(
     processedPromptIds.add(prompt.id);
 
     prompt.results.forEach((result) => {
-      // Extract sources from response if available (legacy format)
-      const legacySources = (result.response as any)?.result?.sources as
-        | Array<{ url: string; position: number; type?: string }>
-        | undefined;
-
-      // Combine DB sources and legacy sources
+      // Combine DB sources (legacy sources are now stored in DB)
       const allSources: Array<{
         url: string;
         type?: string;

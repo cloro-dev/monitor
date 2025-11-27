@@ -43,7 +43,7 @@ export interface SourcesData {
 }
 
 export interface SourcesQueryParams {
-  brandId?: string | null;
+  brandId: string;
   timeRange: '7d' | '30d' | '90d';
   tab: 'domain' | 'url';
   page: number;
@@ -57,15 +57,11 @@ export function useSources(params: SourcesQueryParams) {
   const { isAuthenticated } = useAuth();
 
   const getKey = () => {
-    if (!isAuthenticated) return null;
+    if (!isAuthenticated || !params.brandId) return null;
 
     const queryParams = new URLSearchParams();
 
-    // Only include brandId if it has a value
-    if (params.brandId) {
-      queryParams.append('brandId', params.brandId);
-    }
-
+    queryParams.append('brandId', params.brandId);
     queryParams.append('timeRange', params.timeRange);
     queryParams.append('tab', params.tab);
     queryParams.append('page', params.page.toString());

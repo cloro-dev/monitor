@@ -5,11 +5,11 @@ import { getSourcesAnalyticsData } from '@/lib/source-service';
 import { logError, logInfo } from '@/lib/logger';
 
 const sourcesQuerySchema = z.object({
-  brandId: z.string().optional(),
+  brandId: z.string().min(1, 'Brand ID is required'),
   timeRange: z.enum(['7d', '30d', '90d']).default('30d'),
   tab: z.enum(['domain', 'url']).default('domain'),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(0).max(100).default(50), // 0 means all, max 100 for performance
+  limit: z.coerce.number().int().min(1).max(100).default(50), // Require at least 1, max 100 for performance
 });
 
 export async function GET(request: NextRequest) {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     const validatedParams = sourcesQuerySchema.parse(queryParams);
 
-    logInfo('SourcesAPI', 'Fetching optimized sources data', {
+    logInfo('SourcesAPI', 'Fetching sources data', {
       userId: session.user.id,
       params: validatedParams,
     });

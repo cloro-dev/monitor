@@ -75,25 +75,29 @@ export default function SourcesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
-  // Memoize query parameters to prevent unnecessary re-renders
-  const queryParams = useMemo(
-    () => ({
-      brandId: preferences.brandId || null,
-      timeRange: preferences.timeRange,
-      tab: preferences.tab,
-      page: currentPage,
-      limit: itemsPerPage,
-    }),
-    [preferences.brandId, preferences.timeRange, preferences.tab, currentPage],
-  );
-
   // Get date range for filtering
   const date = useMemo<DateRange>(() => {
     return getDateRangeForFilter(preferences.timeRange as TimeRange);
   }, [preferences.timeRange]);
 
-  // Fetch sources data with optimized hook
-  const { data, isLoading } = useSources(queryParams);
+  // Only fetch sources data when a brand is selected (brandId is now required)
+  const { data, isLoading } = useSources(
+    useMemo(
+      () => ({
+        brandId: preferences.brandId!, // Non-null assertion since we check below
+        timeRange: preferences.timeRange,
+        tab: preferences.tab,
+        page: currentPage,
+        limit: itemsPerPage,
+      }),
+      [
+        preferences.brandId,
+        preferences.timeRange,
+        preferences.tab,
+        currentPage,
+      ],
+    ),
+  );
 
   // Get current stats for pagination
   const currentStats = useMemo(() => {
@@ -243,7 +247,7 @@ export default function SourcesPage() {
   };
 
   // Loading skeleton
-  if (isLoading && !data) {
+  if (isLoading || (!preferences.brandId && !data)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between space-y-2">
@@ -436,7 +440,7 @@ export default function SourcesPage() {
         </div>
 
         <TabsContent value="domain">
-          <div className="relative w-full overflow-auto">
+          <div className="relative w-full overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -487,7 +491,8 @@ export default function SourcesPage() {
                           Select a brand to view sources
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Choose a brand from the filter to see sources
+                          Choose a brand from the filter to see complete sources
+                          data
                         </p>
                       </div>
                     </TableCell>
@@ -568,7 +573,7 @@ export default function SourcesPage() {
         </TabsContent>
 
         <TabsContent value="url">
-          <div className="relative w-full overflow-auto">
+          <div className="relative w-full overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -619,7 +624,8 @@ export default function SourcesPage() {
                           Select a brand to view sources
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Choose a brand from the filter to see sources
+                          Choose a brand from the filter to see complete sources
+                          data
                         </p>
                       </div>
                     </TableCell>
@@ -634,7 +640,7 @@ export default function SourcesPage() {
                   paginatedStats.map(
                     (stat: DomainStat | URLStat, index: number) => (
                       <TableRow key={(stat as URLStat).url || `url-${index}`}>
-                        <TableCell className="w-80 py-2 font-medium">
+                        <TableCell className="w-auto max-w-md py-2 font-medium">
                           <div className="flex items-center gap-2">
                             <Avatar className="h-5 w-5 flex-shrink-0 rounded-sm">
                               <AvatarImage
@@ -653,12 +659,6 @@ export default function SourcesPage() {
                             </Avatar>
                             <div
                               className="truncate text-sm"
-                              style={{
-                                maxWidth: 'calc(100% - 32px)',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
                               title={(stat as URLStat).url || 'Unknown URL'}
                             >
                               {(stat as URLStat).url || 'Unknown URL'}

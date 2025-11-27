@@ -3,7 +3,7 @@ import { trackPromptAsync } from './cloro';
 import { ProviderModel, Result } from '@prisma/client';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 
-export async function trackAllPrompts(concurrency = 20) {
+export async function trackAllPrompts(concurrency = 5) {
   const prompts = await prisma.prompt.findMany({
     where: {
       status: 'ACTIVE',

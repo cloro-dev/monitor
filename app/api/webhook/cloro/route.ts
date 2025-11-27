@@ -222,8 +222,19 @@ async function processWebhook(body: any) {
     });
 
     // Process metrics in real-time after successful result storage
+    // Pass the complete result object (with relations from the initial fetch + new metrics)
+    // to avoid re-fetching and re-analyzing in the metrics service
+    const completeResult = {
+      ...result,
+      status: 'SUCCESS',
+      response: { result: responseData },
+      sentiment,
+      position,
+      competitors,
+    };
+
     waitUntil(
-      metricsService.processResult(resultId).catch((err) => {
+      metricsService.processResult(resultId, completeResult).catch((err) => {
         logError('Webhook', 'Metrics processing failed', err, {
           resultId,
           organizationId: orgId,

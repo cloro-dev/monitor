@@ -20,27 +20,31 @@ export class MetricsService {
   /**
    * Process a single result and update BrandMetrics table (real-time webhook processing)
    */
-  async processResult(resultId: string): Promise<void> {
+  async processResult(resultId: string, preLoadedResult?: any): Promise<void> {
     try {
       // Get the result with all necessary relationships
-      const result = await prisma.result.findUnique({
-        where: { id: resultId },
-        include: {
-          prompt: {
-            include: {
-              brand: {
-                include: {
-                  organizationBrands: {
-                    include: {
-                      organization: true,
+      let result = preLoadedResult;
+
+      if (!result) {
+        result = await prisma.result.findUnique({
+          where: { id: resultId },
+          include: {
+            prompt: {
+              include: {
+                brand: {
+                  include: {
+                    organizationBrands: {
+                      include: {
+                        organization: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      });
+        });
+      }
 
       if (!result || result.status !== 'SUCCESS') {
         logWarn('MetricsProcessor', 'Skipping non-successful result', {
@@ -106,20 +110,32 @@ export class MetricsService {
       let position: number | null = null;
       let competitors: any = null;
 
-      try {
-        const metrics = await analyzeBrandMetrics(
-          responseData.text,
-          brand.name || brand.domain,
-        );
-        sentiment = metrics.sentiment;
-        position = metrics.position;
-        competitors = metrics.competitors;
-      } catch (error) {
-        logWarn('MetricsProcessor', 'Metrics analysis failed', {
-          resultId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        // Continue to save basic metrics even if analysis fails
+      if (
+        result.sentiment !== null ||
+        result.position !== null ||
+        (result.competitors &&
+          Array.isArray(result.competitors) &&
+          result.competitors.length > 0)
+      ) {
+        sentiment = result.sentiment;
+        position = result.position;
+        competitors = result.competitors;
+      } else {
+        try {
+          const metrics = await analyzeBrandMetrics(
+            responseData.text,
+            brand.name || brand.domain,
+          );
+          sentiment = metrics.sentiment;
+          position = metrics.position;
+          competitors = metrics.competitors;
+        } catch (error) {
+          logWarn('MetricsProcessor', 'Metrics analysis failed', {
+            resultId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          // Continue to save basic metrics even if analysis fails
+        }
       }
 
       // Find competitor brands once to avoid duplicate lookups
@@ -222,7 +238,7 @@ export class MetricsService {
 
       logInfo('MetricsProcessor', 'Result processed successfully', {
         resultId,
-        organizationIds: organizations.map((org) => org.id),
+        organizationIds: organizations.map((org: any) => org.id),
         brandId: brand.id,
         model: result.model,
       });

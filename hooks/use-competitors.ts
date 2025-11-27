@@ -34,9 +34,10 @@ export function useCompetitors(
   includeStats: boolean = false,
 ) {
   const getKey = () => {
+    if (!brandId) return null; // Don't fetch if no brandId (now required)
     let url = '/api/competitors';
     const params = new URLSearchParams();
-    if (brandId) params.append('brandId', brandId);
+    params.append('brandId', brandId); // brandId is now required
     if (includeStats) params.append('includeStats', 'true');
 
     const queryString = params.toString();

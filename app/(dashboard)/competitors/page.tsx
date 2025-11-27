@@ -27,7 +27,7 @@ export default function CompetitorsPage() {
   const { competitors, chartData, brandsToChart, error, isLoading } =
     useCompetitors(
       preferences.brandId,
-      true, // includeStats
+      preferences.brandId ? true : false, // only includeStats when brandId exists
     );
 
   // Sort accepted competitors and own brand by visibility score for the table
@@ -89,6 +89,9 @@ export default function CompetitorsPage() {
                   <p className="text-muted-foreground">
                     Select a brand to view visibility trends
                   </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Brand selection is required to view competitor data
+                  </p>
                 </CardContent>
               </Card>
             ) : chartData.length === 0 ? (
@@ -107,16 +110,26 @@ export default function CompetitorsPage() {
             )}
 
             {/* Competitors Table Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>All Competitors</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[400px] overflow-auto">
-                  <CompetitorMetricsTable competitors={sortedCompetitors} />
-                </div>
-              </CardContent>
-            </Card>
+            {!preferences.brandId ? (
+              <Card className="flex h-[400px] items-center justify-center border-dashed">
+                <CardContent className="text-center">
+                  <p className="text-muted-foreground">
+                    Select a brand to view competitors
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Competitors</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px] overflow-auto">
+                    <CompetitorMetricsTable competitors={sortedCompetitors} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>

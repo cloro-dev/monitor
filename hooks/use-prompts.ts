@@ -95,10 +95,12 @@ export function usePrompts(
       }
     },
     {
-      revalidateOnFocus: true,
-      dedupingInterval: 2 * 60 * 1000,
-      refreshInterval: 5 * 60 * 1000,
-      keepPreviousData: true,
+      revalidateOnFocus: false, // Optimized: Don't refetch on window focus
+      dedupingInterval: 5 * 60 * 1000, // Optimized: Dedupe requests within 5 minutes
+      refreshInterval: 0, // Optimized: Disable auto-refresh
+      errorRetryCount: 3, // Optimized: Retry failed requests 3 times
+      errorRetryInterval: 5000, // Optimized: Retry every 5 seconds
+      keepPreviousData: true, // Keep previous data while loading
     },
   );
 

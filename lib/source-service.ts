@@ -1,6 +1,8 @@
 import prisma from '@/lib/prisma';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
 import { logInfo, logError, shouldLog } from '@/lib/logger';
+import { Prisma } from '@prisma/client';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 interface ExtractedSource {
   url: string;
@@ -184,4 +186,312 @@ function extractSourcesFromResponse(responseData: any): ExtractedSource[] {
   }
 
   return Array.from(validSources.values());
+}
+
+// Types for the sources analytics API
+export interface SourcesAnalyticsDomainStat {
+  domain: string;
+  mentions: number;
+  avgPosition: number;
+  utilization: number;
+  type?: string;
+  uniquePrompts: number; // Number of unique prompts that mentioned this domain
+  uniquePromptIds?: Set<string>; // Temporary field for server-side processing only
+  totalPosition?: number; // Sum of all positions for calculating average
+}
+
+export interface SourcesAnalyticsURLStat {
+  url: string;
+  hostname: string;
+  mentions: number;
+  avgPosition: number;
+  utilization: number;
+  type?: string;
+  uniquePrompts: number; // Number of unique prompts that mentioned this URL
+  uniquePromptIds?: Set<string>; // Temporary field for server-side processing only
+  totalPosition?: number; // Sum of all positions for calculating average
+}
+
+export interface SourcesAnalyticsResponse {
+  domainStats: SourcesAnalyticsDomainStat[];
+  urlStats: SourcesAnalyticsURLStat[];
+  chartData: {
+    data: any[];
+    config: Record<string, { label: string; color: string }>;
+  };
+  summary: {
+    totalPrompts: number;
+    totalResults: number;
+    totalDomains: number;
+    totalUrls: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface SourcesQueryParams {
+  brandId?: string;
+  timeRange: '7d' | '30d' | '90d';
+  tab: 'domain' | 'url';
+  page: number;
+  limit: number;
+}
+
+// Helper function to get root domain
+function getRootDomain(hostname: string): string {
+  const parts = hostname.split('.');
+  if (parts.length <= 2) return hostname;
+  return parts.slice(-2).join('.');
+}
+
+// Process URL to normalize it
+function normalizeUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.origin + urlObj.pathname;
+  } catch {
+    return url;
+  }
+}
+
+// Get date range based on timeRange
+function getDateRange(timeRange: string) {
+  const end = new Date();
+  let days = 30;
+  if (timeRange === '7d') days = 7;
+  if (timeRange === '90d') days = 90;
+  return {
+    from: startOfDay(subDays(end, days)),
+    to: endOfDay(end),
+  };
+}
+
+// Main service function to get sources analytics data
+export async function getSourcesAnalyticsData(
+  userId: string,
+  params: SourcesQueryParams,
+): Promise<SourcesAnalyticsResponse> {
+  const { brandId, timeRange, tab, page, limit } = params;
+  const dateRange = getDateRange(timeRange);
+
+  // Build where clause for prompts with user's organization access
+  const baseWhereClause: Prisma.promptWhereInput = {
+    userId,
+    ...(brandId && { brandId }),
+  };
+
+  // First, get total counts for summary
+  const [totalPrompts, totalResults] = await Promise.all([
+    prisma.prompt.count({
+      where: baseWhereClause,
+    }),
+    prisma.result.count({
+      where: {
+        prompt: baseWhereClause,
+        status: 'SUCCESS',
+        createdAt: {
+          gte: dateRange.from,
+          lte: dateRange.to,
+        },
+      },
+    }),
+  ]);
+
+  // Get paginated prompts with their results and sources for the date range
+  const prompts = await prisma.prompt.findMany({
+    where: {
+      ...baseWhereClause,
+      results: {
+        some: {
+          status: 'SUCCESS',
+          createdAt: {
+            gte: dateRange.from,
+            lte: dateRange.to,
+          },
+        },
+      },
+    },
+    include: {
+      results: {
+        where: {
+          status: 'SUCCESS',
+          createdAt: {
+            gte: dateRange.from,
+            lte: dateRange.to,
+          },
+        },
+        include: {
+          sources: {
+            select: {
+              url: true,
+              hostname: true,
+              type: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    ...(limit > 0 && {
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  });
+
+  // Process all sources server-side
+  const domainMap = new Map<string, SourcesAnalyticsDomainStat>();
+  const urlMap = new Map<string, SourcesAnalyticsURLStat>();
+  const processedPromptIds = new Set<string>();
+
+  prompts.forEach((prompt) => {
+    processedPromptIds.add(prompt.id);
+
+    prompt.results.forEach((result) => {
+      // Extract sources from response if available (legacy format)
+      const legacySources = (result.response as any)?.result?.sources as
+        | Array<{ url: string; position: number; type?: string }>
+        | undefined;
+
+      // Combine DB sources and legacy sources
+      const allSources: Array<{
+        url: string;
+        position?: number;
+        type?: string;
+      }> = [];
+
+      // Add DB sources
+      result.sources.forEach((source) => {
+        // Find position from legacy sources if available
+        let position: number | undefined = undefined;
+        if (legacySources) {
+          const legacyMatch = legacySources.find((ls) => ls.url === source.url);
+          if (legacyMatch) position = legacyMatch.position;
+        }
+
+        allSources.push({
+          url: source.url,
+          position,
+          type: source.type || undefined,
+        });
+      });
+
+      // Process each source
+      allSources.forEach(({ url, position, type }) => {
+        try {
+          if (!url) return;
+
+          const urlObj = new URL(url);
+          const hostname = urlObj.hostname.replace(/^www\./, '');
+          const domain = getRootDomain(hostname);
+          const cleanUrl = normalizeUrl(url);
+
+          // Update domain stats
+          if (!domainMap.has(domain)) {
+            domainMap.set(domain, {
+              domain,
+              mentions: 0,
+              avgPosition: 0,
+              utilization: 0,
+              type,
+              uniquePrompts: 0,
+              uniquePromptIds: new Set<string>(), // Temporary Set for tracking unique prompts
+              totalPosition: 0, // Track sum of positions
+            });
+          }
+          const domainStat = domainMap.get(domain)!;
+          domainStat.mentions += 1;
+          domainStat.uniquePromptIds?.add(prompt.id); // Track this prompt ID
+          if (typeof position === 'number') {
+            domainStat.totalPosition =
+              (domainStat.totalPosition || 0) + position;
+          }
+          if (type && !domainStat.type) domainStat.type = type;
+
+          // Update URL stats
+          if (!urlMap.has(cleanUrl)) {
+            urlMap.set(cleanUrl, {
+              url: cleanUrl,
+              hostname,
+              mentions: 0,
+              avgPosition: 0,
+              utilization: 0,
+              type,
+              uniquePrompts: 0,
+              uniquePromptIds: new Set<string>(), // Temporary Set for tracking unique prompts
+              totalPosition: 0, // Track sum of positions
+            });
+          }
+          const urlStat = urlMap.get(cleanUrl)!;
+          urlStat.mentions += 1;
+          urlStat.uniquePromptIds?.add(prompt.id); // Track this prompt ID
+          if (typeof position === 'number') {
+            urlStat.totalPosition = (urlStat.totalPosition || 0) + position;
+          }
+          if (type && !urlStat.type) urlStat.type = type;
+        } catch (e) {
+          // Invalid URL, skip
+        }
+      });
+    });
+  });
+
+  const totalPromptsWithResults = processedPromptIds.size;
+
+  // Calculate final stats for domains
+  const domainStats = Array.from(domainMap.values())
+    .map((stat: any) => ({
+      domain: stat.domain,
+      mentions: stat.mentions,
+      avgPosition:
+        stat.mentions > 0 ? (stat.totalPosition || 0) / stat.mentions : 0,
+      utilization:
+        totalPromptsWithResults > 0
+          ? ((stat.uniquePromptIds?.size || 0) / totalPromptsWithResults) * 100
+          : 0,
+      type: stat.type,
+      uniquePrompts: stat.uniquePromptIds?.size || 0, // Actual unique count for this domain
+    }))
+    .sort((a, b) => b.utilization - a.utilization);
+
+  // Calculate final stats for URLs
+  const urlStats = Array.from(urlMap.values())
+    .map((stat: any) => ({
+      url: stat.url,
+      hostname: stat.hostname,
+      mentions: stat.mentions,
+      avgPosition:
+        stat.mentions > 0 ? (stat.totalPosition || 0) / stat.mentions : 0,
+      utilization:
+        totalPromptsWithResults > 0
+          ? ((stat.uniquePromptIds?.size || 0) / totalPromptsWithResults) * 100
+          : 0,
+      type: stat.type,
+      uniquePrompts: stat.uniquePromptIds?.size || 0, // Actual unique count for this URL
+    }))
+    .sort((a, b) => b.utilization - a.utilization);
+
+  // Note: Chart data is generated client-side to match original behavior
+  return {
+    domainStats,
+    urlStats,
+    chartData: { data: [], config: {} }, // Client will generate this
+    summary: {
+      totalPrompts,
+      totalResults,
+      totalDomains: domainStats.length,
+      totalUrls: urlStats.length,
+    },
+    pagination: {
+      page,
+      limit,
+      total: totalPrompts,
+      totalPages: limit > 0 ? Math.ceil(totalPrompts / limit) : 1,
+    },
+  };
 }

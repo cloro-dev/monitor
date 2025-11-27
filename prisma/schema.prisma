@@ -74,6 +74,7 @@ model prompt {
   @@index([userId])
   @@index([country])
   @@index([brandId])
+  @@index([status, createdAt(sort: Desc)])
 }
 
 model verification {
@@ -86,33 +87,33 @@ model verification {
 }
 
 model organization {
-  id          String                @id @default(cuid())
-  name        String
-  slug        String                @unique
-  logo        String?
-  metadata    Json?
-  aiModels    Json? // Store enabled AI models as JSON array
-  createdAt   DateTime              @default(now())
-  members     member[]
-  invitations invitation[]
+  id                 String               @id @default(cuid())
+  name               String
+  slug               String               @unique
+  logo               String?
+  metadata           Json?
+  aiModels           Json? // Store enabled AI models as JSON array
+  createdAt          DateTime             @default(now())
+  members            member[]
+  invitations        invitation[]
   organizationBrands organization_brand[]
-  brandMetrics BrandMetrics[]
+  brandMetrics       BrandMetrics[]
 }
 
 model brand {
-  id             String       @id @default(cuid())
-  domain         String       @unique
-  name           String?
-  description    String?
-  defaultCountry String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id                 String               @id @default(cuid())
+  domain             String               @unique
+  name               String?
+  description        String?
+  defaultCountry     String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   organizationBrands organization_brand[]
-  prompts        prompt[]
-  competitors    Competitor[]  @relation("BrandToCompetitor")
-  competitorOf   Competitor[]  @relation("CompetitorToBrand")
-  brandMetrics   BrandMetrics[] @relation("BrandMetricsBrand")
-  competitorMetrics BrandMetrics[] @relation("BrandMetricsCompetitor")
+  prompts            prompt[]
+  competitors        Competitor[]         @relation("BrandToCompetitor")
+  competitorOf       Competitor[]         @relation("CompetitorToBrand")
+  brandMetrics       BrandMetrics[]       @relation("BrandMetricsBrand")
+  competitorMetrics  BrandMetrics[]       @relation("BrandMetricsCompetitor")
 
   @@index([domain])
 }
@@ -124,8 +125,8 @@ model organization_brand {
   role           String   @default("member") // member, admin, viewer
   createdAt      DateTime @default(now())
 
-  organization   organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  brand          brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  organization organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brand        brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, brandId])
   @@index([organizationId])
@@ -191,18 +192,19 @@ model Result {
 
   @@index([promptId])
   @@index([model])
+  @@index([status, createdAt(sort: Desc)])
   @@map("result")
 }
 
 model Source {
-  id         String   @id @default(cuid())
-  url        String   @unique
-  hostname   String
-  title      String?
-  type       String?
-  results    Result[] @relation("ResultSources")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  url       String   @unique
+  hostname  String
+  title     String?
+  type      String?
+  results   Result[] @relation("ResultSources")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([hostname])
   @@map("source")
@@ -231,26 +233,26 @@ model Competitor {
 }
 
 model BrandMetrics {
-  id               String        @id @default(cuid())
-  brandId          String
-  organizationId   String
-  competitorId     String?       // null for own brand metrics
-  date             DateTime      @db.Date
-  model            ProviderModel
+  id             String        @id @default(cuid())
+  brandId        String
+  organizationId String
+  competitorId   String? // null for own brand metrics
+  date           DateTime      @db.Date
+  model          ProviderModel
 
   // Pre-calculated metrics
-  totalMentions    Int           @default(0)
+  totalMentions    Int    @default(0)
   averagePosition  Float?
   averageSentiment Float?
-  visibilityScore  Float         @default(0)
-  totalResults     Int           @default(0)
+  visibilityScore  Float  @default(0)
+  totalResults     Int    @default(0)
 
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  brand            brand         @relation("BrandMetricsBrand", fields: [brandId], references: [id], onDelete: Cascade)
-  organization     organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  competitor       brand?        @relation("BrandMetricsCompetitor", fields: [competitorId], references: [id], onDelete: Cascade)
+  brand        brand        @relation("BrandMetricsBrand", fields: [brandId], references: [id], onDelete: Cascade)
+  organization organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  competitor   brand?       @relation("BrandMetricsCompetitor", fields: [competitorId], references: [id], onDelete: Cascade)
 
   @@unique([brandId, organizationId, competitorId, date, model])
   @@index([brandId, date(sort: Desc)])

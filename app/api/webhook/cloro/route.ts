@@ -70,9 +70,25 @@ async function processWebhook(body: any) {
     let position: number | null = null;
     let competitors: any = null;
 
-    if (responseData?.text) {
+    // Extract text from different response formats based on the source
+    let textForAnalysis = null;
+
+    // Handle the new Google endpoint format: { result: { aioverview: { text: ... } } }
+    if (responseData?.result?.aioverview?.text) {
+      textForAnalysis = responseData.result.aioverview.text;
+    }
+    // For direct aioverview format (fallback)
+    else if (responseData?.aioverview?.text) {
+      textForAnalysis = responseData.aioverview.text;
+    }
+    // For the old async task format, check for text directly
+    else if (responseData?.text) {
+      textForAnalysis = responseData.text;
+    }
+
+    if (textForAnalysis) {
       try {
-        const metrics = await analyzeBrandMetrics(responseData.text, brandName);
+        const metrics = await analyzeBrandMetrics(textForAnalysis, brandName);
 
         sentiment = metrics.sentiment;
         position = metrics.position;

@@ -139,8 +139,46 @@ export async function processAndSaveSources(
 function extractSourcesFromResponse(responseData: any): ExtractedSource[] {
   const rawSources: any[] = [];
 
+  // Handle the new Google endpoint format: { result: { aioverview: { sources: [...] } } }
+  if (
+    responseData?.result?.aioverview?.sources &&
+    Array.isArray(responseData.result.aioverview.sources)
+  ) {
+    rawSources.push(...responseData.result.aioverview.sources);
+  }
+  // Handle direct aioverview format (fallback)
+  else if (
+    responseData?.aioverview?.sources &&
+    Array.isArray(responseData.aioverview.sources)
+  ) {
+    rawSources.push(...responseData.aioverview.sources);
+  }
+  // Handle organic search results from Google endpoint: { result: { organicResults: [...] } }
+  else if (
+    responseData?.result?.organicResults &&
+    Array.isArray(responseData.result.organicResults)
+  ) {
+    rawSources.push(
+      ...responseData.result.organicResults.map((result: any) => ({
+        url: result.link,
+        title: result.title,
+      })),
+    );
+  }
+  // Handle direct organic results (fallback)
+  else if (
+    responseData?.organicResults &&
+    Array.isArray(responseData.organicResults)
+  ) {
+    rawSources.push(
+      ...responseData.organicResults.map((result: any) => ({
+        url: result.link,
+        title: result.title,
+      })),
+    );
+  }
   // specific checks for common AI response structures (Perplexity, ChatGPT, etc)
-  if (Array.isArray(responseData.sources)) {
+  else if (Array.isArray(responseData.sources)) {
     rawSources.push(...responseData.sources);
   } else if (Array.isArray(responseData.citations)) {
     rawSources.push(...responseData.citations);

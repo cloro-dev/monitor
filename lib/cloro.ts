@@ -2,12 +2,40 @@ import { ProviderModel } from '@prisma/client';
 
 const CLORO_API_BASE_URL = 'https://api.cloro.dev/v1';
 
+// Configuration for different provider models
+const MODEL_CONFIGS = {
+  AIOVERVIEW: {
+    taskType: 'GOOGLE' as const,
+    payloadKey: 'query' as const,
+    include: {
+      aioverview: {
+        markdown: false,
+      },
+    },
+  },
+  CHATGPT: {
+    taskType: 'CHATGPT' as const,
+    payloadKey: 'prompt' as const,
+    include: {
+      searchQueries: true,
+    },
+  },
+} as const;
+
+// Default configuration for standard models
+const DEFAULT_CONFIG = {
+  payloadKey: 'prompt' as const,
+} as const;
+
+/**
+ * Gets the configuration for a specific model, falling back to defaults.
+ */
+function getModelConfig(model: ProviderModel) {
+  return MODEL_CONFIGS[model as keyof typeof MODEL_CONFIGS] || DEFAULT_CONFIG;
+}
+
 /**
  * Initiates tracking with Cloro using the appropriate endpoint based on model.
- * @param prompt The text of the prompt.
- * @param country The country code.
- * @param model The AI model to use.
- * @param idempotencyKey A unique key (usually the Result ID) to track this specific task.
  */
 export async function trackPromptAsync(
   prompt: string,
@@ -28,45 +56,28 @@ export async function trackPromptAsync(
   }
 
   const webhookUrl = `${appUrl}/api/webhook/cloro`;
-
-  // The base URL for async tasks is slightly different (remove /monitor)
   const asyncBaseUrl = CLORO_API_BASE_URL.replace('/monitor', '');
+  const config = getModelConfig(model);
 
-  // Prepare the request body based on model type
-  let requestBody: any;
+  // Build the payload using the model-specific configuration
+  const payload: any = {
+    [config.payloadKey]: prompt,
+    country,
+  };
 
-  if (model === 'AIOVERVIEW') {
-    // For AI OVERVIEW, use the Google endpoint format
-    requestBody = {
-      taskType: 'GOOGLE',
-      idempotencyKey,
-      webhook: {
-        url: webhookUrl,
-      },
-      payload: {
-        query: prompt,
-        country: country,
-        include: {
-          aioverview: {
-            markdown: false,
-          },
-        },
-      },
-    };
-  } else {
-    // For other models, use the existing format
-    requestBody = {
-      taskType: model,
-      idempotencyKey,
-      webhook: {
-        url: webhookUrl,
-      },
-      payload: {
-        prompt,
-        country,
-      },
-    };
+  // Add include configuration if it exists
+  if ('include' in config) {
+    payload.include = config.include;
   }
+
+  const requestBody = {
+    taskType: config.taskType || model,
+    idempotencyKey,
+    webhook: {
+      url: webhookUrl,
+    },
+    payload,
+  };
 
   const response = await fetch(`${asyncBaseUrl}/async/task`, {
     method: 'POST',

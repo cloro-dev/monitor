@@ -6,6 +6,33 @@ import { waitUntil } from '@vercel/functions';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 import { metricsService } from '@/lib/metrics-service';
+import { trackPromptAsync } from '@/lib/cloro';
+
+const MAX_RETRIES = 3;
+
+/**
+ * Extract retry count from result response metadata
+ */
+function getRetryCount(resultResponse: any): number {
+  if (!resultResponse || typeof resultResponse !== 'object') return 0;
+  return resultResponse._retryMetadata?.attemptCount || 0;
+}
+
+/**
+ * Create retry metadata object
+ */
+function createRetryMetadata(
+  currentAttempt: number,
+  failureReason: string,
+): any {
+  return {
+    _retryMetadata: {
+      attemptCount: currentAttempt + 1,
+      lastFailureAt: new Date().toISOString(),
+      lastFailureReason: failureReason,
+    },
+  };
+}
 
 export const maxDuration = 60; // Allow up to 60s for the webhook handler to run
 
@@ -43,18 +70,102 @@ async function processWebhook(body: any) {
 
     if (status !== 'COMPLETED') {
       // Handle FAILED or other statuses from Cloro
+      const failureReason = `Task failed with status: ${status}`;
+
+      // Update result status
       await prisma.result.update({
         where: { id: resultId },
         data: {
           status: 'FAILED',
-          response: { error: `Task failed with status: ${status}` } as any,
+          response: { error: failureReason } as any,
         },
       });
+
       logError('Webhook', 'Webhook task failed', null, {
         resultId,
         status,
-        reason: `Task failed with status: ${status}`,
+        reason: failureReason,
       });
+
+      // Handle retry logic inline
+      waitUntil(
+        (async () => {
+          try {
+            // Get the current result with prompt
+            const retryResult = await prisma.result.findUnique({
+              where: { id: resultId },
+              include: {
+                prompt: true,
+              },
+            });
+
+            if (!retryResult) {
+              logError('Webhook', 'Result not found for retry', null, {
+                resultId,
+              });
+              return;
+            }
+
+            const retryCount = getRetryCount(retryResult.response);
+
+            if (retryCount >= MAX_RETRIES) {
+              logWarn('Webhook', 'Max retries exceeded, giving up', {
+                resultId,
+                retryCount,
+                maxRetries: MAX_RETRIES,
+              });
+              return;
+            }
+
+            logInfo('Webhook', 'Re-queuing failed request', {
+              resultId,
+              attempt: retryCount + 1,
+              maxRetries: MAX_RETRIES,
+            });
+
+            // Update result with retry metadata and set back to PENDING
+            await prisma.result.update({
+              where: { id: resultId },
+              data: {
+                status: 'PENDING',
+                response: createRetryMetadata(retryCount, failureReason),
+              },
+            });
+
+            // Immediately re-queue with Cloro using same idempotency key
+            await trackPromptAsync(
+              retryResult.prompt.text,
+              retryResult.prompt.country,
+              retryResult.model,
+              resultId, // Use result ID as idempotency key
+            );
+
+            logInfo('Webhook', 'Request re-queued successfully', {
+              resultId,
+              attempt: retryCount + 1,
+            });
+          } catch (retryError) {
+            logError('Webhook', 'Failed to re-queue request', retryError, {
+              resultId,
+              failureReason,
+              critical: false,
+            });
+
+            // Mark as permanently failed if re-queue fails
+            await prisma.result.update({
+              where: { id: resultId },
+              data: {
+                status: 'FAILED',
+                response: createRetryMetadata(
+                  0,
+                  `Re-queue failed: ${retryError instanceof Error ? retryError.message : 'Unknown error'}`,
+                ),
+              },
+            });
+          }
+        })(),
+      );
+
       return;
     }
 

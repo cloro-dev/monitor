@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron",
+      "path": "/api/cron/prompt-tracking",
       "schedule": "42 5 * * *"
+    },
+    {
+      "path": "/api/cron/utilization-batch",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

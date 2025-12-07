@@ -372,7 +372,7 @@ async function processWebhook(body: any) {
         }),
         sourceMetricsService
           .processResultSources(resultId, completeResult)
-          .then(async () => {
+          .then(() => {
             logInfo(
               'Webhook',
               'Source metrics processing completed successfully',
@@ -381,52 +381,6 @@ async function processWebhook(body: any) {
                 organizationId: orgId,
               },
             );
-
-            // Recalculate utilization for the affected date to ensure accuracy
-            const today = new Date();
-            const brandId = prompt.brand.id;
-
-            if (brandId && orgId !== 'N/A') {
-              try {
-                await sourceMetricsService.recalculateDailyUtilization(
-                  brandId,
-                  orgId,
-                  today,
-                );
-
-                logInfo(
-                  'Webhook',
-                  'Daily utilization recalculation completed',
-                  {
-                    resultId,
-                    organizationId: orgId,
-                    brandId,
-                    date: today.toISOString().split('T')[0],
-                  },
-                );
-              } catch (recalcError) {
-                logWarn('Webhook', 'Daily utilization recalculation failed', {
-                  resultId,
-                  organizationId: orgId,
-                  brandId,
-                  error:
-                    recalcError instanceof Error
-                      ? recalcError.message
-                      : String(recalcError),
-                  critical: false, // Don't fail the webhook if recalculation fails
-                });
-              }
-            } else {
-              logWarn(
-                'Webhook',
-                'Skipping utilization recalculation due to missing brand or organization ID',
-                {
-                  resultId,
-                  organizationId: orgId,
-                  hasBrandId: !!brandId,
-                },
-              );
-            }
           })
           .catch((err) => {
             logError('Webhook', 'Source metrics processing failed', err, {

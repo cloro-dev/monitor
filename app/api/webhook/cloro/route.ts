@@ -6,6 +6,7 @@ import { waitUntil } from '@vercel/functions';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 import { metricsService } from '@/lib/metrics-service';
+import { sourceMetricsService } from '@/lib/source-metrics-service';
 import { trackPromptAsync } from '@/lib/cloro';
 
 const MAX_RETRIES = 3;
@@ -361,28 +362,90 @@ async function processWebhook(body: any) {
     };
 
     waitUntil(
-      metricsService.processResult(resultId, completeResult).catch((err) => {
-        logError('Webhook', 'Metrics processing failed', err, {
-          resultId,
-          organizationId: orgId,
-          critical: false, // Continue even if metrics processing fails
-        });
-      }),
+      Promise.all([
+        metricsService.processResult(resultId, completeResult).catch((err) => {
+          logError('Webhook', 'Metrics processing failed', err, {
+            resultId,
+            organizationId: orgId,
+            critical: false, // Continue even if metrics processing fails
+          });
+        }),
+        sourceMetricsService
+          .processResultSources(resultId, completeResult)
+          .then(async () => {
+            logInfo(
+              'Webhook',
+              'Source metrics processing completed successfully',
+              {
+                resultId,
+                organizationId: orgId,
+              },
+            );
+
+            // Recalculate utilization for the affected date to ensure accuracy
+            const today = new Date();
+            const brandId = prompt.brand.id;
+
+            if (brandId && orgId !== 'N/A') {
+              try {
+                await sourceMetricsService.recalculateDailyUtilization(
+                  brandId,
+                  orgId,
+                  today,
+                );
+
+                logInfo(
+                  'Webhook',
+                  'Daily utilization recalculation completed',
+                  {
+                    resultId,
+                    organizationId: orgId,
+                    brandId,
+                    date: today.toISOString().split('T')[0],
+                  },
+                );
+              } catch (recalcError) {
+                logWarn('Webhook', 'Daily utilization recalculation failed', {
+                  resultId,
+                  organizationId: orgId,
+                  brandId,
+                  error:
+                    recalcError instanceof Error
+                      ? recalcError.message
+                      : String(recalcError),
+                  critical: false, // Don't fail the webhook if recalculation fails
+                });
+              }
+            } else {
+              logWarn(
+                'Webhook',
+                'Skipping utilization recalculation due to missing brand or organization ID',
+                {
+                  resultId,
+                  organizationId: orgId,
+                  hasBrandId: !!brandId,
+                },
+              );
+            }
+          })
+          .catch((err) => {
+            logError('Webhook', 'Source metrics processing failed', err, {
+              resultId,
+              organizationId: orgId,
+              critical: false, // Continue even if source metrics processing fails
+            });
+          }),
+
+        // Extract and save sources asynchronously (non-blocking)
+        processAndSaveSources(resultId, responseData).catch((err) => {
+          logError('Webhook', 'Source processing failed', err, {
+            resultId,
+            organizationId: orgId,
+            critical: true,
+          });
+        }),
+      ]),
     );
-
-    // Extract and save sources asynchronously (non-blocking)
-    await processAndSaveSources(resultId, responseData).catch((err) => {
-      logError('Webhook', 'Source processing failed', err, {
-        resultId,
-        organizationId: orgId,
-        critical: true,
-      });
-    });
-
-    logInfo('Webhook', 'Webhook processed', {
-      resultId,
-      organizationId: orgId,
-    });
   } catch (error) {
     logError('Webhook', 'Webhook processing failed', error, {
       critical: true,

@@ -18,11 +18,9 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFaviconUrl } from '@/lib/utils';
 import { DateRangeSelect } from '@/components/ui/date-range-select';
-import { eachDayOfInterval, format } from 'date-fns';
 import { getDateRangeForFilter, TimeRange } from '@/lib/date-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  ChartConfig,
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
@@ -103,69 +101,7 @@ export default function SourcesPage() {
     return preferences.tab === 'domain' ? data.domainStats : data.urlStats;
   }, [data, preferences.tab]);
 
-  // Generate chart data for top items (original client-side logic)
-  const chartData = useMemo(() => {
-    if (!date?.from || !date?.to) return { data: [], config: {} };
-
-    const topItems =
-      preferences.tab === 'domain'
-        ? currentStats.slice(0, 5)
-        : currentStats.slice(0, 5);
-
-    if (topItems.length === 0) return { data: [], config: {} };
-
-    const days = eachDayOfInterval({ start: date.from, end: date.to });
-
-    const config: ChartConfig = {};
-    const chartColors = [
-      'hsl(var(--chart-1))',
-      'hsl(var(--chart-2))',
-      'hsl(var(--chart-3))',
-      'hsl(var(--chart-4))',
-      'hsl(var(--chart-5))',
-    ];
-
-    topItems.forEach((item: DomainStat | URLStat, index: number) => {
-      const key =
-        preferences.tab === 'domain'
-          ? (item as DomainStat).domain
-          : (item as URLStat).url;
-
-      let label = key;
-
-      if (preferences.tab === 'url') {
-        label = label.replace(/^(https?:\/\/)?(www\.)?/, '');
-
-        if (label.length > 20) {
-          label = `${label.substring(0, 17)}...`;
-        }
-      }
-
-      const safeId = `item_${index}`;
-
-      config[safeId] = {
-        label,
-        color: chartColors[index],
-      };
-    });
-
-    // Generate chart data with real utilization percentages
-    const data = days.map((day) => {
-      const dayData: any = {
-        date: format(day, 'MMM dd'),
-      };
-
-      topItems.forEach((item: DomainStat | URLStat, index: number) => {
-        const safeId = `item_${index}`;
-        // Use the actual utilization percentage for each item
-        dayData[safeId] = item.utilization;
-      });
-
-      return dayData;
-    });
-
-    return { data, config };
-  }, [currentStats, preferences.tab, date]);
+  const chartData = data?.chartData || { data: [], config: {} };
 
   // Sorting and pagination logic
   const totalPages = data?.pagination.totalPages || 1;
@@ -326,67 +262,72 @@ export default function SourcesPage() {
                   </p>
                 </div>
               ) : (
-                <ChartContainer
-                  config={chartData.config}
-                  className="h-[200px] w-full"
-                >
-                  <AreaChart
-                    data={chartData.data}
-                    margin={{ left: 12, right: 12 }}
+                <>
+                  <ChartContainer
+                    config={chartData.config}
+                    className="h-[200px] w-full"
                   >
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      minTickGap={32}
-                      tickFormatter={(value) => {
-                        const date = new Date(value);
-                        return date.toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        });
-                      }}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => `${value.toFixed(0)}%`}
-                      domain={[0, 100]}
-                    />
-                    <ChartTooltip
-                      cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          indicator="dot"
-                          labelFormatter={(value) => {
-                            return new Date(value).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            });
-                          }}
-                          valueFormatter={(value) =>
-                            `${Number(value).toFixed(0)}%`
-                          }
-                        />
-                      }
-                    />
-                    {Object.keys(chartData.config).map((key) => (
-                      <Area
-                        key={key}
-                        dataKey={key}
-                        type="monotone"
-                        fill={chartData.config[key].color}
-                        fillOpacity={0.1}
-                        stroke={chartData.config[key].color}
-                        stackId={undefined}
-                        strokeWidth={2}
+                    <AreaChart
+                      data={chartData.data}
+                      margin={{ left: 12, right: 12 }}
+                    >
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        minTickGap={32}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          });
+                        }}
                       />
-                    ))}
-                    <ChartLegend content={<ChartLegendContent />} />
-                  </AreaChart>
-                </ChartContainer>
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => `${value.toFixed(0)}%`}
+                        domain={[0, 100]}
+                      />
+                      <ChartTooltip
+                        cursor={false}
+                        content={
+                          <ChartTooltipContent
+                            indicator="dot"
+                            labelFormatter={(value) => {
+                              return new Date(value).toLocaleDateString(
+                                'en-US',
+                                {
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              );
+                            }}
+                            valueFormatter={(value) =>
+                              `${Number(value).toFixed(0)}%`
+                            }
+                          />
+                        }
+                      />
+                      {Object.keys(chartData.config).map((key) => (
+                        <Area
+                          key={key}
+                          dataKey={key}
+                          type="monotone"
+                          fill={chartData.config[key].color}
+                          fillOpacity={0.1}
+                          stroke={chartData.config[key].color}
+                          stackId={undefined}
+                          strokeWidth={2}
+                        />
+                      ))}
+                      <ChartLegend content={<ChartLegendContent />} />
+                    </AreaChart>
+                  </ChartContainer>
+                </>
               )}
             </CardContent>
           </Card>

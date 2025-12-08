@@ -5,7 +5,8 @@ import { logInfo, logError, logWarn } from '@/lib/logger';
 /**
  * Cron job endpoint for scheduled source metrics processing
  * Calculates utilization percentages from raw source metrics data
- * Runs daily after prompt tracking is complete
+ * Runs daily 1 hour after prompt tracking
+ * Compatible with Vercel Hobby plan (one cron job per day)
  *
  * Security: Should be protected by cron secrets or IP whitelisting in production
  */
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
         end,
       );
     } else {
-      // Default batch processing (runs every 5 minutes, automatically finds missing data)
+      // Default daily batch processing (runs once per day, processes previous day's data)
       stats = await sourceMetricsBatchProcessor.runBatch();
     }
 

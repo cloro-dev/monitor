@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/prompt-tracking",
-      "schedule": "0 5 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/source-metrics",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 7 * * *"
     }
   ]
 }

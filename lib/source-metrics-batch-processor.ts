@@ -24,8 +24,8 @@ export class UtilizationBatchProcessor {
   private readonly RETRY_DELAY = 5000; // 5 seconds
 
   /**
-   * Batch processing - runs frequently but only processes missing data
-   * This is the main method called by the 5-minute cron job
+   * Daily batch processing - runs once per day to process previous day's data
+   * Called by the daily cron job 1 hour after prompt tracking
    * Automatically finds both new results and any historical data gaps
    */
   async runBatch(): Promise<BatchProcessingStats> {

@@ -98,6 +98,7 @@ model organization {
   invitations        invitation[]
   organizationBrands organization_brand[]
   brandMetrics       BrandMetrics[]
+  sourceMetrics      SourceMetrics[]
 }
 
 model brand {
@@ -114,6 +115,7 @@ model brand {
   competitorOf       Competitor[]         @relation("CompetitorToBrand")
   brandMetrics       BrandMetrics[]       @relation("BrandMetricsBrand")
   competitorMetrics  BrandMetrics[]       @relation("BrandMetricsCompetitor")
+  sourceMetrics      SourceMetrics[]      @relation("SourceMetricsBrand")
 
   @@index([domain])
 }
@@ -197,14 +199,15 @@ model Result {
 }
 
 model Source {
-  id        String   @id @default(cuid())
-  url       String   @unique
+  id        String          @id @default(cuid())
+  url       String          @unique
   hostname  String
   title     String?
   type      String?
-  results   Result[] @relation("ResultSources")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  results   Result[]        @relation("ResultSources")
+  metrics   SourceMetrics[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@index([hostname])
   @@map("source")
@@ -230,6 +233,33 @@ model Competitor {
   @@index([brandId])
   @@index([competitorId])
   @@map("competitor")
+}
+
+model SourceMetrics {
+  id             String        @id @default(cuid())
+  brandId        String
+  organizationId String
+  sourceId       String
+  date           DateTime      @db.Date
+  model          ProviderModel
+
+  // Pre-calculated source metrics for the day
+  totalMentions  Int           @default(0)
+  uniquePrompts  Int           @default(0)
+  utilization    Float         @default(0)  // (uniquePrompts / totalPrompts) * 100
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  source         Source        @relation(fields: [sourceId], references: [id])
+  brand          brand         @relation("SourceMetricsBrand", fields: [brandId], references: [id], onDelete: Cascade)
+  organization   organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, organizationId, sourceId, date, model])
+  @@index([brandId, date(sort: Desc)])
+  @@index([organizationId, date(sort: Desc)])
+  @@index([sourceId, date(sort: Desc)])
+  @@map("source_metrics")
 }
 
 model BrandMetrics {

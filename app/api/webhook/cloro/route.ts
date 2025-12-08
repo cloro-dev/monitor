@@ -6,6 +6,7 @@ import { waitUntil } from '@vercel/functions';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 import { metricsService } from '@/lib/metrics-service';
+import { sourceMetricsService } from '@/lib/source-metrics-service';
 import { trackPromptAsync } from '@/lib/cloro';
 
 const MAX_RETRIES = 3;
@@ -361,28 +362,44 @@ async function processWebhook(body: any) {
     };
 
     waitUntil(
-      metricsService.processResult(resultId, completeResult).catch((err) => {
-        logError('Webhook', 'Metrics processing failed', err, {
-          resultId,
-          organizationId: orgId,
-          critical: false, // Continue even if metrics processing fails
-        });
-      }),
+      Promise.all([
+        metricsService.processResult(resultId, completeResult).catch((err) => {
+          logError('Webhook', 'Metrics processing failed', err, {
+            resultId,
+            organizationId: orgId,
+            critical: false, // Continue even if metrics processing fails
+          });
+        }),
+        sourceMetricsService
+          .processResultSources(resultId, completeResult)
+          .then(() => {
+            logInfo(
+              'Webhook',
+              'Source metrics processing completed successfully',
+              {
+                resultId,
+                organizationId: orgId,
+              },
+            );
+          })
+          .catch((err) => {
+            logError('Webhook', 'Source metrics processing failed', err, {
+              resultId,
+              organizationId: orgId,
+              critical: false, // Continue even if source metrics processing fails
+            });
+          }),
+
+        // Extract and save sources asynchronously (non-blocking)
+        processAndSaveSources(resultId, responseData).catch((err) => {
+          logError('Webhook', 'Source processing failed', err, {
+            resultId,
+            organizationId: orgId,
+            critical: true,
+          });
+        }),
+      ]),
     );
-
-    // Extract and save sources asynchronously (non-blocking)
-    await processAndSaveSources(resultId, responseData).catch((err) => {
-      logError('Webhook', 'Source processing failed', err, {
-        resultId,
-        organizationId: orgId,
-        critical: true,
-      });
-    });
-
-    logInfo('Webhook', 'Webhook processed', {
-      resultId,
-      organizationId: orgId,
-    });
   } catch (error) {
     logError('Webhook', 'Webhook processing failed', error, {
       critical: true,

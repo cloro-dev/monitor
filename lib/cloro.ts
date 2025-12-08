@@ -8,6 +8,7 @@ const MODEL_CONFIGS = {
     taskType: 'GOOGLE' as const,
     payloadKey: 'query' as const,
     include: {
+      html: true,
       aioverview: {
         markdown: false,
       },
@@ -18,6 +19,7 @@ const MODEL_CONFIGS = {
     payloadKey: 'prompt' as const,
     include: {
       searchQueries: true,
+      html: true,
     },
   },
 } as const;
@@ -25,6 +27,9 @@ const MODEL_CONFIGS = {
 // Default configuration for standard models
 const DEFAULT_CONFIG = {
   payloadKey: 'prompt' as const,
+  include: {
+    html: true,
+  },
 } as const;
 
 /**

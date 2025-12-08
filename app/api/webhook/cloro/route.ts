@@ -12,6 +12,157 @@ import { trackPromptAsync } from '@/lib/cloro';
 const MAX_RETRIES = 3;
 
 /**
+ * Fetches HTML content for sources that have HTML URLs
+ */
+async function processHtmlContent(responseData: any): Promise<any> {
+  if (!responseData || typeof responseData !== 'object') return responseData;
+
+  const processedData = { ...responseData };
+  let htmlFetchCount = 0;
+
+  // Helper function to process sources array
+  const processSourcesArray = async (sources: any[]) => {
+    if (!Array.isArray(sources)) return sources;
+
+    const processedSources = await Promise.all(
+      sources.map(async (source) => {
+        if (!source || typeof source !== 'object') return source;
+
+        const processedSource = { ...source };
+
+        // Check if source has an HTML URL that we need to fetch
+        if (
+          source.html &&
+          typeof source.html === 'string' &&
+          source.html.startsWith('http')
+        ) {
+          try {
+            logInfo('Webhook', 'Fetching HTML for source', {
+              url: source.url,
+              htmlUrl: source.html,
+            });
+
+            const response = await fetch(source.html, {
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; Cloro-HtmlFetcher/1.0)',
+              },
+              signal: AbortSignal.timeout(10000), // 10 second timeout
+            });
+
+            if (response.ok) {
+              const html = await response.text();
+              // Limit HTML size to prevent large responses
+              const maxSize = 500 * 1024; // 500KB
+              processedSource.html =
+                html.length > maxSize ? html.substring(0, maxSize) : html;
+              htmlFetchCount++;
+
+              logInfo('Webhook', 'Successfully fetched HTML', {
+                url: source.url,
+                size: processedSource.html.length,
+              });
+            } else {
+              logWarn('Webhook', 'Failed to fetch HTML', {
+                url: source.url,
+                htmlUrl: source.html,
+                status: response.status,
+              });
+              // Remove the HTML field if we couldn't fetch it
+              delete processedSource.html;
+            }
+          } catch (error) {
+            logError('Webhook', 'Error fetching HTML content', error, {
+              url: source.url,
+              htmlUrl: source.html,
+            });
+            // Remove the HTML field if there was an error
+            delete processedSource.html;
+          }
+        }
+
+        return processedSource;
+      }),
+    );
+
+    return processedSources;
+  };
+
+  // Process sources in different response formats
+  if (processedData.result?.aioverview?.sources) {
+    processedData.result.aioverview.sources = await processSourcesArray(
+      processedData.result.aioverview.sources,
+    );
+  } else if (processedData.aioverview?.sources) {
+    processedData.aioverview.sources = await processSourcesArray(
+      processedData.aioverview.sources,
+    );
+  } else if (processedData.sources) {
+    processedData.sources = await processSourcesArray(processedData.sources);
+  } else if (processedData.citations) {
+    processedData.citations = await processSourcesArray(
+      processedData.citations,
+    );
+  } else if (processedData.references) {
+    processedData.references = await processSourcesArray(
+      processedData.references,
+    );
+  }
+
+  // Also handle top-level HTML field
+  if (
+    processedData.html &&
+    typeof processedData.html === 'string' &&
+    processedData.html.startsWith('http')
+  ) {
+    try {
+      logInfo('Webhook', 'Fetching top-level HTML content', {
+        htmlUrl: processedData.html,
+      });
+
+      const response = await fetch(processedData.html, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Cloro-HtmlFetcher/1.0)',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (response.ok) {
+        const html = await response.text();
+        const maxSize = 500 * 1024; // 500KB
+        processedData.html =
+          html.length > maxSize ? html.substring(0, maxSize) : html;
+        htmlFetchCount++;
+
+        logInfo('Webhook', 'Successfully fetched top-level HTML', {
+          size: processedData.html.length,
+        });
+      } else {
+        logWarn('Webhook', 'Failed to fetch top-level HTML', {
+          htmlUrl: processedData.html,
+          status: response.status,
+        });
+        delete processedData.html;
+      }
+    } catch (error) {
+      logError('Webhook', 'Error fetching top-level HTML content', error, {
+        htmlUrl: processedData.html,
+      });
+      delete processedData.html;
+    }
+  }
+
+  if (htmlFetchCount > 0) {
+    logInfo('Webhook', 'Processed HTML content', {
+      htmlFetchCount,
+    });
+  }
+
+  return processedData;
+}
+
+/**
  * Extract retry count from result response metadata
  */
 function getRetryCount(resultResponse: any): number {
@@ -182,20 +333,37 @@ async function processWebhook(body: any) {
     let position: number | null = null;
     let competitors: any = null;
 
+    // Process HTML content for sources before other processing
+    logInfo('Webhook', 'Starting HTML content processing', {
+      resultId,
+      hasHtmlField: !!responseData?.html,
+      htmlFieldValue: responseData?.html?.substring(0, 100),
+      responseDataKeys: Object.keys(responseData || {}),
+      htmlType: typeof responseData?.html,
+    });
+
+    const processedResponseData = await processHtmlContent(responseData);
+
+    logInfo('Webhook', 'HTML content processing completed', {
+      resultId,
+      htmlWasUrl: responseData?.html?.startsWith('http'),
+      htmlWasProcessed: processedResponseData?.html !== responseData?.html,
+    });
+
     // Extract text from different response formats based on the source
     let textForAnalysis = null;
 
     // Handle the new Google endpoint format: { result: { aioverview: { text: ... } } }
-    if (responseData?.result?.aioverview?.text) {
-      textForAnalysis = responseData.result.aioverview.text;
+    if (processedResponseData?.result?.aioverview?.text) {
+      textForAnalysis = processedResponseData.result.aioverview.text;
     }
     // For direct aioverview format (fallback)
-    else if (responseData?.aioverview?.text) {
-      textForAnalysis = responseData.aioverview.text;
+    else if (processedResponseData?.aioverview?.text) {
+      textForAnalysis = processedResponseData.aioverview.text;
     }
     // For the old async task format, check for text directly
-    else if (responseData?.text) {
-      textForAnalysis = responseData.text;
+    else if (processedResponseData?.text) {
+      textForAnalysis = processedResponseData.text;
     }
 
     if (textForAnalysis) {
@@ -337,12 +505,12 @@ async function processWebhook(body: any) {
       }
     }
 
-    // Update the Result with success data
+    // Update the Result with success data - use processedResponseData which includes HTML content
     await prisma.result.update({
       where: { id: resultId },
       data: {
         status: 'SUCCESS',
-        response: { result: responseData } as any, // Wrap to match previous structure
+        response: { result: processedResponseData } as any, // Use processed data with HTML content
         sentiment,
         position,
         competitors: competitors as any,
@@ -355,7 +523,7 @@ async function processWebhook(body: any) {
     const completeResult = {
       ...result,
       status: 'SUCCESS',
-      response: { result: responseData },
+      response: { result: processedResponseData }, // Use processed data with HTML content
       sentiment,
       position,
       competitors,
@@ -391,7 +559,8 @@ async function processWebhook(body: any) {
           }),
 
         // Extract and save sources asynchronously (non-blocking)
-        processAndSaveSources(resultId, responseData).catch((err) => {
+        // Use processedResponseData which has the original sources (HTML content is stored in the response)
+        processAndSaveSources(resultId, processedResponseData).catch((err) => {
           logError('Webhook', 'Source processing failed', err, {
             resultId,
             organizationId: orgId,

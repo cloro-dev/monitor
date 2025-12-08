@@ -24,9 +24,11 @@ export class UtilizationBatchProcessor {
   private readonly RETRY_DELAY = 5000; // 5 seconds
 
   /**
-   * Main method to run daily utilization batch processing
+   * Batch processing - runs frequently but only processes missing data
+   * This is the main method called by the 5-minute cron job
+   * Automatically finds both new results and any historical data gaps
    */
-  async runDailyBatch(): Promise<BatchProcessingStats> {
+  async runBatch(): Promise<BatchProcessingStats> {
     const startTime = new Date();
     const stats: BatchProcessingStats = {
       totalProcessed: 0,
@@ -37,68 +39,66 @@ export class UtilizationBatchProcessor {
       startTime,
     };
 
-    logInfo('UtilizationBatch', 'Starting daily utilization batch processing', {
+    logInfo('SourceMetricsCron', 'Starting source metrics batch processing', {
       startTime: startTime.toISOString(),
     });
 
     try {
-      // Get all active organizations with recent activity
-      const activeBrands = await this.getActiveBrandsForToday();
+      // Always look for unprocessed results - handles both new and historical gaps
+      const resultsToProcess = await this.getUnprocessedResults();
+
+      if (resultsToProcess.length === 0) {
+        logInfo(
+          'SourceMetricsCron',
+          'No unprocessed results found, skipping batch processing',
+        );
+
+        stats.duration = Date.now() - startTime.getTime();
+        return stats; // Return early - no work needed
+      }
 
       logInfo(
-        'UtilizationBatch',
-        `Found ${activeBrands.length} active brand-organization pairs for processing`,
+        'SourceMetricsCron',
+        `Found ${resultsToProcess.length} unprocessed results`,
         {
-          activeBrandsCount: activeBrands.length,
+          unprocessedCount: resultsToProcess.length,
         },
       );
 
-      if (activeBrands.length === 0) {
-        logInfo(
-          'UtilizationBatch',
-          'No active brands found, skipping batch processing',
-        );
-        stats.duration = Date.now() - startTime.getTime();
-        return stats;
-      }
-
-      // Sort by priority (recent activity first)
-      const prioritizedJobs = this.prioritizeJobs(activeBrands);
-
-      // Process in batches to prevent database overload
-      for (let i = 0; i < prioritizedJobs.length; i += this.BATCH_SIZE) {
-        const batch = prioritizedJobs.slice(i, i + this.BATCH_SIZE);
-
-        logInfo(
-          'UtilizationBatch',
-          `Processing batch ${Math.floor(i / this.BATCH_SIZE) + 1}/${Math.ceil(prioritizedJobs.length / this.BATCH_SIZE)}`,
-          {
-            batchSize: batch.length,
-            progress: `${Math.round((i / prioritizedJobs.length) * 100)}%`,
-          },
-        );
-
-        await Promise.allSettled(
-          batch.map((job) => this.processJobWithRetry(job, stats)),
-        );
-
-        // Add small delay between batches to prevent overload
-        if (i + this.BATCH_SIZE < prioritizedJobs.length) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Process the results
+      for (const result of resultsToProcess) {
+        try {
+          await this.processSingleResult(result);
+          stats.totalProcessed++;
+          stats.successful++;
+        } catch (error) {
+          stats.totalProcessed++;
+          stats.failed++;
+          logError(
+            'SourceMetricsCron',
+            'Failed to process result in batch',
+            error,
+            {
+              resultId: result.id,
+            },
+          );
         }
       }
+
+      // After processing results, recalculate utilization for affected dates
+      await this.recalculateUtilizationForResults(resultsToProcess);
 
       stats.duration = Date.now() - startTime.getTime();
 
       logInfo(
-        'UtilizationBatch',
-        'Daily utilization batch processing completed',
+        'SourceMetricsCron',
+        'Source metrics batch processing completed',
         {
           stats: {
+            resultsProcessed: resultsToProcess.length,
             totalProcessed: stats.totalProcessed,
             successful: stats.successful,
             failed: stats.failed,
-            skipped: stats.skipped,
             duration: `${stats.duration}ms`,
             successRate: `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`,
           },
@@ -108,9 +108,14 @@ export class UtilizationBatchProcessor {
       return stats;
     } catch (error) {
       stats.duration = Date.now() - startTime.getTime();
-      logError('UtilizationBatch', 'Batch processing failed', error, {
-        stats,
-      });
+      logError(
+        'SourceMetricsCron',
+        'Source metrics batch processing failed',
+        error,
+        {
+          stats,
+        },
+      );
       throw error;
     }
   }
@@ -132,7 +137,7 @@ export class UtilizationBatchProcessor {
       startTime,
     };
 
-    logInfo('UtilizationBatch', 'Starting date range batch processing', {
+    logInfo('SourceMetricsCron', 'Starting date range batch processing', {
       startDate: startDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
     });
@@ -154,7 +159,7 @@ export class UtilizationBatchProcessor {
 
         if (activeBrands.length === 0) {
           logInfo(
-            'UtilizationBatch',
+            'SourceMetricsCron',
             `No active brands found for ${date.toISOString().split('T')[0]}`,
           );
           continue;
@@ -183,7 +188,7 @@ export class UtilizationBatchProcessor {
 
       stats.duration = Date.now() - startTime.getTime();
 
-      logInfo('UtilizationBatch', 'Date range batch processing completed', {
+      logInfo('SourceMetricsCron', 'Date range batch processing completed', {
         dateRange: `${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`,
         stats,
       });
@@ -192,7 +197,7 @@ export class UtilizationBatchProcessor {
     } catch (error) {
       stats.duration = Date.now() - startTime.getTime();
       logError(
-        'UtilizationBatch',
+        'SourceMetricsCron',
         'Date range batch processing failed',
         error,
         {
@@ -202,35 +207,6 @@ export class UtilizationBatchProcessor {
       );
       throw error;
     }
-  }
-
-  /**
-   * Get active brands for today (last 24 hours)
-   */
-  private async getActiveBrandsForToday(): Promise<
-    Array<{
-      brandId: string;
-      organizationId: string;
-    }>
-  > {
-    const activeBrands = await prisma.$queryRaw<
-      Array<{
-        brandId: string;
-        organizationId: string;
-      }>
-    >`
-      SELECT DISTINCT
-        p."brandId",
-        ob."organizationId"
-      FROM "prompt" p
-      INNER JOIN "organization_brand" ob ON p."brandId" = ob."brandId"
-      INNER JOIN "result" r ON p.id = r."promptId"
-      WHERE r.status = 'SUCCESS'
-        AND r."createdAt" >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
-      ORDER BY MAX(r."createdAt") DESC
-    `;
-
-    return activeBrands;
   }
 
   /**
@@ -274,22 +250,6 @@ export class UtilizationBatchProcessor {
   }
 
   /**
-   * Prioritize jobs based on recent activity and importance
-   */
-  private prioritizeJobs(
-    activeBrands: Array<{
-      brandId: string;
-      organizationId: string;
-    }>,
-  ): BatchJob[] {
-    return activeBrands.map((brand, index) => ({
-      ...brand,
-      date: new Date(),
-      priority: index < 5 ? 'high' : index < 20 ? 'medium' : 'low',
-    }));
-  }
-
-  /**
    * Process a single job with retry logic
    */
   private async processJobWithRetry(
@@ -306,7 +266,7 @@ export class UtilizationBatchProcessor {
 
         stats.successful++;
 
-        logInfo('UtilizationBatch', 'Successfully processed job', {
+        logInfo('SourceMetricsCron', 'Job completed successfully', {
           brandId: job.brandId,
           organizationId: job.organizationId,
           date: job.date.toISOString().split('T')[0],
@@ -320,17 +280,17 @@ export class UtilizationBatchProcessor {
 
         if (retryCount > this.MAX_RETRIES) {
           stats.failed++;
-          logError('UtilizationBatch', 'Job failed after max retries', error, {
+          logError('SourceMetricsCron', 'Job failed after max retries', error, {
             brandId: job.brandId,
             organizationId: job.organizationId,
             date: job.date.toISOString().split('T')[0],
-            priority: job.priority,
             retryCount: retryCount - 1,
+            error: error instanceof Error ? error.message : String(error),
           });
           return;
         }
 
-        logWarn('UtilizationBatch', 'Job failed, retrying...', {
+        logWarn('SourceMetricsCron', 'Job failed, retrying...', {
           brandId: job.brandId,
           organizationId: job.organizationId,
           date: job.date.toISOString().split('T')[0],
@@ -360,13 +320,158 @@ export class UtilizationBatchProcessor {
 
     const duration = Date.now() - startTime;
 
-    logInfo('UtilizationBatch', 'Job completed successfully', {
+    logInfo('SourceMetricsCron', 'Job completed successfully', {
       brandId: job.brandId,
       organizationId: job.organizationId,
       date: job.date.toISOString().split('T')[0],
       duration: `${duration}ms`,
       priority: job.priority,
     });
+  }
+
+  /**
+   * Get all unprocessed successful results
+   * This finds results that have sources but haven't been processed for source metrics yet
+   * Handles both new results and historical gaps automatically
+   */
+  private async getUnprocessedResults(): Promise<any[]> {
+    try {
+      // Get all successful results that don't have corresponding source metrics entries
+      const resultsWithoutSourceMetrics = await prisma.$queryRaw<
+        Array<{
+          id: string;
+          promptId: string;
+          brandId: string;
+          createdAt: Date;
+          status: string;
+        }>
+      >`
+        SELECT DISTINCT r.id, r."promptId", r."createdAt", r.status, p."brandId"
+        FROM "result" r
+        INNER JOIN "prompt" p ON r."promptId" = p.id
+        LEFT JOIN "source_metrics" sm ON (
+          sm."brandId" = p."brandId" AND
+          sm.date >= DATE(r."createdAt")
+        )
+        WHERE r.status = 'SUCCESS'
+          AND sm.id IS NULL
+        ORDER BY r."createdAt" ASC
+        LIMIT 1000
+      `;
+
+      // Get full result objects with sources for processing
+      if (resultsWithoutSourceMetrics.length === 0) {
+        return [];
+      }
+
+      const resultIds = resultsWithoutSourceMetrics.map((r) => r.id);
+
+      const results = await prisma.result.findMany({
+        where: {
+          id: { in: resultIds },
+          status: 'SUCCESS',
+        },
+        include: {
+          sources: {
+            select: {
+              url: true,
+              hostname: true,
+              type: true,
+            },
+          },
+          prompt: {
+            select: {
+              brandId: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      return results;
+    } catch (error) {
+      logError(
+        'SourceMetricsCron',
+        'Failed to get unprocessed results for backfill',
+        error,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Process a single result for source metrics
+   */
+  private async processSingleResult(result: any): Promise<void> {
+    await sourceMetricsService.processResultSources(result.id, result);
+  }
+
+  /**
+   * Recalculate utilization for dates affected by processed results
+   */
+  private async recalculateUtilizationForResults(
+    results: any[],
+  ): Promise<void> {
+    // Get unique dates and brands from results
+    const dateBrandPairs = new Map<
+      string,
+      { brandId: string; date: Date; organizationId: string }
+    >();
+
+    for (const result of results) {
+      const resultDate = new Date(
+        result.createdAt.getFullYear(),
+        result.createdAt.getMonth(),
+        result.createdAt.getDate(),
+      );
+      const key = `${result.prompt.brandId}-${resultDate.toISOString().split('T')[0]}`;
+
+      if (!dateBrandPairs.has(key)) {
+        // Get organization for this brand
+        const organizationBrand = await prisma.organization_brand.findFirst({
+          where: { brandId: result.prompt.brandId },
+          include: { organization: true },
+        });
+
+        if (organizationBrand) {
+          dateBrandPairs.set(key, {
+            brandId: result.prompt.brandId,
+            date: resultDate,
+            organizationId: organizationBrand.organizationId,
+          });
+        }
+      }
+    }
+
+    // Recalculate utilization for each unique date-brand combination
+    for (const { brandId, date, organizationId } of dateBrandPairs.values()) {
+      try {
+        await sourceMetricsService.recalculateDailyUtilization(
+          brandId,
+          organizationId,
+          date,
+        );
+      } catch (error) {
+        logError(
+          'SourceMetricsCron',
+          'Failed to recalculate utilization for date-brand',
+          error,
+          {
+            brandId,
+            date: date.toISOString().split('T')[0],
+            organizationId,
+          },
+        );
+      }
+    }
+
+    logInfo(
+      'SourceMetricsCron',
+      'Recalculated utilization for affected dates',
+      {
+        dateBrandPairsCount: dateBrandPairs.size,
+      },
+    );
   }
 
   /**
@@ -390,7 +495,7 @@ export class UtilizationBatchProcessor {
         processingRate: this.calculateProcessingRate(recentStats),
       };
     } catch (error) {
-      logError('UtilizationBatch', 'Failed to get batch status', error);
+      logError('SourceMetricsBatch', 'Failed to get batch status', error);
       return {
         isHealthy: false,
       };
@@ -401,25 +506,34 @@ export class UtilizationBatchProcessor {
    * Get recent processing statistics (could be stored in Redis or a tracking table)
    */
   private async getRecentProcessingStats(): Promise<BatchProcessingStats | null> {
-    // For now, we can check the most recent source metrics update
-    const latestUpdate = await prisma.sourceMetrics.findFirst({
-      orderBy: { updatedAt: 'desc' },
-      select: { updatedAt: true },
-    });
+    try {
+      // Get the most recent batch processing stats from logs or a tracking table
+      const latestUpdate = await prisma.sourceMetrics.findFirst({
+        orderBy: { updatedAt: 'desc' },
+        select: { updatedAt: true },
+      });
 
-    if (!latestUpdate) {
+      if (!latestUpdate) {
+        return null;
+      }
+
+      // In a real implementation, you'd store actual stats in a dedicated table
+      return {
+        totalProcessed: 0,
+        successful: 0,
+        failed: 0,
+        skipped: 0,
+        duration: 0,
+        startTime: latestUpdate.updatedAt,
+      };
+    } catch (error) {
+      logError(
+        'SourceMetricsBatch',
+        'Failed to get recent processing stats',
+        error,
+      );
       return null;
     }
-
-    // In a real implementation, you'd store actual stats in a dedicated table
-    return {
-      totalProcessed: 0,
-      successful: 0,
-      failed: 0,
-      skipped: 0,
-      duration: 0,
-      startTime: latestUpdate.updatedAt,
-    };
   }
 
   /**

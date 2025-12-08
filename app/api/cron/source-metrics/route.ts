@@ -27,29 +27,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    logInfo(
-      'SourceMetricsCron',
-      'Starting scheduled utilization batch processing',
-      {
-        timestamp: new Date().toISOString(),
-      },
-    );
+    logInfo('SourceMetricsCron', 'Starting source metrics batch processing', {
+      timestamp: new Date().toISOString(),
+    });
 
     // Parse request body for optional parameters
     const body = await request.json().catch(() => ({}));
-    const {
-      mode = 'daily',
-      startDate,
-      endDate,
-    } = body as {
-      mode?: 'daily' | 'daterange';
+    const { startDate, endDate } = body as {
       startDate?: string;
       endDate?: string;
     };
 
     let stats;
 
-    if (mode === 'daterange' && startDate && endDate) {
+    if (startDate && endDate) {
       // Process specific date range (useful for backfilling)
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -78,14 +69,13 @@ export async function POST(request: NextRequest) {
         end,
       );
     } else {
-      // Default daily processing
-      stats = await sourceMetricsBatchProcessor.runDailyBatch();
+      // Default batch processing (runs every 5 minutes, automatically finds missing data)
+      stats = await sourceMetricsBatchProcessor.runBatch();
     }
 
     const duration = Date.now() - startTime;
 
     logInfo('SourceMetricsCron', 'Cron job completed successfully', {
-      mode,
       duration: `${duration}ms`,
       stats: {
         totalProcessed: stats.totalProcessed,
@@ -101,7 +91,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      mode,
       duration: `${duration}ms`,
       stats: {
         totalProcessed: stats.totalProcessed,

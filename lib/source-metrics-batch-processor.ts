@@ -351,7 +351,7 @@ export class UtilizationBatchProcessor {
         INNER JOIN "prompt" p ON r."promptId" = p.id
         LEFT JOIN "source_metrics" sm ON (
           sm."brandId" = p."brandId" AND
-          sm.date >= DATE(r."createdAt")
+          sm.date = DATE(r."createdAt")
         )
         WHERE r.status = 'SUCCESS'
           AND sm.id IS NULL
@@ -380,8 +380,16 @@ export class UtilizationBatchProcessor {
             },
           },
           prompt: {
-            select: {
-              brandId: true,
+            include: {
+              brand: {
+                include: {
+                  organizationBrands: {
+                    include: {
+                      organization: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },

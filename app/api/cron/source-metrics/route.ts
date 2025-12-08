@@ -130,40 +130,120 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET endpoint to check batch processing status and health
+ * GET endpoint - handles Vercel cron job execution
+ * Vercel cron jobs make GET requests by default
+ * Executes the source metrics batch processing
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
+      logWarn('SourceMetricsCron', 'Unauthorized cron access attempt', {
+        userAgent: request.headers.get('user-agent'),
+      });
+
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const status = await sourceMetricsBatchProcessor.getBatchStatus();
+    logInfo(
+      'SourceMetricsCron',
+      'Starting source metrics batch processing via GET',
+      {
+        timestamp: new Date().toISOString(),
+      },
+    );
 
-    logInfo('SourceMetricsCron', 'Status check requested', {
-      isHealthy: status.isHealthy,
-      lastProcessingTime: status.lastProcessingTime?.toISOString(),
+    // Check for optional query parameters for date range processing
+    const url = new URL(request.url);
+    const startDate = url.searchParams.get('startDate');
+    const endDate = url.searchParams.get('endDate');
+
+    let stats;
+
+    if (startDate && endDate) {
+      // Process specific date range (useful for backfilling)
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return NextResponse.json(
+          { error: 'Invalid date format. Use ISO 8601 format (YYYY-MM-DD).' },
+          { status: 400 },
+        );
+      }
+
+      if (start > end) {
+        return NextResponse.json(
+          { error: 'Start date must be before end date.' },
+          { status: 400 },
+        );
+      }
+
+      logInfo('SourceMetricsCron', 'Processing date range via GET', {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+      });
+
+      stats = await sourceMetricsBatchProcessor.runBatchForDateRange(
+        start,
+        end,
+      );
+    } else {
+      // Default daily batch processing (runs once per day, processes previous day's data)
+      stats = await sourceMetricsBatchProcessor.runBatch();
+    }
+
+    const duration = Date.now() - startTime;
+
+    logInfo('SourceMetricsCron', 'Cron job completed successfully via GET', {
+      duration: `${duration}ms`,
+      stats: {
+        totalProcessed: stats.totalProcessed,
+        successful: stats.successful,
+        failed: stats.failed,
+        skipped: stats.skipped,
+        successRate:
+          stats.totalProcessed > 0
+            ? `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`
+            : '0%',
+      },
     });
 
     return NextResponse.json({
       success: true,
-      status: {
-        isHealthy: status.isHealthy,
-        lastProcessingTime: status.lastProcessingTime?.toISOString(),
-        lastProcessingStats: status.lastProcessingStats,
-        processingRate: status.processingRate,
+      duration: `${duration}ms`,
+      stats: {
+        totalProcessed: stats.totalProcessed,
+        successful: stats.successful,
+        failed: stats.failed,
+        skipped: stats.skipped,
+        duration: `${stats.duration}ms`,
+        successRate:
+          stats.totalProcessed > 0
+            ? ((stats.successful / stats.totalProcessed) * 100).toFixed(2)
+            : '0',
+        processingRate:
+          stats.totalProcessed > 0 && stats.duration > 0
+            ? Math.round((stats.totalProcessed / stats.duration) * 1000 * 60)
+            : 0, // jobs per minute
       },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logError('SourceMetricsCron', 'Status check failed', error);
+    const duration = Date.now() - startTime;
+
+    logError('SourceMetricsCron', 'Cron job failed via GET', error, {
+      duration: `${duration}ms`,
+    });
 
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+        duration: `${duration}ms`,
         timestamp: new Date().toISOString(),
       },
       { status: 500 },

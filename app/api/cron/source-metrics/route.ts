@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { utilizationBatchProcessor } from '@/lib/utilization-batch-processor';
+import { sourceMetricsBatchProcessor } from '@/lib/source-metrics-batch-processor';
 import { logInfo, logError, logWarn } from '@/lib/logger';
-import { auth } from '@/lib/auth';
 
 /**
- * Cron job endpoint for scheduled utilization batch processing
- * This should be called every 15 minutes via a cron job scheduler
+ * Cron job endpoint for scheduled source metrics processing
+ * Calculates utilization percentages from raw source metrics data
+ * Runs daily after prompt tracking is complete
  *
  * Security: Should be protected by cron secrets or IP whitelisting in production
  */
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
-      logWarn('UtilizationBatchCron', 'Unauthorized cron access attempt', {
+      logWarn('SourceMetricsCron', 'Unauthorized cron access attempt', {
         userAgent: request.headers.get('user-agent'),
       });
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     logInfo(
-      'UtilizationBatchCron',
+      'SourceMetricsCron',
       'Starting scheduled utilization batch processing',
       {
         timestamp: new Date().toISOString(),
@@ -68,20 +68,23 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      logInfo('UtilizationBatchCron', 'Processing date range', {
+      logInfo('SourceMetricsCron', 'Processing date range', {
         startDate: start.toISOString().split('T')[0],
         endDate: end.toISOString().split('T')[0],
       });
 
-      stats = await utilizationBatchProcessor.runBatchForDateRange(start, end);
+      stats = await sourceMetricsBatchProcessor.runBatchForDateRange(
+        start,
+        end,
+      );
     } else {
       // Default daily processing
-      stats = await utilizationBatchProcessor.runDailyBatch();
+      stats = await sourceMetricsBatchProcessor.runDailyBatch();
     }
 
     const duration = Date.now() - startTime;
 
-    logInfo('UtilizationBatchCron', 'Cron job completed successfully', {
+    logInfo('SourceMetricsCron', 'Cron job completed successfully', {
       mode,
       duration: `${duration}ms`,
       stats: {
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logError('UtilizationBatchCron', 'Cron job failed', error, {
+    logError('SourceMetricsCron', 'Cron job failed', error, {
       duration: `${duration}ms`,
     });
 
@@ -147,9 +150,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const status = await utilizationBatchProcessor.getBatchStatus();
+    const status = await sourceMetricsBatchProcessor.getBatchStatus();
 
-    logInfo('UtilizationBatchCron', 'Status check requested', {
+    logInfo('SourceMetricsCron', 'Status check requested', {
       isHealthy: status.isHealthy,
       lastProcessingTime: status.lastProcessingTime?.toISOString(),
     });
@@ -165,7 +168,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logError('UtilizationBatchCron', 'Status check failed', error);
+    logError('SourceMetricsCron', 'Status check failed', error);
 
     return NextResponse.json(
       {

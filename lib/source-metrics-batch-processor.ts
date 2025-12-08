@@ -460,4 +460,4 @@ export class UtilizationBatchProcessor {
   }
 }
 
-export const utilizationBatchProcessor = new UtilizationBatchProcessor();
+export const sourceMetricsBatchProcessor = new UtilizationBatchProcessor();

@@ -89,8 +89,8 @@ export function useSources(params: SourcesQueryParams | null) {
     },
     {
       revalidateOnFocus: false, // Don't refetch on window focus
-      dedupingInterval: 5 * 60 * 1000, // Dedupe requests within 5 minutes
-      refreshInterval: 0, // Disable auto-refresh
+      dedupingInterval: 60 * 1000, // Dedupe requests within 1 minute (reduced from 5 minutes)
+      refreshInterval: 2 * 60 * 1000, // Auto-refresh every 2 minutes
       errorRetryCount: 3, // Retry failed requests 3 times
       errorRetryInterval: 5000, // Retry every 5 seconds
       keepPreviousData: true, // Keep previous data while loading

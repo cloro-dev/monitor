@@ -32,6 +32,32 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePagePreferences } from '@/hooks/use-page-preferences';
 import { defaultSourcesPreferences } from '@/lib/preference-defaults';
 
+// Custom legend component with text wrapping
+const CustomChartLegend = ({
+  config,
+}: {
+  config: Record<string, { label: string; color: string }>;
+}) => {
+  return (
+    <div className="mt-2 flex flex-wrap justify-center gap-3">
+      {Object.entries(config).map(([key, entry]) => (
+        <div key={key} className="flex max-w-[200px] items-center gap-2">
+          <div
+            className="h-3 w-3 flex-shrink-0 rounded-full"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span
+            className="break-words text-xs text-muted-foreground"
+            style={{ wordBreak: 'break-word', wordWrap: 'break-word' }}
+          >
+            {entry.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 type DateRange = {
   from: Date | undefined;
   to?: Date | undefined;
@@ -64,6 +90,10 @@ const formatType = (type: string) => {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 };
 
+const formatUrl = (url: string) => {
+  return url.replace(/^https?:\/\//, '');
+};
+
 export default function SourcesPage() {
   // Preference management
   const { preferences, updatePreference, updateMultiplePreferences } =
@@ -93,7 +123,7 @@ export default function SourcesPage() {
     [preferences.brandId, preferences.timeRange, preferences.tab, currentPage],
   );
 
-  const { data, isLoading } = useSources(sourcesParams);
+  const { data, isLoading, mutate } = useSources(sourcesParams);
 
   // Get current stats for pagination
   const currentStats = useMemo(() => {
@@ -221,6 +251,13 @@ export default function SourcesPage() {
             value={preferences.brandId}
             onChange={handleBrandChange}
           />
+          <button
+            onClick={() => mutate()}
+            disabled={isLoading}
+            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
         </div>
       </div>
 
@@ -269,7 +306,7 @@ export default function SourcesPage() {
                   >
                     <AreaChart
                       data={chartData.data}
-                      margin={{ left: 12, right: 12 }}
+                      margin={{ left: 12, right: 12, bottom: 0 }}
                     >
                       <CartesianGrid vertical={false} />
                       <XAxis
@@ -324,7 +361,12 @@ export default function SourcesPage() {
                           strokeWidth={2}
                         />
                       ))}
-                      <ChartLegend content={<ChartLegendContent />} />
+                      <ChartLegend
+                        content={
+                          <CustomChartLegend config={chartData.config} />
+                        }
+                        wrapperStyle={{ paddingTop: '8px' }}
+                      />
                     </AreaChart>
                   </ChartContainer>
                 </>
@@ -601,7 +643,9 @@ export default function SourcesPage() {
                               className="truncate text-sm"
                               title={(stat as URLStat).url || 'Unknown URL'}
                             >
-                              {(stat as URLStat).url || 'Unknown URL'}
+                              {(stat as URLStat).url
+                                ? formatUrl((stat as URLStat).url)
+                                : 'Unknown URL'}
                             </div>
                           </div>
                         </TableCell>

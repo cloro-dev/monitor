@@ -1,4 +1,4 @@
-import { subDays, startOfDay, endOfDay } from 'date-fns';
+import { subDays } from 'date-fns';
 
 export type TimeRange = '7d' | '30d' | '90d';
 
@@ -8,20 +8,45 @@ export interface DateRange {
 }
 
 /**
- * Get date range based on timeRange string
+ * Get date range based on timeRange string (UTC-based to avoid timezone issues)
  * @param timeRange - The time range ('7d', '30d', '90d')
  * @returns DateRange object with start and end dates
  */
 export function getDateRange(timeRange: TimeRange): DateRange {
-  const end = new Date();
+  const now = new Date();
   let days = 30;
 
   if (timeRange === '7d') days = 7;
   if (timeRange === '90d') days = 90;
 
+  // Use UTC-based date calculations to avoid timezone issues
+  const from = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - days,
+      0,
+      0,
+      0,
+      0, // Start of day UTC
+    ),
+  );
+
+  const to = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      23,
+      59,
+      59,
+      999, // End of day UTC
+    ),
+  );
+
   return {
-    from: startOfDay(subDays(end, days)),
-    to: endOfDay(end),
+    from,
+    to,
   };
 }
 
@@ -31,15 +56,20 @@ export function getDateRange(timeRange: TimeRange): DateRange {
  * @returns DateRange object with start and end dates
  */
 export function getDateRangeForFilter(timeRange: TimeRange): DateRange {
-  const end = new Date();
+  const now = new Date();
   let days = 30;
 
   if (timeRange === '7d') days = 7;
   if (timeRange === '90d') days = 90;
 
+  // Use UTC-based date calculations to avoid timezone issues
+  const from = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days),
+  );
+
   return {
-    from: subDays(end, days),
-    to: end,
+    from,
+    to: now,
   };
 }
 

@@ -345,7 +345,16 @@ export class SourceMetricsService {
     limit: number = 5,
   ): Promise<{ data: any[]; config: any }> {
     const lookbackDays = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-    const startDate = subDays(new Date(), lookbackDays);
+
+    // Use UTC-based date calculation to avoid timezone issues
+    const now = new Date();
+    const startDate = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - lookbackDays,
+      ),
+    );
 
     // Get top sources by overall utilization for the time period
     const topSources = await this.getTopSources(
@@ -375,6 +384,15 @@ export class SourceMetricsService {
       const key = `source_${index}`;
       let label = tab === 'domain' ? source.domain : source.url;
 
+      // Remove HTTP/HTTPS protocol for cleaner display
+      if (
+        label &&
+        (label.startsWith('http://') || label.startsWith('https://'))
+      ) {
+        label = label.replace(/^https?:\/\//, '');
+      }
+
+      // Truncate long URLs for better readability
       if (tab === 'url' && label.length > 20) {
         label = `${label.substring(0, 17)}...`;
       }
@@ -405,26 +423,35 @@ export class SourceMetricsService {
     });
 
     // Get daily metrics for all top sources
-    const sourceIds = topSources.map((s: any) => s.sourceId);
+    // Note: We can't use individual sourceId because topSources may have aggregated multiple sources
+    // Instead, we'll query by date and domain/URL, then match them during chart population
     const dailyMetrics = await prisma.sourceMetrics.findMany({
       where: {
         brandId,
         organizationId,
         date: { gte: startDate },
-        sourceId: { in: sourceIds },
       },
       include: { source: true },
       orderBy: { date: 'asc' },
     });
 
-    // Group metrics by source
-    const metricsBySource = new Map<string, any[]>();
+    // Group metrics by domain/URL for easier lookup during chart population
+    const metricsByDomain = new Map<string, any[]>();
+    const metricsByUrl = new Map<string, any[]>();
+
     dailyMetrics.forEach((metric) => {
-      const key = metric.sourceId;
-      if (!metricsBySource.has(key)) {
-        metricsBySource.set(key, []);
+      const domainKey = getRootDomain(metric.source.hostname);
+      const urlKey = metric.source.url;
+
+      if (!metricsByDomain.has(domainKey)) {
+        metricsByDomain.set(domainKey, []);
       }
-      metricsBySource.get(key)!.push(metric);
+      metricsByDomain.get(domainKey)!.push(metric);
+
+      if (!metricsByUrl.has(urlKey)) {
+        metricsByUrl.set(urlKey, []);
+      }
+      metricsByUrl.get(urlKey)!.push(metric);
     });
 
     // Validate chart data structure
@@ -444,28 +471,42 @@ export class SourceMetricsService {
 
       topSources.forEach((source: any, sourceIndex: number) => {
         const key = `source_${sourceIndex}`;
-        const sourceMetrics = metricsBySource.get(source.sourceId) || [];
+
+        // Get the appropriate metrics based on tab
+        const sourceMetrics =
+          tab === 'domain'
+            ? metricsByDomain.get(source.domain) || []
+            : metricsByUrl.get(source.url) || [];
+
+        // Find the metric for this specific date
         const dayMetric = sourceMetrics.find(
           (m: any) => format(m.date, 'yyyy-MM-dd') === dateKey,
         );
 
         if (dayMetric) {
+          // For domain tab, if multiple sources exist for the same domain on the same day,
+          // we take the maximum utilization to show the best performance
+          let utilization = dayMetric.utilization;
+          if (tab === 'domain') {
+            const allDayMetrics = sourceMetrics.filter(
+              (m: any) => format(m.date, 'yyyy-MM-dd') === dateKey,
+            );
+            utilization = Math.max(...allDayMetrics.map((m) => m.utilization));
+          }
+
           // Validate utilization bounds and apply to chart data
-          const validatedUtilization = Math.max(
-            0,
-            Math.min(100, dayMetric.utilization),
-          );
+          const validatedUtilization = Math.max(0, Math.min(100, utilization));
           chartData[dayIndex][key] = Math.round(validatedUtilization * 10) / 10; // Round to 1 decimal place
 
           // Log warning if utilization was outside expected bounds
-          if (dayMetric.utilization < 0 || dayMetric.utilization > 100) {
+          if (utilization < 0 || utilization > 100) {
             logWarn(
               'SourceMetricsChart',
               'Utilization value outside expected bounds',
               {
                 date: dateKey,
-                sourceId: source.sourceId,
-                originalUtilization: dayMetric.utilization,
+                sourceKey: tab === 'domain' ? source.domain : source.url,
+                originalUtilization: utilization,
                 validatedUtilization,
               },
             );
@@ -502,6 +543,7 @@ export class SourceMetricsService {
     });
 
     // Get total unique prompts for the time period for accurate utilization calculation
+    // Use UTC date to avoid timezone issues with local time conversion
     const totalUniquePromptsResult = await prisma.$queryRaw<
       Array<{ count: bigint }>
     >`

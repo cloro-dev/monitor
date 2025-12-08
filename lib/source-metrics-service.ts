@@ -102,9 +102,11 @@ export class SourceMetricsService {
       // Set date to start of day for daily aggregation (non-mutating)
       const resultDate = new Date(result.createdAt);
       const normalizedDate = new Date(
-        resultDate.getFullYear(),
-        resultDate.getMonth(),
-        resultDate.getDate(),
+        Date.UTC(
+          resultDate.getUTCFullYear(),
+          resultDate.getUTCMonth(),
+          resultDate.getUTCDate(),
+        ),
       );
 
       // Process sources for each organization
@@ -237,14 +239,14 @@ export class SourceMetricsService {
     try {
       // Create date boundaries without mutating the input date
       const startDate = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
+        Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
       );
       const endDate = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate() + 1,
+        Date.UTC(
+          date.getUTCFullYear(),
+          date.getUTCMonth(),
+          date.getUTCDate() + 1,
+        ),
       );
 
       // Get all source metrics for the day

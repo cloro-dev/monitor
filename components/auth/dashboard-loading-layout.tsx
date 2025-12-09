@@ -3,6 +3,7 @@
 import React from 'react';
 import { OrganizationCreationModal } from '@/components/auth/organization-creation-modal';
 import { useOrganizations } from '@/hooks/use-organizations';
+import { LoadingBoundary } from '@/components/ui/loading-boundary';
 
 interface DashboardLoadingLayoutProps {
   session: any;
@@ -25,12 +26,9 @@ export function DashboardLoadingLayout({
   // Show loading state while fetching organizations
   if (isLoading) {
     return (
-      <div className="flex min-h-96 items-center justify-center">
-        <div className="space-y-4 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading your workspace...</p>
-        </div>
-      </div>
+      <LoadingBoundary isLoading={true}>
+        <div />
+      </LoadingBoundary>
     );
   }
 

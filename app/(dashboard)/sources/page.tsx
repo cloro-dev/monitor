@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingBoundary } from '@/components/ui/loading-boundary';
 import { useSources, DomainStat, URLStat } from '@/hooks/use-sources';
 import {
   Table,
@@ -10,8 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useState, useMemo } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { BrandFilter } from '@/components/brands/brand-filter';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Badge } from '@/components/ui/badge';
@@ -19,11 +20,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFaviconUrl } from '@/lib/utils';
 import { DateRangeSelect } from '@/components/ui/date-range-select';
 import { getDateRangeForFilter, TimeRange } from '@/lib/date-utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
   ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
@@ -211,487 +210,474 @@ export default function SourcesPage() {
     setCurrentPage(1);
   };
 
-  // Loading skeleton
-  if (preferences.brandId && isLoading && !data) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between space-y-2">
-          <Skeleton className="h-6 w-[200px]" />
-          <div className="flex gap-2">
-            <Skeleton className="h-10 w-[300px]" />
-            <Skeleton className="h-10 w-[200px]" />
-          </div>
-        </div>
-        <Skeleton className="h-[300px] w-full" />
-        <div className="space-y-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Sources</h2>
-          <p className="text-muted-foreground">
-            Domains mentioned in AI search results across your prompts
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <DateRangeSelect
-            value={preferences.timeRange}
-            onValueChange={handleTimeRangeChange}
-            className="w-[160px]"
-          />
-          <BrandFilter
-            value={preferences.brandId}
-            onChange={handleBrandChange}
-          />
-          <button
-            onClick={() => mutate()}
-            disabled={isLoading}
-            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-
-      <Tabs
-        value={preferences.tab}
-        onValueChange={handleTabChange}
-        className="w-full"
-      >
-        <div className="mb-2 flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="domain">Domain</TabsTrigger>
-            <TabsTrigger value="url">URL</TabsTrigger>
-          </TabsList>
+    <LoadingBoundary isLoading={isLoading}>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Sources</h2>
+            <p className="text-muted-foreground">
+              Domains mentioned in AI search results across your prompts
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <DateRangeSelect
+              value={preferences.timeRange}
+              onValueChange={handleTimeRangeChange}
+              className="w-[160px]"
+            />
+            <BrandFilter
+              value={preferences.brandId}
+              onChange={handleBrandChange}
+            />
+            <button
+              onClick={() => mutate()}
+              disabled={isLoading}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {isLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
         </div>
 
-        <div className="mb-2 grid gap-4 md:grid-cols-3">
-          {/* Chart Section */}
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>
-                {preferences.tab === 'domain' ? 'Top domains' : 'Top URLs'}{' '}
-                utilization over time
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!preferences.brandId ? (
-                <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
-                  <p className="text-center text-muted-foreground">
-                    Select a brand to view{' '}
-                    {preferences.tab === 'domain' ? 'domain' : 'URL'}{' '}
-                    utilization trends
-                  </p>
-                </div>
-              ) : chartData.data.length === 0 ? (
-                <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
-                  <p className="text-center text-muted-foreground">
-                    No {preferences.tab === 'domain' ? 'domain' : 'URL'} data
-                    available for this brand yet
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <ChartContainer
-                    config={chartData.config}
-                    className="h-[200px] w-full"
-                  >
-                    <AreaChart
-                      data={chartData.data}
-                      margin={{ left: 12, right: 12, bottom: 0 }}
-                    >
-                      <CartesianGrid vertical={false} />
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        minTickGap={32}
-                        tickFormatter={(value) => {
-                          const date = new Date(value);
-                          return date.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          });
-                        }}
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `${value.toFixed(0)}%`}
-                        domain={[0, 100]}
-                      />
-                      <ChartTooltip
-                        cursor={false}
-                        content={
-                          <ChartTooltipContent
-                            indicator="dot"
-                            labelFormatter={(value) => {
-                              return new Date(value).toLocaleDateString(
-                                'en-US',
-                                {
-                                  month: 'short',
-                                  day: 'numeric',
-                                },
-                              );
-                            }}
-                            valueFormatter={(value) =>
-                              `${Number(value).toFixed(0)}%`
-                            }
-                          />
-                        }
-                      />
-                      {Object.keys(chartData.config).map((key) => (
-                        <Area
-                          key={key}
-                          dataKey={key}
-                          type="monotone"
-                          fill={chartData.config[key].color}
-                          fillOpacity={0.1}
-                          stroke={chartData.config[key].color}
-                          stackId={undefined}
-                          strokeWidth={2}
-                        />
-                      ))}
-                      <ChartLegend
-                        content={
-                          <CustomChartLegend config={chartData.config} />
-                        }
-                        wrapperStyle={{ paddingTop: '8px' }}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                </>
-              )}
-            </CardContent>
-          </Card>
+        <Tabs
+          value={preferences.tab}
+          onValueChange={handleTabChange}
+          className="w-full"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="domain">Domain</TabsTrigger>
+              <TabsTrigger value="url">URL</TabsTrigger>
+            </TabsList>
+          </div>
 
-          {/* Source Type Panel */}
-          <Card className="flex flex-col">
-            <CardHeader>
-              <CardTitle>Source type</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-auto">
-              {!preferences.brandId ? (
-                <div className="flex h-32 items-center justify-center rounded-md border-dashed">
-                  <p className="text-center text-muted-foreground">
-                    Select a brand to view source type distribution
-                  </p>
-                </div>
-              ) : typeStats.length === 0 ? (
-                <div className="flex h-32 items-center justify-center rounded-md border-dashed">
-                  <p className="text-center text-muted-foreground">
-                    No source type data available for this brand yet
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {typeStats.slice(0, 6).map((stat) => (
-                    <div key={stat.type} className="flex items-center gap-1">
-                      <div className="w-32">
-                        <Badge
-                          variant="secondary"
-                          className={typeStyles[stat.type] || typeStyles.OTHER}
-                        >
-                          {formatType(stat.type)}
-                        </Badge>
-                      </div>
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full bg-primary/50"
-                          style={{ width: `${stat.percentage}%` }}
-                        />
-                      </div>
-                      <span className="w-10 text-right text-xs text-muted-foreground">
-                        {stat.percentage.toFixed(0)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <TabsContent value="domain">
-          <div className="relative w-full overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Domain</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort('utilization')}
-                      className="flex items-center gap-1 hover:text-foreground"
-                    >
-                      Utilization
-                      {preferences.sortBy === 'utilization' ? (
-                        preferences.sortOrder === 'asc' ? (
-                          <ArrowUp className="h-4 w-4" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-4 w-4" />
-                      )}
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort('mentions')}
-                      className="flex items-center gap-1 hover:text-foreground"
-                    >
-                      Mentions
-                      {preferences.sortBy === 'mentions' ? (
-                        preferences.sortOrder === 'asc' ? (
-                          <ArrowUp className="h-4 w-4" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-4 w-4" />
-                      )}
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          <div className="mb-2 grid gap-4 md:grid-cols-3">
+            {/* Chart Section */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>
+                  {preferences.tab === 'domain' ? 'Top domains' : 'Top URLs'}{' '}
+                  utilization over time
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 {!preferences.brandId ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      <div>
-                        <p className="font-medium">
-                          Select a brand to view sources
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Choose a brand from the filter to see complete sources
-                          data
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : !data?.domainStats || data.domainStats.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      No sources found in your tracking results.
-                    </TableCell>
-                  </TableRow>
+                  <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
+                    <p className="text-center text-muted-foreground">
+                      Select a brand to view{' '}
+                      {preferences.tab === 'domain' ? 'domain' : 'URL'}{' '}
+                      utilization trends
+                    </p>
+                  </div>
+                ) : chartData.data.length === 0 ? (
+                  <div className="flex h-[200px] items-center justify-center rounded-md border-dashed">
+                    <p className="text-center text-muted-foreground">
+                      No {preferences.tab === 'domain' ? 'domain' : 'URL'} data
+                      available for this brand yet
+                    </p>
+                  </div>
                 ) : (
-                  paginatedStats.map(
-                    (stat: DomainStat | URLStat, index: number) => (
-                      <TableRow
-                        key={(stat as DomainStat).domain || `domain-${index}`}
+                  <>
+                    <ChartContainer
+                      config={chartData.config}
+                      className="h-[200px] w-full"
+                    >
+                      <AreaChart
+                        data={chartData.data}
+                        margin={{ left: 12, right: 12, bottom: 0 }}
                       >
-                        <TableCell className="py-2 font-medium">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-5 w-5 rounded-sm">
-                              <AvatarImage
-                                src={getFaviconUrl(
-                                  (stat as DomainStat).domain || '',
-                                )}
-                                alt={
-                                  (stat as DomainStat).domain ||
-                                  'Unknown domain'
-                                }
-                              />
-                              <AvatarFallback className="rounded-sm text-[10px]">
-                                {(stat as DomainStat).domain?.charAt(0) ||
-                                  '?'.toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            {(stat as DomainStat).domain || 'Unknown domain'}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-2">
-                          {stat.type ? (
-                            <Badge
-                              className={
-                                typeStyles[stat.type] || typeStyles.OTHER
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          minTickGap={32}
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return date.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            });
+                          }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => `${value.toFixed(0)}%`}
+                          domain={[0, 100]}
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={
+                            <ChartTooltipContent
+                              indicator="dot"
+                              labelFormatter={(value) => {
+                                return new Date(value).toLocaleDateString(
+                                  'en-US',
+                                  {
+                                    month: 'short',
+                                    day: 'numeric',
+                                  },
+                                );
+                              }}
+                              valueFormatter={(value) =>
+                                `${Number(value).toFixed(0)}%`
                               }
-                            >
-                              {formatType(stat.type)}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              Unknown
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          {stat.utilization.toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="py-2">{stat.mentions}</TableCell>
-                      </TableRow>
-                    ),
-                  )
+                            />
+                          }
+                        />
+                        {Object.keys(chartData.config).map((key) => (
+                          <Area
+                            key={key}
+                            dataKey={key}
+                            type="monotone"
+                            fill={chartData.config[key].color}
+                            fillOpacity={0.1}
+                            stroke={chartData.config[key].color}
+                            stackId={undefined}
+                            strokeWidth={2}
+                          />
+                        ))}
+                        <ChartLegend
+                          content={
+                            <CustomChartLegend config={chartData.config} />
+                          }
+                          wrapperStyle={{ paddingTop: '8px' }}
+                        />
+                      </AreaChart>
+                    </ChartContainer>
+                  </>
                 )}
-              </TableBody>
-            </Table>
+              </CardContent>
+            </Card>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t p-4">
-                <div className="text-sm text-muted-foreground">
-                  Showing {paginatedStats.length} of{' '}
-                  {data?.domainStats?.length || 0} results (Page {currentPage}{' '}
-                  of {totalPages})
-                </div>
-                <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(newPage) => setCurrentPage(newPage)}
-                />
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="url">
-          <div className="relative w-full overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>URL</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort('utilization')}
-                      className="flex items-center gap-1 hover:text-foreground"
-                    >
-                      Utilization
-                      {preferences.sortBy === 'utilization' ? (
-                        preferences.sortOrder === 'asc' ? (
-                          <ArrowUp className="h-4 w-4" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-4 w-4" />
-                      )}
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort('mentions')}
-                      className="flex items-center gap-1 hover:text-foreground"
-                    >
-                      Mentions
-                      {preferences.sortBy === 'mentions' ? (
-                        preferences.sortOrder === 'asc' ? (
-                          <ArrowUp className="h-4 w-4" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-4 w-4" />
-                      )}
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {/* Source Type Panel */}
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle>Source type</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-auto">
                 {!preferences.brandId ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      <div>
-                        <p className="font-medium">
-                          Select a brand to view sources
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Choose a brand from the filter to see complete sources
-                          data
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : !data?.urlStats || data.urlStats.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      No sources found in your tracking results.
-                    </TableCell>
-                  </TableRow>
+                  <div className="flex h-32 items-center justify-center rounded-md border-dashed">
+                    <p className="text-center text-muted-foreground">
+                      Select a brand to view source type distribution
+                    </p>
+                  </div>
+                ) : typeStats.length === 0 ? (
+                  <div className="flex h-32 items-center justify-center rounded-md border-dashed">
+                    <p className="text-center text-muted-foreground">
+                      No source type data available for this brand yet
+                    </p>
+                  </div>
                 ) : (
-                  paginatedStats.map(
-                    (stat: DomainStat | URLStat, index: number) => (
-                      <TableRow key={(stat as URLStat).url || `url-${index}`}>
-                        <TableCell className="w-auto max-w-md py-2 font-medium">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-5 w-5 flex-shrink-0 rounded-sm">
-                              <AvatarImage
-                                src={getFaviconUrl(
-                                  (stat as URLStat).hostname || '',
-                                )}
-                                alt={
-                                  (stat as URLStat).hostname ||
-                                  'Unknown hostname'
-                                }
-                              />
-                              <AvatarFallback className="rounded-sm text-[10px]">
-                                {(stat as URLStat).hostname?.charAt(0) ||
-                                  '?'.toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div
-                              className="truncate text-sm"
-                              title={(stat as URLStat).url || 'Unknown URL'}
-                            >
-                              {(stat as URLStat).url
-                                ? formatUrl((stat as URLStat).url)
-                                : 'Unknown URL'}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-2">
-                          {stat.type ? (
-                            <Badge
-                              className={
-                                typeStyles[stat.type] || typeStyles.OTHER
-                              }
-                            >
-                              {formatType(stat.type)}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              Unknown
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2">
-                          {stat.utilization.toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="py-2">{stat.mentions}</TableCell>
-                      </TableRow>
-                    ),
-                  )
+                  <div className="space-y-2">
+                    {typeStats.slice(0, 6).map((stat) => (
+                      <div key={stat.type} className="flex items-center gap-1">
+                        <div className="w-32">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              typeStyles[stat.type] || typeStyles.OTHER
+                            }
+                          >
+                            {formatType(stat.type)}
+                          </Badge>
+                        </div>
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full bg-primary/50"
+                            style={{ width: `${stat.percentage}%` }}
+                          />
+                        </div>
+                        <span className="w-10 text-right text-xs text-muted-foreground">
+                          {stat.percentage.toFixed(0)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </TableBody>
-            </Table>
-
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t p-4">
-                <div className="text-sm text-muted-foreground">
-                  Showing {paginatedStats.length} of{' '}
-                  {data?.urlStats?.length || 0} results (Page {currentPage} of{' '}
-                  {totalPages})
-                </div>
-                <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(newPage) => setCurrentPage(newPage)}
-                />
-              </div>
-            )}
+              </CardContent>
+            </Card>
           </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+
+          <TabsContent value="domain">
+            <div className="relative w-full overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Domain</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>
+                      <button
+                        onClick={() => handleSort('utilization')}
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Utilization
+                        {preferences.sortBy === 'utilization' ? (
+                          preferences.sortOrder === 'asc' ? (
+                            <ArrowUp className="h-4 w-4" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        onClick={() => handleSort('mentions')}
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Mentions
+                        {preferences.sortBy === 'mentions' ? (
+                          preferences.sortOrder === 'asc' ? (
+                            <ArrowUp className="h-4 w-4" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!preferences.brandId ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        <div>
+                          <p className="font-medium">
+                            Select a brand to view sources
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Choose a brand from the filter to see complete
+                            sources data
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : !data?.domainStats || data.domainStats.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        No sources found in your tracking results.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedStats.map(
+                      (stat: DomainStat | URLStat, index: number) => (
+                        <TableRow
+                          key={(stat as DomainStat).domain || `domain-${index}`}
+                        >
+                          <TableCell className="py-2 font-medium">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5 rounded-sm">
+                                <AvatarImage
+                                  src={getFaviconUrl(
+                                    (stat as DomainStat).domain || '',
+                                  )}
+                                  alt={
+                                    (stat as DomainStat).domain ||
+                                    'Unknown domain'
+                                  }
+                                />
+                                <AvatarFallback className="rounded-sm text-[10px]">
+                                  {(stat as DomainStat).domain?.charAt(0) ||
+                                    '?'.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {(stat as DomainStat).domain || 'Unknown domain'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {stat.type ? (
+                              <Badge
+                                className={
+                                  typeStyles[stat.type] || typeStyles.OTHER
+                                }
+                              >
+                                {formatType(stat.type)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                Unknown
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {stat.utilization.toFixed(1)}%
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {stat.mentions}
+                          </TableCell>
+                        </TableRow>
+                      ),
+                    )
+                  )}
+                </TableBody>
+              </Table>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t p-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {paginatedStats.length} of{' '}
+                    {data?.domainStats?.length || 0} results (Page {currentPage}{' '}
+                    of {totalPages})
+                  </div>
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={(newPage) => setCurrentPage(newPage)}
+                  />
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="url">
+            <div className="relative w-full overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>URL</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>
+                      <button
+                        onClick={() => handleSort('utilization')}
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Utilization
+                        {preferences.sortBy === 'utilization' ? (
+                          preferences.sortOrder === 'asc' ? (
+                            <ArrowUp className="h-4 w-4" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        onClick={() => handleSort('mentions')}
+                        className="flex items-center gap-1 hover:text-foreground"
+                      >
+                        Mentions
+                        {preferences.sortBy === 'mentions' ? (
+                          preferences.sortOrder === 'asc' ? (
+                            <ArrowUp className="h-4 w-4" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!preferences.brandId ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        <div>
+                          <p className="font-medium">
+                            Select a brand to view sources
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Choose a brand from the filter to see complete
+                            sources data
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : !data?.urlStats || data.urlStats.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        No sources found in your tracking results.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedStats.map(
+                      (stat: DomainStat | URLStat, index: number) => (
+                        <TableRow key={(stat as URLStat).url || `url-${index}`}>
+                          <TableCell className="w-auto max-w-md py-2 font-medium">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5 flex-shrink-0 rounded-sm">
+                                <AvatarImage
+                                  src={getFaviconUrl(
+                                    (stat as URLStat).hostname || '',
+                                  )}
+                                  alt={
+                                    (stat as URLStat).hostname ||
+                                    'Unknown hostname'
+                                  }
+                                />
+                                <AvatarFallback className="rounded-sm text-[10px]">
+                                  {(stat as URLStat).hostname?.charAt(0) ||
+                                    '?'.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div
+                                className="truncate text-sm"
+                                title={(stat as URLStat).url || 'Unknown URL'}
+                              >
+                                {(stat as URLStat).url
+                                  ? formatUrl((stat as URLStat).url)
+                                  : 'Unknown URL'}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {stat.type ? (
+                              <Badge
+                                className={
+                                  typeStyles[stat.type] || typeStyles.OTHER
+                                }
+                              >
+                                {formatType(stat.type)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                Unknown
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {stat.utilization.toFixed(1)}%
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {stat.mentions}
+                          </TableCell>
+                        </TableRow>
+                      ),
+                    )
+                  )}
+                </TableBody>
+              </Table>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t p-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {paginatedStats.length} of{' '}
+                    {data?.urlStats?.length || 0} results (Page {currentPage} of{' '}
+                    {totalPages})
+                  </div>
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={(newPage) => setCurrentPage(newPage)}
+                  />
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </LoadingBoundary>
   );
 }

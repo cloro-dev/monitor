@@ -600,7 +600,49 @@ function ResultsSheetInner({
             />
           </div>
         );
-      } // --- STANDARD LOGIC (Copilot, etc.) ---
+      }
+
+      // --- PERPLEXITY SPECIFIC LOGIC ---
+      if (currentResult?.model === 'PERPLEXITY') {
+        let finalHtml = htmlString;
+
+        // 1. Inject Base URL
+        if (baseUrl) {
+          finalHtml = finalHtml.replace(
+            '<head>',
+            `<head><base href="${baseUrl}">`,
+          );
+        }
+
+        // 2. Inject Color Inversion Styles (Dark -> Light)
+        const PERPLEXITY_STYLES = `<style>
+          html { filter: invert(1) hue-rotate(180deg); background-color: white !important; }
+          img, video, iframe, svg { filter: invert(1) hue-rotate(180deg); }
+        </style>`;
+
+        if (finalHtml.includes('<head>')) {
+          finalHtml = finalHtml.replace('<head>', `<head>${PERPLEXITY_STYLES}`);
+        } else {
+          finalHtml = finalHtml.replace(
+            /(<html[^>]*>)/i,
+            `$1<head>${PERPLEXITY_STYLES}</head>`,
+          );
+        }
+
+        return (
+          <div className="h-full w-full rounded-md border bg-background">
+            <iframe
+              key={currentResult?.id}
+              srcDoc={finalHtml}
+              className="h-full w-full border-0"
+              sandbox="allow-popups"
+              title="Perplexity Response"
+            />
+          </div>
+        );
+      }
+
+      // --- STANDARD LOGIC (Copilot, etc.) ---
       let finalHtml = htmlString;
 
       // Strip noscript tags (Standard practice)

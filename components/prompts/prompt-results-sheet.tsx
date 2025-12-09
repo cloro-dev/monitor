@@ -499,9 +499,6 @@ function ResultsSheetInner({
       if (currentResult?.model === 'CHATGPT') {
         let finalHtml = htmlString;
 
-        // Strip noscript tags here too just in case
-        finalHtml = finalHtml.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
-
         // 1. Inject Base URL
         if (baseUrl) {
           finalHtml = finalHtml.replace(
@@ -510,12 +507,77 @@ function ResultsSheetInner({
           );
         }
 
-        // 2. Inject Color Inversion Styles
+        // 2. Inject CSS Overrides (Force Dark Mode)
         const CHATGPT_STYLES = `<style>
-          html { filter: invert(1) hue-rotate(180deg); background-color: white !important; }
-          img, video, iframe, svg { filter: invert(1) hue-rotate(180deg); }
-          /* Hide potential sidebars if they exist in snapshot */
-          nav, [class*="sidebar"] { display: none !important; }
+          /* Force Dark Background on main containers and wrappers */
+          html, body, main, article, footer, form, 
+          [class*="bg-"], [class*="footer"], [class*="bottom"], 
+          div[class*="border-t"],
+          #thread-bottom-container, #thread-bottom,
+          #thread, .composer-parent, .group\\/thread {
+            background-color: #131314 !important;
+            color: #e3e3e3 !important;
+            border-color: #2a2b36 !important;
+          }
+
+          /* Force background on specific white artifacts in the footer */
+          #thread-bottom-container .bg-clip-padding,
+          #thread-bottom-container .content-fade,
+          #thread-bottom-container .absolute {
+             background-color: transparent !important;
+          }
+          
+          /* Specific targeting for the composer/input box (was white) */
+          form .bg-token-bg-primary, form .shadow-short {
+            background-color: #2a2b36 !important;
+            border-color: #3e3f4b !important;
+            box-shadow: none !important;
+          }
+
+          /* Disclaimer Footer - Force Dark Background */
+          div[class*="text-token-text-secondary"] {
+            color: #9ca3af !important;
+            background-color: #131314 !important;
+          }
+          
+          /* Force Text Color to Light */
+          p, h1, h2, h3, h4, h5, h6, li, span, div, td, th, textarea, button {
+            color: #e3e3e3 !important;
+          }
+          
+          /* Links - Light Blue */
+          a, a span {
+            color: #8ab4f8 !important; 
+          }
+          
+          /* Code Blocks */
+          pre, code, pre div, code span {
+            background-color: #2a2b36 !important;
+            color: #e3e3e3 !important;
+            text-shadow: none !important;
+          }
+          
+          /* Inputs/Textareas */
+          input, textarea {
+            background-color: transparent !important; /* Let container bg show */
+            color: #e3e3e3 !important;
+            border-color: #3e3f4b !important;
+          }
+          
+          /* Placeholder text */
+          textarea::placeholder {
+            color: #9ca3af !important;
+          }
+
+          /* Hide Sidebar */
+          nav, [class*="sidebar"] {
+            display: none !important;
+          }
+          
+          /* Media visibility */
+          img, video {
+            opacity: 1 !important;
+          }
         </style>`;
 
         if (finalHtml.includes('<head>')) {
@@ -538,9 +600,7 @@ function ResultsSheetInner({
             />
           </div>
         );
-      }
-
-      // --- STANDARD LOGIC (Copilot, etc.) ---
+      } // --- STANDARD LOGIC (Copilot, etc.) ---
       let finalHtml = htmlString;
 
       // Strip noscript tags (Standard practice)

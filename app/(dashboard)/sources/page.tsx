@@ -211,7 +211,10 @@ export default function SourcesPage() {
   };
 
   return (
-    <LoadingBoundary isLoading={isLoading}>
+    <LoadingBoundary
+      isLoading={isLoading}
+      hasData={!!data?.domainStats || !!data?.urlStats}
+    >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

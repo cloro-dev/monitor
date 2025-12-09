@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const { isLoading } = useOrganizations();
 
   return (
-    <LoadingBoundary isLoading={isLoading}>
+    <LoadingBoundary isLoading={isLoading} hasData={!!activeOrganization}>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>

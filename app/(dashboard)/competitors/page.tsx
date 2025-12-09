@@ -38,7 +38,7 @@ export default function CompetitorsPage() {
     );
 
   return (
-    <LoadingBoundary isLoading={isLoading}>
+    <LoadingBoundary isLoading={isLoading} hasData={competitors.length > 0}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

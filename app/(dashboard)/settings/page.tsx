@@ -69,7 +69,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <LoadingBoundary isLoading={orgLoading}>
+    <LoadingBoundary isLoading={orgLoading} hasData={!!activeOrganization}>
       <div className="space-y-4">
         <div className="grid gap-6 md:grid-cols-2">
           {/* Organization Details */}

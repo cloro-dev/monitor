@@ -169,6 +169,39 @@ function ResultsSheetInner({
     }
   };
 
+  const MODEL_BASE_URLS: Record<string, string> = {
+    COPILOT: 'https://copilot.microsoft.com',
+    GEMINI: 'https://gemini.google.com',
+    AIMODE: 'https://www.google.com',
+    AIOVERVIEW: 'https://www.google.com',
+    CHATGPT: 'https://chatgpt.com',
+    PERPLEXITY: 'https://www.perplexity.ai',
+  };
+
+  const HIDE_UI_ELEMENTS_STYLE = `<style>
+    /* Copilot Sidebar & Header */
+    div:has(> [data-testid="sidebar-container"]),
+    [data-testid="sidebar-container"],
+    [data-testid="sticky-header"],
+    .side-nav-menu-button {
+      display: none !important;
+    }
+
+    /* Gemini Sidebar */
+    bard-sidenav,
+    mat-sidenav,
+    .mat-drawer-backdrop {
+      display: none !important;
+    }
+
+    /* General Layout Fixes */
+    main {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+    }
+  </style>`;
+
   const renderHtmlContent = (response: any) => {
     if (!response) return null;
 
@@ -185,7 +218,12 @@ function ResultsSheetInner({
     // Check for different content types in different locations
     const checkContent = (obj: any) => {
       if (typeof obj === 'string') {
-        htmlString = obj;
+        // Heuristic: If it looks like HTML, treat as HTML. Otherwise text.
+        if (obj.trim().startsWith('<') && obj.includes('>')) {
+          htmlString = obj;
+        } else {
+          textContent = obj;
+        }
       } else if (typeof obj === 'object' && obj !== null) {
         // Check for HTML in various locations
         if (obj.html) {
@@ -193,7 +231,15 @@ function ResultsSheetInner({
         }
         // Check for content field
         else if (obj.content) {
-          htmlString = obj.content;
+          // Check if content is HTML
+          if (
+            typeof obj.content === 'string' &&
+            obj.content.trim().startsWith('<')
+          ) {
+            htmlString = obj.content;
+          } else {
+            textContent = obj.content;
+          }
         }
         // Check for aioverview text (for AI Overview)
         else if (obj.aioverview?.text) {
@@ -229,49 +275,122 @@ function ResultsSheetInner({
       );
     }
 
-    // If we have text content (no HTML), display it in an iframe to contain styles
+    // If we have text content (no HTML), parse Markdown-like structure and display in iframe
+    // Use this if htmlString is empty OR if we decided the "html" was actually text
     if (textContent && !htmlString) {
-      // Convert text to HTML
-      const textHtml = textContent
+      // Basic Markdown-to-HTML conversion
+      let processedText = textContent
+        // Escape HTML special characters first
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/\n/g, '<br>');
+        // Headers
+        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+        // Bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        // Links [text](url)
+        .replace(
+          /\[([^\]]+)\]\(([^)]+)\)/g,
+          '<a href="$2" target="_blank">$1</a>',
+        )
+        // Lists (simple)
+        .replace(/^\* (.*$)/gm, '<li>$1</li>')
+        .replace(/^- (.*$)/gm, '<li>$1</li>')
+        // Lines ending in colon treated as subheaders/labels
+        .replace(/^([A-Za-z0-9 ]+):$/gm, '<strong>$1:</strong><br>')
+        // Newlines to breaks (temporary, before table processing)
+        .replace(/\n/g, '\n');
+
+      // Table processing (rows starting and ending with |)
+      // Matches lines that look like | cell | cell |
+      processedText = processedText.replace(
+        /^\|(.+)\|$/gm,
+        (match, content) => {
+          const cells = content.split('|').map((c: string) => c.trim());
+          // Simple check for separator row (e.g. ---)
+          const isSeparator = cells.some((c: string) => c.match(/^-+$/));
+          if (isSeparator) return '';
+
+          // Determine if header (naive: first row often header, but hard to know state here.
+          // We'll just make them all td, CSS can style first-child if needed, or we just rely on bolding)
+          return (
+            '<tr>' +
+            cells.map((c: string) => (c ? `<td>${c}</td>` : '')).join('') +
+            '</tr>'
+          );
+        },
+      );
+
+      // Wrap adjacent <tr> rows in <table>
+      processedText = processedText.replace(/(<tr>.*?<\/tr>\n?)+/g, (match) => {
+        return `<div class="table-wrapper"><table>${match}</table></div>`;
+      });
+
+      // Wrap lists
+      processedText = processedText.replace(
+        /(<li>.*<\/li>\n?)+/g,
+        (match) => `<ul>${match}</ul>`,
+      );
+
+      // Final newline cleanup
+      processedText = processedText.replace(/\n/g, '<br>');
+
+      const srcDoc = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 20px;
+      padding: 0;
+      color: #1f2937;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    .report-header {
+      background: #f3f4f6;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #6b7280;
+      border: 1px solid #e5e7eb;
+      display: inline-block;
+    }
+    h1, h2, h3 { color: #111827; margin-top: 1.5em; margin-bottom: 0.5em; line-height: 1.3; }
+    h1 { font-size: 1.5em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+    h2 { font-size: 1.3em; }
+    h3 { font-size: 1.1em; }
+    strong { color: #111827; font-weight: 600; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul { padding-left: 24px; margin: 1em 0; }
+    li { margin-bottom: 4px; }
+    .table-wrapper { overflow-x: auto; margin: 1em 0; border-radius: 6px; border: 1px solid #e5e7eb; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 10px 12px; text-align: left; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) { background-color: #f9fafb; }
+    th { background-color: #f3f4f6; font-weight: 600; }
+    code { background-color: #f3f4f6; padding: 0.2em 0.4em; border-radius: 3px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 85%; }
+  </style>
+</head>
+<body>
+  <div class="report-header">Generated Report (Original HTML unavailable)</div>
+  ${processedText}
+</body>
+</html>`;
 
       return (
         <div className="h-full w-full rounded-md border bg-background">
           <iframe
-            srcDoc={`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline';">
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      font-size: 14px;
-      line-height: 1.6;
-      margin: 16px;
-      padding: 16px;
-      color: #333;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      background: transparent;
-    }
-    * {
-      pointer-events: none !important;
-      user-select: none !important;
-      -webkit-user-select: none !important;
-      -moz-user-select: none !important;
-      -ms-user-select: none !important;
-    }
-  </style>
-</head>
-<body>
-  ${textHtml}
-</body>
-</html>`}
+            key={currentResult?.id}
+            srcDoc={srcDoc}
             className="h-full w-full border-0"
             sandbox=""
             title="Prompt Response"
@@ -294,11 +413,51 @@ function ResultsSheetInner({
     const isFullDocument = /^\s*(<html|<!DOCTYPE)/i.test(htmlString);
 
     if (isFullDocument) {
+      // Remove noscript tags entirely to prevent them from hiding content or showing redirects
+      // The noscript tag often contains styles like "table,div,span,p{display:none}" which hides the page
+      let processedHtml = htmlString.replace(
+        /<noscript[\s\S]*?<\/noscript>/gi,
+        '',
+      );
+
+      // Inject base tag for relative links (CSS, images) if we know the source
+      const baseUrl = currentResult?.model
+        ? MODEL_BASE_URLS[currentResult.model]
+        : null;
+      if (baseUrl && !processedHtml.includes('<base ')) {
+        // Inject after <head> or at the top if no head
+        if (processedHtml.includes('<head>')) {
+          processedHtml = processedHtml.replace(
+            '<head>',
+            `<head><base href="${baseUrl}">`,
+          );
+        } else if (processedHtml.includes('<html')) {
+          // Fallback: inject after <html ...> start tag
+          processedHtml = processedHtml.replace(
+            /(<html[^>]*>)/i,
+            `$1<head><base href="${baseUrl}"></head>`,
+          );
+        }
+      }
+
+      // Inject sidebar hiding styles
+      if (processedHtml.includes('<head>')) {
+        processedHtml = processedHtml.replace(
+          '<head>',
+          `<head>${HIDE_UI_ELEMENTS_STYLE}`,
+        );
+      } else if (processedHtml.includes('<html')) {
+        processedHtml = processedHtml.replace(
+          /(<html[^>]*>)/i,
+          `$1<head>${HIDE_UI_ELEMENTS_STYLE}</head>`,
+        );
+      }
+
       return (
         <div className="h-full w-full rounded-md border bg-background">
           <iframe
             key={currentResult?.id}
-            srcDoc={htmlString}
+            srcDoc={processedHtml}
             className="h-full w-full border-0"
             sandbox=""
             title="Prompt Response"
@@ -320,8 +479,10 @@ function ResultsSheetInner({
   <style>
     body {
       margin: 0;
-      padding: 0;
+      padding: 16px;
       font-family: system-ui, -apple-system, sans-serif;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
     /* Basic containment */
     img { max-width: 100%; height: auto; }

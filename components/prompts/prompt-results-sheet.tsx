@@ -413,53 +413,159 @@ function ResultsSheetInner({
     const isFullDocument = /^\s*(<html|<!DOCTYPE)/i.test(htmlString);
 
     if (isFullDocument) {
-      // Remove noscript tags entirely to prevent them from hiding content or showing redirects
-      // The noscript tag often contains styles like "table,div,span,p{display:none}" which hides the page
-      let processedHtml = htmlString.replace(
-        /<noscript[\s\S]*?<\/noscript>/gi,
-        '',
+      // Inject base URL for relative links
+      const baseUrl = currentResult?.model
+        ? MODEL_BASE_URLS[currentResult.model as keyof typeof MODEL_BASE_URLS]
+        : null;
+
+      const isGoogleModel = ['GEMINI', 'AIOVERVIEW', 'AIMODE'].includes(
+        currentResult?.model || '',
       );
 
-      // Inject base tag for relative links (CSS, images) if we know the source
-      const baseUrl = currentResult?.model
-        ? MODEL_BASE_URLS[currentResult.model]
-        : null;
-      if (baseUrl && !processedHtml.includes('<base ')) {
-        // Inject after <head> or at the top if no head
-        if (processedHtml.includes('<head>')) {
-          processedHtml = processedHtml.replace(
+      // --- GOOGLE MODELS (GEMINI, AI OVERVIEW, AI MODE) ---
+      if (isGoogleModel) {
+        // 1. Strip scripts to prevent execution/blanking
+        let finalHtml = htmlString.replace(
+          /<script\b[^>]*>[\s\S]*?<\/script>/gim,
+          '',
+        );
+
+        // 2. Strip noscript tags (Fix for "Redirecting..." messages)
+        finalHtml = finalHtml.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
+
+        // 3. Inject Base URL
+        if (baseUrl && !finalHtml.includes('<base ')) {
+          if (finalHtml.includes('<head>')) {
+            finalHtml = finalHtml.replace(
+              '<head>',
+              `<head><base href="${baseUrl}">`,
+            );
+          } else {
+            finalHtml = finalHtml.replace(
+              /(<html[^>]*>)/i,
+              `$1<head><base href="${baseUrl}"></head>`,
+            );
+          }
+        }
+
+        // 4. Inject styles (Dark mode + UI hiding)
+        const GOOGLE_STYLES = `<style>
+          /* UI hiding - Gemini & Google Search (AI Mode) */
+          bard-sidenav, mat-sidenav, .mat-drawer-backdrop, .side-nav-menu-button, /* Gemini */
+          header, #header, #searchform, .sfbg, #appbar, /* Top bars */
+          div[role="navigation"], #leftnav, #sidetogether, /* Sidebars */
+          [role="banner"], .Fgvgjc, #hdtb, .hdtb-msb, /* Headers & Tools */
+          footer, #footer, .fbar, /* Footers */
+          .pdp-nav, [aria-label="Main menu"], .gb_Td, .gb_L, /* Misc UI */
+          
+          /* Specific AI Mode Selectors found in analysis */
+          .DZ13He, /* Main sticky top bar */
+          .wYq63b, /* Accessibility links bar */
+          .eT9Cje, /* History/New Search buttons */
+          .bNg8Rb, /* Hidden H1 headers */
+          .S6VXfe, /* Accessibility container */
+          .Lu57id  /* Potential other top bar */
+          { display: none !important; }
+          
+          /* General Layout */
+          main { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
+          /* Force Dark Mode - Gemini specifically needs this, safe for others if they are dark-themed snapshots */
+          body { background-color: #131314 !important; color: #e3e3e3 !important; }
+        </style>`;
+
+        if (finalHtml.includes('<head>')) {
+          finalHtml = finalHtml.replace('<head>', `<head>${GOOGLE_STYLES}`);
+        } else {
+          finalHtml = finalHtml.replace(
+            /(<html[^>]*>)/i,
+            `$1<head>${GOOGLE_STYLES}</head>`,
+          );
+        }
+
+        return (
+          <div className="h-full w-full rounded-md border bg-background">
+            <iframe
+              key={currentResult?.id}
+              srcDoc={finalHtml}
+              className="h-full w-full border-0"
+              sandbox="allow-popups" // No scripts
+              title="AI Response"
+            />
+          </div>
+        );
+      }
+
+      // --- CHATGPT SPECIFIC LOGIC ---
+      if (currentResult?.model === 'CHATGPT') {
+        let finalHtml = htmlString;
+
+        // Strip noscript tags here too just in case
+        finalHtml = finalHtml.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
+
+        // 1. Inject Base URL
+        if (baseUrl) {
+          finalHtml = finalHtml.replace(
             '<head>',
             `<head><base href="${baseUrl}">`,
           );
-        } else if (processedHtml.includes('<html')) {
-          // Fallback: inject after <html ...> start tag
-          processedHtml = processedHtml.replace(
+        }
+
+        // 2. Inject Color Inversion Styles
+        const CHATGPT_STYLES = `<style>
+          html { filter: invert(1) hue-rotate(180deg); background-color: white !important; }
+          img, video, iframe, svg { filter: invert(1) hue-rotate(180deg); }
+          /* Hide potential sidebars if they exist in snapshot */
+          nav, [class*="sidebar"] { display: none !important; }
+        </style>`;
+
+        if (finalHtml.includes('<head>')) {
+          finalHtml = finalHtml.replace('<head>', `<head>${CHATGPT_STYLES}`);
+        } else {
+          finalHtml = finalHtml.replace(
             /(<html[^>]*>)/i,
-            `$1<head><base href="${baseUrl}"></head>`,
+            `$1<head>${CHATGPT_STYLES}</head>`,
           );
         }
+
+        return (
+          <div className="h-full w-full rounded-md border bg-background">
+            <iframe
+              key={currentResult?.id}
+              srcDoc={finalHtml}
+              className="h-full w-full border-0"
+              sandbox="allow-popups"
+              title="ChatGPT Response"
+            />
+          </div>
+        );
       }
 
-      // Inject sidebar hiding styles
-      if (processedHtml.includes('<head>')) {
-        processedHtml = processedHtml.replace(
+      // --- STANDARD LOGIC (Copilot, etc.) ---
+      let finalHtml = htmlString;
+
+      // Strip noscript tags (Standard practice)
+      finalHtml = finalHtml.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
+
+      if (baseUrl) {
+        finalHtml = finalHtml.replace(
           '<head>',
-          `<head>${HIDE_UI_ELEMENTS_STYLE}`,
-        );
-      } else if (processedHtml.includes('<html')) {
-        processedHtml = processedHtml.replace(
-          /(<html[^>]*>)/i,
-          `$1<head>${HIDE_UI_ELEMENTS_STYLE}</head>`,
+          `<head><base href="${baseUrl}">`,
         );
       }
+
+      // Inject standard UI hiding styles
+      finalHtml = finalHtml.replace(
+        '</head>',
+        `${HIDE_UI_ELEMENTS_STYLE}</head>`,
+      );
 
       return (
         <div className="h-full w-full rounded-md border bg-background">
           <iframe
             key={currentResult?.id}
-            srcDoc={processedHtml}
+            srcDoc={finalHtml}
             className="h-full w-full border-0"
-            sandbox=""
+            sandbox="allow-popups"
             title="Prompt Response"
           />
         </div>

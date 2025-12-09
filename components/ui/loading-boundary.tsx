@@ -20,8 +20,8 @@ export function LoadingBoundary({
   loadingText = 'Loading...',
   hasData = false,
 }: LoadingBoundaryProps) {
-  // Show skeleton if loading OR if no data yet
-  if (isLoading || !hasData) {
+  // Show skeleton ONLY if loading AND no data yet
+  if (isLoading && !hasData) {
     // If custom fallback is provided, use it
     if (fallback) {
       return <>{fallback}</>;

@@ -30,7 +30,6 @@ export interface Prompt {
     domain: string;
   };
   results?: Result[];
-  resultsCount?: number;
   visibilityScore?: number | null;
   averageSentiment?: number | null;
   averagePosition?: number | null;

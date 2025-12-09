@@ -152,15 +152,13 @@ export async function GET(request: NextRequest) {
           ? totalPosition / positionResults.length
           : null;
 
-      // Return prompt without results array but with count
-
+      // Return prompt without results array
       const { results, ...promptWithoutResults } = prompt;
       return {
         ...promptWithoutResults,
         visibilityScore,
         averageSentiment,
         averagePosition,
-        resultsCount: results.length,
       };
     });
 

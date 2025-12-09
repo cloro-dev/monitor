@@ -15,16 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Prompt, Result, usePrompt } from '@/hooks/use-prompts';
 import { format } from 'date-fns';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
-  Eye,
-  Loader2,
-} from 'lucide-react';
+import { Calendar, Eye, Loader2, AlertCircle } from 'lucide-react';
 import { LoadingBoundary } from '@/components/ui/loading-boundary';
 import { ChatGPTLogo } from '@/components/ai-models/logos/chatgpt-logo';
 import { PerplexityLogo } from '@/components/ai-models/logos/perplexity-logo';
@@ -108,9 +101,11 @@ function ResultsSheetInner({
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
 
   // Fetch full details including results
-  const { prompt: fullPrompt, isLoading } = usePrompt(
-    open ? initialPrompt?.id || null : null,
-  );
+  const {
+    prompt: fullPrompt,
+    isLoading,
+    error,
+  } = usePrompt(open ? initialPrompt?.id || null : null);
 
   // Use full prompt if available, otherwise fallback to initial (for static data like title)
   const prompt = fullPrompt || initialPrompt;
@@ -364,6 +359,23 @@ function ResultsSheetInner({
             {isLoading ? (
               <div className="flex h-full items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <div className="flex h-full items-center justify-center text-center">
+                <div className="space-y-4">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                    <AlertCircle className="h-8 w-8 text-destructive" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-destructive">
+                      Failed to load results
+                    </h3>
+                    <p className="mt-2 text-muted-foreground">
+                      There was an error loading the prompt details. Please try
+                      again.
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : !prompt.results || prompt.results.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">

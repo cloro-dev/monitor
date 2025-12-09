@@ -219,24 +219,17 @@ function ResultsSheetInner({
       checkContent(dataToCheck.aioverview);
     }
 
-    // If HTML content is a URL, we can't directly load it due to CORS
-    // Instead, we'll show a link to the HTML
+    // If HTML content is a URL, render it directly in an iframe
     if (htmlString && htmlString.startsWith('http')) {
       return (
-        <div className="flex h-full items-center justify-center">
-          <div className="space-y-4 text-center">
-            <p className="text-muted-foreground">
-              HTML content is stored externally
-            </p>
-            <a
-              href={htmlString}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              Open HTML in new tab
-            </a>
-          </div>
+        <div className="h-full w-full rounded-md border bg-background">
+          <iframe
+            key={currentResult?.id}
+            src={htmlString}
+            className="h-full w-full border-0"
+            sandbox=""
+            title="External Content"
+          />
         </div>
       );
     }
@@ -301,54 +294,46 @@ function ResultsSheetInner({
       );
     }
 
-    // If we have HTML content, render it in a sandboxed iframe
+    // If we have HTML content
+    // Check if it's a full document (starts with <html or <!DOCTYPE)
+    const isFullDocument = /^\s*(<html|<!DOCTYPE)/i.test(htmlString);
+
+    if (isFullDocument) {
+      return (
+        <div className="h-full w-full rounded-md border bg-background">
+          <iframe
+            key={currentResult?.id}
+            srcDoc={htmlString}
+            className="h-full w-full border-0"
+            sandbox=""
+            title="Prompt Response"
+          />
+        </div>
+      );
+    }
+
+    // If it's a fragment, wrap it
     return (
       <div className="h-full w-full rounded-md border bg-background">
         <iframe
+          key={currentResult?.id}
           srcDoc={`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline';">
   <style>
-    /* Preserve all original styles, just add containment */
-    html, body {
+    body {
       margin: 0;
-      padding: 16px;
-      max-width: 100%;
-      overflow-x: auto;
+      padding: 0;
+      font-family: system-ui, -apple-system, sans-serif;
     }
-    /* Only force constraints that prevent overflow */
-    * {
-      box-sizing: border-box !important;
-      max-width: 100% !important;
-    }
-    img {
-      max-width: 100% !important;
-      height: auto !important;
-    }
-    table {
-      max-width: 100% !important;
-      display: block !important;
-      overflow-x: auto !important;
-    }
-    /* Only override problematic positioning */
-    [style*="position: absolute"],
-    [style*="position: fixed"] {
-      position: static !important;
-    }
-    /* Prevent interaction without breaking styles */
-    body * {
-      pointer-events: none !important;
-      user-select: none !important;
-      -webkit-user-select: none !important;
-      -moz-user-select: none !important;
-      -ms-user-select: none !important;
-    }
-    /* Allow text wrapping */
-    * {
-      overflow-wrap: break-word !important;
-      word-wrap: break-word !important;
+    /* Basic containment */
+    img { max-width: 100%; height: auto; }
+    /* Prevent interaction */
+    body {
+      pointer-events: none;
+      user-select: none;
     }
   </style>
 </head>
@@ -451,7 +436,7 @@ function ResultsSheetInner({
                 </div>
 
                 {/* HTML Content Display */}
-                <div className="mt-4 min-h-[400px] flex-1 rounded-md border bg-muted/30 p-4">
+                <div className="mt-4 min-h-[400px] flex-1 rounded-md border bg-muted/30">
                   {currentResult ? (
                     <LoadingBoundary isLoading={false} hasData={true}>
                       <div className="h-full">

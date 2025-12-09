@@ -84,14 +84,10 @@ export async function GET(request: NextRequest) {
           },
         },
         results: {
-          include: {
-            sources: {
-              select: {
-                url: true,
-                hostname: true,
-                type: true,
-              },
-            },
+          select: {
+            status: true,
+            sentiment: true,
+            position: true,
           },
         },
       },
@@ -114,8 +110,11 @@ export async function GET(request: NextRequest) {
       );
 
       if (successfulResultsForVisibility.length === 0) {
+        // Return prompt without results array
+
+        const { results, ...promptWithoutResults } = prompt;
         return {
-          ...prompt,
+          ...promptWithoutResults,
           visibilityScore: null,
           averageSentiment: null,
           averagePosition: null,
@@ -153,11 +152,15 @@ export async function GET(request: NextRequest) {
           ? totalPosition / positionResults.length
           : null;
 
+      // Return prompt without results array but with count
+
+      const { results, ...promptWithoutResults } = prompt;
       return {
-        ...prompt,
+        ...promptWithoutResults,
         visibilityScore,
         averageSentiment,
         averagePosition,
+        resultsCount: results.length,
       };
     });
 

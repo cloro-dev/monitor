@@ -32,6 +32,7 @@ import { useDeletePrompt, useUpdatePrompt, Prompt } from '@/hooks/use-prompts';
 import { toast } from 'sonner';
 import { getCountryFlag } from '@/lib/countries';
 import { PromptDialog } from './prompt-dialog';
+import { PromptResultsSheet } from './prompt-results-sheet';
 import { getFaviconUrl } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -48,6 +49,8 @@ export function PromptsTable({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [isResultsSheetOpen, setIsResultsSheetOpen] = useState(false);
   const { deletePrompt } = useDeletePrompt();
   const { updatePrompt } = useUpdatePrompt();
 
@@ -78,6 +81,20 @@ export function PromptsTable({
 
   const formatTimeAgo = (dateString: string) => {
     return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+  };
+
+  const handleRowClick = (prompt: Prompt, e: React.MouseEvent) => {
+    // Don't open sheet if clicking on buttons or dropdowns
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') ||
+      target.closest('[data-radix-collection-item]')
+    ) {
+      return;
+    }
+
+    setSelectedPrompt(prompt);
+    setIsResultsSheetOpen(true);
   };
 
   if (data.length === 0) {
@@ -115,7 +132,11 @@ export function PromptsTable({
           </TableHeader>
           <TableBody>
             {data.map((prompt) => (
-              <TableRow key={prompt.id}>
+              <TableRow
+                key={prompt.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={(e) => handleRowClick(prompt, e)}
+              >
                 <TableCell className="py-2 align-middle font-medium">
                   <div
                     className="line-clamp-3 max-w-md whitespace-normal break-words"
@@ -291,6 +312,16 @@ export function PromptsTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Prompt Results Sheet */}
+      <PromptResultsSheet
+        open={isResultsSheetOpen}
+        onOpenChange={(open) => {
+          setIsResultsSheetOpen(open);
+          if (!open) setSelectedPrompt(null);
+        }}
+        prompt={selectedPrompt}
+      />
     </>
   );
 }

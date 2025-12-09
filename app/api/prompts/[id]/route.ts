@@ -6,6 +6,70 @@ import { trackPromptById } from '@/lib/tracking-service';
 import { waitUntil } from '@vercel/functions';
 import { logError, logInfo } from '@/lib/logger';
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  let session: any = null;
+  let paramsId: string | null = null;
+
+  try {
+    const { id } = await params;
+    paramsId = id;
+    session = await auth.api.getSession({ headers: request.headers });
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Fetch prompt with all details (results, sources, etc.)
+    const prompt = await prisma.prompt.findFirst({
+      where: {
+        id: id,
+        userId: session.user.id,
+      },
+      include: {
+        brand: {
+          select: {
+            id: true,
+            domain: true,
+            name: true,
+          },
+        },
+        results: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          include: {
+            sources: {
+              select: {
+                url: true,
+                hostname: true,
+                type: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!prompt) {
+      return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(prompt);
+  } catch (error) {
+    logError('PromptGET', 'Error fetching prompt details', error, {
+      promptId: paramsId,
+      userId: session?.user?.id,
+    });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 },
+    );
+  }
+}
+
 const updatePromptSchema = z.object({
   text: z
     .string()

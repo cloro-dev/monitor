@@ -114,7 +114,7 @@ function ResultsSheetInner({
   const groupedResults = useMemo(() => {
     if (!prompt?.results?.length) return {} as GroupedResults;
 
-    return prompt.results.reduce((acc: GroupedResults, result) => {
+    return prompt!.results.reduce((acc: GroupedResults, result) => {
       const dateKey = format(new Date(result.createdAt), 'yyyy-MM-dd');
       if (!acc[dateKey]) {
         acc[dateKey] = [];
@@ -122,7 +122,7 @@ function ResultsSheetInner({
       acc[dateKey].push(result);
       return acc;
     }, {});
-  }, [prompt?.results]); // React Compiler sees this as prompt.results
+  }, [prompt]);
 
   // Get available dates in descending order
   const availableDates = useMemo(() => {
@@ -153,13 +153,12 @@ function ResultsSheetInner({
     );
   }, [selectedDate, selectedModel, groupedResults]);
 
-  // Reset current result index when filtered results change
-  useEffect(() => {
-    setCurrentResultIndex(0);
-  }, [filteredResults.length]); // Use length instead of array reference
-
-  const currentResult = filteredResults[currentResultIndex];
   const totalResults = filteredResults.length;
+
+  // Ensure the current index is within bounds
+  const safeCurrentIndex =
+    currentResultIndex >= totalResults ? 0 : currentResultIndex;
+  const currentResult = filteredResults[safeCurrentIndex];
 
   const formatDate = (dateString: string) => {
     try {

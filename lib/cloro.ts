@@ -10,7 +10,7 @@ const MODEL_CONFIGS = {
     include: {
       html: true,
       aioverview: {
-        markdown: false,
+        markdown: true,
       },
     },
   },
@@ -20,6 +20,7 @@ const MODEL_CONFIGS = {
     include: {
       searchQueries: true,
       html: true,
+      markdown: true,
     },
   },
 } as const;
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG = {
   payloadKey: 'prompt' as const,
   include: {
     html: true,
+    markdown: true,
   },
 } as const;
 

@@ -11,14 +11,34 @@ import { trackPromptAsync } from '@/lib/cloro';
 
 const MAX_RETRIES = 3;
 
+const safeStartsWith = (value: any, prefix: string) =>
+  typeof value === 'string' && value.startsWith(prefix);
+
 /**
  * Fetches HTML content for sources that have HTML URLs
  */
-async function processHtmlContent(responseData: any): Promise<any> {
+async function processHtmlContent(
+  responseData: any,
+  resultId?: string,
+): Promise<any> {
   if (!responseData || typeof responseData !== 'object') return responseData;
 
   const processedData = { ...responseData };
   let htmlFetchCount = 0;
+
+  // Process HTML arrays (AI Overview)
+  if (Array.isArray(processedData.html)) {
+    const firstUrl = processedData.html[0];
+    if (safeStartsWith(firstUrl, 'http')) {
+      try {
+        const res = await fetch(firstUrl, {
+          headers: { 'User-Agent': 'Cloro-HtmlFetcher/1.0' },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (res.ok) processedData.html = await res.text();
+      } catch {} // Keep array on failure
+    }
+  }
 
   // Helper function to process sources array
   const processSourcesArray = async (sources: any[]) => {
@@ -31,11 +51,7 @@ async function processHtmlContent(responseData: any): Promise<any> {
         const processedSource = { ...source };
 
         // Check if source has an HTML URL that we need to fetch
-        if (
-          source.html &&
-          typeof source.html === 'string' &&
-          source.html.startsWith('http')
-        ) {
+        if (source.html && safeStartsWith(source.html, 'http')) {
           try {
             logInfo('Webhook', 'Fetching HTML for source', {
               url: source.url,
@@ -52,10 +68,8 @@ async function processHtmlContent(responseData: any): Promise<any> {
 
             if (response.ok) {
               const html = await response.text();
-              // Limit HTML size to prevent large responses
-              const maxSize = 500 * 1024; // 500KB
-              processedSource.html =
-                html.length > maxSize ? html.substring(0, maxSize) : html;
+              // Store full HTML content
+              processedSource.html = html;
               htmlFetchCount++;
 
               logInfo('Webhook', 'Successfully fetched HTML', {
@@ -110,11 +124,7 @@ async function processHtmlContent(responseData: any): Promise<any> {
   }
 
   // Also handle top-level HTML field
-  if (
-    processedData.html &&
-    typeof processedData.html === 'string' &&
-    processedData.html.startsWith('http')
-  ) {
+  if (processedData.html && safeStartsWith(processedData.html, 'http')) {
     try {
       logInfo('Webhook', 'Fetching top-level HTML content', {
         htmlUrl: processedData.html,
@@ -130,9 +140,8 @@ async function processHtmlContent(responseData: any): Promise<any> {
 
       if (response.ok) {
         const html = await response.text();
-        const maxSize = 500 * 1024; // 500KB
-        processedData.html =
-          html.length > maxSize ? html.substring(0, maxSize) : html;
+        // Store full HTML content
+        processedData.html = html;
         htmlFetchCount++;
 
         logInfo('Webhook', 'Successfully fetched top-level HTML', {
@@ -333,43 +342,37 @@ async function processWebhook(body: any) {
     let position: number | null = null;
     let competitors: any = null;
 
-    // Process HTML content for sources before other processing
-    logInfo('Webhook', 'Starting HTML content processing', {
+    const processedResponseData = await processHtmlContent(
+      responseData,
       resultId,
-      hasHtmlField: !!responseData?.html,
-      htmlFieldValue: responseData?.html?.substring(0, 100),
-      responseDataKeys: Object.keys(responseData || {}),
-      htmlType: typeof responseData?.html,
-    });
-
-    const processedResponseData = await processHtmlContent(responseData);
-
-    logInfo('Webhook', 'HTML content processing completed', {
-      resultId,
-      htmlWasUrl: responseData?.html?.startsWith('http'),
-      htmlWasProcessed: processedResponseData?.html !== responseData?.html,
-    });
+    );
 
     // Extract text from different response formats based on the source
     let textForAnalysis = null;
 
-    // Handle the new Google endpoint format: { result: { aioverview: { text: ... } } }
-    if (processedResponseData?.result?.aioverview?.text) {
+    // Handle the new Google endpoint format: { result: { aioverview: { text/markdown: ... } } }
+    // Prioritize markdown over text for cleaner content
+    if (processedResponseData?.result?.aioverview?.markdown) {
+      textForAnalysis = processedResponseData.result.aioverview.markdown;
+    } else if (processedResponseData?.result?.aioverview?.text) {
       textForAnalysis = processedResponseData.result.aioverview.text;
     }
     // For direct aioverview format (fallback)
-    else if (processedResponseData?.aioverview?.text) {
+    else if (processedResponseData?.aioverview?.markdown) {
+      textForAnalysis = processedResponseData.aioverview.markdown;
+    } else if (processedResponseData?.aioverview?.text) {
       textForAnalysis = processedResponseData.aioverview.text;
     }
-    // For the old async task format, check for text directly
-    else if (processedResponseData?.text) {
+    // For the old async task format, check for markdown first, then text directly
+    else if (processedResponseData?.markdown) {
+      textForAnalysis = processedResponseData.markdown;
+    } else if (processedResponseData?.text) {
       textForAnalysis = processedResponseData.text;
     }
 
     if (textForAnalysis) {
       try {
         const metrics = await analyzeBrandMetrics(textForAnalysis, brandName);
-
         sentiment = metrics.sentiment;
         position = metrics.position;
         competitors = metrics.competitors;

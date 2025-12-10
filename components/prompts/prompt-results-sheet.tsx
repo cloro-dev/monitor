@@ -204,6 +204,9 @@ function ResultsSheetInner({
   const renderHtmlContent = (response: any) => {
     if (!response) return null;
 
+    const safeStartsWith = (value: any, prefix: string) =>
+      typeof value === 'string' && value.startsWith(prefix);
+
     // Extract content from different response formats
     let htmlString = '';
     let textContent = '';
@@ -219,7 +222,7 @@ function ResultsSheetInner({
     const checkContent = (obj: any) => {
       if (typeof obj === 'string') {
         // Heuristic: If it looks like HTML, treat as HTML. Otherwise text.
-        if (obj.trim().startsWith('<') && obj.includes('>')) {
+        if (safeStartsWith(obj.trim(), '<') && obj.includes('>')) {
           htmlString = obj;
         } else {
           textContent = obj;
@@ -232,10 +235,7 @@ function ResultsSheetInner({
         // Check for content field
         else if (obj.content) {
           // Check if content is HTML
-          if (
-            typeof obj.content === 'string' &&
-            obj.content.trim().startsWith('<')
-          ) {
+          if (safeStartsWith(obj.content.trim(), '<')) {
             htmlString = obj.content;
           } else {
             textContent = obj.content;
@@ -267,7 +267,7 @@ function ResultsSheetInner({
     }
 
     // If HTML content is a URL, render it directly in an iframe
-    if (htmlString && htmlString.startsWith('http')) {
+    if (htmlString && safeStartsWith(htmlString, 'http')) {
       return (
         <div className="h-full w-full rounded-md border bg-background">
           <iframe

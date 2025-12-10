@@ -160,10 +160,20 @@ export async function analyzeBrandMetrics(text: string, brandName: string) {
       You are a professional market analyst. Your task is to analyze the following text
       to understand the competitive landscape for the brand "${brandName}".
 
+      **IMPORTANT: Focus on the core content ONLY. Ignore and exclude:**
+      - Source citations and references (e.g., "[Source 1]", "Forbes Advisor", "Zapier")
+      - Article titles and publication names
+      - Links and URLs
+      - Generic technology platforms mentioned in citations (e.g., Slack, Zapier, Google Drive)
+      - "Best X of Y" list references
+      - "X sites" or "X sources" mentions
+
+      **ANALYZE ONLY the main substantive content that discusses actual competitors.**
+
       Please perform the following analysis:
-      1.  Read the text carefully to identify all brand names mentioned.
-      2.  Create a ranked list of all brand names based on their prominence in the text. The most prominent brand should be at rank 1.
-      3.  Determine if "${brandName}" (or any variation of it, e.g. case-insensitive, partial match, or domain) is mentioned in the text.
+      1.  Read the core text content carefully to identify actual competing brands mentioned in the substance of the response.
+      2.  Create a ranked list of competing brand names based on their prominence in the CORE content. The most prominent brand should be at rank 1.
+      3.  Determine if "${brandName}" (or any variation of it, e.g. case-insensitive, partial match, or domain) is mentioned in the core content.
       4.  If "${brandName}" (or variation) IS mentioned:
           a.  Calculate its sentiment on a scale of 0-100 (0=very negative, 50=neutral, 100=very positive).
           b.  Identify its rank in the list.
@@ -172,7 +182,7 @@ export async function analyzeBrandMetrics(text: string, brandName: string) {
       Return a JSON object with the following structure:
       - sentiment: The numerical sentiment score (0-100) for "${brandName}". Should be null if the brand is not mentioned.
       - position: The integer rank of "${brandName}" in the prominence list. Should be null if the brand is not mentioned.
-      - competitors: A JSON array of objects { name: string, sentiment: number | null } for ALL brand names identified, ordered by their rank. If no brands are mentioned at all, this should be null.
+      - competitors: A JSON array of objects { name: string, position: number | null, sentiment: number | null } for ACTUAL competing brands identified in the core content, ordered by their rank. If no competing brands are mentioned, this should be null.
 
       Text to analyze:
       ---

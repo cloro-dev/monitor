@@ -424,8 +424,80 @@ function ResultsSheetInner({
 
       // --- GOOGLE MODELS (GEMINI, AI OVERVIEW, AI MODE) ---
       if (isGoogleModel) {
-        // 1. Strip scripts to prevent execution/blanking
-        let finalHtml = htmlString.replace(
+        let finalHtml = htmlString;
+
+        // 0. Attempt to extract hidden content from WIZ_global_data (Specific to Gemini/Google)
+        // Gemini snapshots are often empty shells requiring JS. We extract the text payload 'DnVkpd'.
+        const wizDataMatch = htmlString.match(
+          /"DnVkpd"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+        );
+        if (wizDataMatch && wizDataMatch[1]) {
+          try {
+            // Decode the JSON string to get the actual content
+            let extractedContent = JSON.parse(`"${wizDataMatch[1]}"`);
+
+            // Format specific delimiters used by Gemini
+            // ∰ seems to separate turns/sections
+            extractedContent = extractedContent.replace(
+              /∰/g,
+              '<hr class="gemini-separator">',
+            );
+
+            // ∞ seems to separate prompts/images/responses. Often precedes URLs.
+            // We'll try to detect image URLs following this and turn them into tags.
+            extractedContent = extractedContent.replace(
+              /∞(https:\/\/[^ ]+\.(?:jpg|png|webp|gif|jpeg)(?:\?[^ ]*)?)/gi,
+              '<br><img src="$1" class="gemini-image" alt="Generated Image"><br>',
+            );
+
+            // Handle remaining ∞
+            extractedContent = extractedContent.replace(/∞/g, '<br>');
+
+            // Handle newlines
+            extractedContent = extractedContent.replace(/\n/g, '<br>');
+
+            // Construct a new renderable document
+            finalHtml = `<!DOCTYPE html>
+            <html>
+              <head>
+                <base href="${baseUrl || ''}">
+                <style>
+                  body {
+                    font-family: 'Google Sans', Roboto, sans-serif;
+                    line-height: 1.5;
+                    padding: 20px;
+                    color: #e3e3e3;
+                    background-color: #131314;
+                  }
+                  .gemini-separator {
+                    border: 0;
+                    border-top: 1px solid #444;
+                    margin: 24px 0;
+                  }
+                  .gemini-image {
+                    max-width: 100%;
+                    border-radius: 8px;
+                    margin: 12px 0;
+                    border: 1px solid #333;
+                  }
+                  a { color: #8ab4f8; }
+                  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+                  th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+                  th { background-color: #1f1f1f; }
+                </style>
+              </head>
+              <body>
+                ${extractedContent}
+              </body>
+            </html>`;
+          } catch (e) {
+            console.error('Failed to parse Gemini WIZ data', e);
+            // Fallback to original HTML if parsing fails
+          }
+        }
+
+        // 1. Strip scripts to prevent execution/blanking (if we fell back to original HTML)
+        finalHtml = finalHtml.replace(
           /<script\b[^>]*>[\s\S]*?<\/script>/gim,
           '',
         );
@@ -433,7 +505,7 @@ function ResultsSheetInner({
         // 2. Strip noscript tags (Fix for "Redirecting..." messages)
         finalHtml = finalHtml.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
 
-        // 3. Inject Base URL
+        // 3. Inject Base URL (if we didn't rebuild the doc)
         if (baseUrl && !finalHtml.includes('<base ')) {
           if (finalHtml.includes('<head>')) {
             finalHtml = finalHtml.replace(
@@ -450,6 +522,15 @@ function ResultsSheetInner({
 
         // 4. Inject styles (Dark mode + UI hiding)
         const GOOGLE_STYLES = `<style>
+          /* Gemini Dark Mode Variable Overrides */
+          :root {
+            --gem-sys-color--surface: #131314 !important;
+            --gem-sys-color--surface-container: #1e1f20 !important;
+            --gem-sys-color--on-surface: #e3e3e3 !important;
+            --bard-color-synthetic--chat-window-surface: #131314 !important;
+            --bard-color-surface-dim-tmp: #131314 !important;
+          }
+
           /* UI hiding - Gemini & Google Search (AI Mode) */
           bard-sidenav, mat-sidenav, .mat-drawer-backdrop, .side-nav-menu-button, /* Gemini */
           header, #header, #searchform, .sfbg, #appbar, /* Top bars */
@@ -469,8 +550,12 @@ function ResultsSheetInner({
           
           /* General Layout */
           main { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
-          /* Force Dark Mode - Gemini specifically needs this, safe for others if they are dark-themed snapshots */
-          body { background-color: #131314 !important; color: #e3e3e3 !important; }
+          
+          /* Force Dark Mode on Body and Gemini Containers */
+          body, .content-container, chat-app, .main-content, .chat-container {
+            background-color: #131314 !important;
+            color: #e3e3e3 !important;
+          }
         </style>`;
 
         if (finalHtml.includes('<head>')) {

@@ -85,7 +85,7 @@ export class SourceMetricsService {
       }
 
       const brand = result.prompt.brand;
-      const sources = result.sources;
+      const sources = result.sources || [];
 
       // Get all organizations that own this brand
       const organizations = brand.organizationBrands.map(

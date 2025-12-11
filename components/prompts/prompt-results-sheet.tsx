@@ -318,73 +318,79 @@ function ResultsSheetInner({
       if (isGoogleModel) {
         let finalHtml = htmlString;
 
-        // 0. Attempt to extract hidden content from WIZ_global_data (Specific to Gemini/Google)
-        // Gemini snapshots are often empty shells requiring JS. We extract the text payload 'DnVkpd'.
-        const wizDataMatch = htmlString.match(
-          /"DnVkpd"\s*:\s*"((?:[^"\\]|\\.)*)"/,
-        );
-        if (wizDataMatch && wizDataMatch[1]) {
-          try {
-            // Decode the JSON string to get the actual content
-            let extractedContent = JSON.parse(`"${wizDataMatch[1]}"`);
+        // Skip WIZ_global_data extraction for Gemini - show full HTML content
+        // Only apply special processing for AI Overview and AI Mode
+        const isGemini = currentResult?.model === 'GEMINI';
 
-            // Format specific delimiters used by Gemini
-            // ∰ seems to separate turns/sections
-            extractedContent = extractedContent.replace(
-              /∰/g,
-              '<hr class="gemini-separator">',
-            );
+        if (!isGemini) {
+          // 0. Attempt to extract hidden content from WIZ_global_data (Specific to AI Overview/Google)
+          // AI Overview snapshots are often empty shells requiring JS. We extract the text payload 'DnVkpd'.
+          const wizDataMatch = htmlString.match(
+            /"DnVkpd"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+          );
+          if (wizDataMatch && wizDataMatch[1]) {
+            try {
+              // Decode the JSON string to get the actual content
+              let extractedContent = JSON.parse(`"${wizDataMatch[1]}"`);
 
-            // ∞ seems to separate prompts/images/responses. Often precedes URLs.
-            // We'll try to detect image URLs following this and turn them into tags.
-            extractedContent = extractedContent.replace(
-              /∞(https:\/\/[^ ]+\.(?:jpg|png|webp|gif|jpeg)(?:\?[^ ]*)?)/gi,
-              '<br><img src="$1" class="gemini-image" alt="Generated Image"><br>',
-            );
+              // Format specific delimiters used by AI Overview
+              // ∰ seems to separate turns/sections
+              extractedContent = extractedContent.replace(
+                /∰/g,
+                '<hr class="gemini-separator">',
+              );
 
-            // Handle remaining ∞
-            extractedContent = extractedContent.replace(/∞/g, '<br>');
+              // ∞ seems to separate prompts/images/responses. Often precedes URLs.
+              // We'll try to detect image URLs following this and turn them into tags.
+              extractedContent = extractedContent.replace(
+                /∞(https:\/\/[^ ]+\.(?:jpg|png|webp|gif|jpeg)(?:\?[^ ]*)?)/gi,
+                '<br><img src="$1" class="gemini-image" alt="Generated Image"><br>',
+              );
 
-            // Handle newlines
-            extractedContent = extractedContent.replace(/\n/g, '<br>');
+              // Handle remaining ∞
+              extractedContent = extractedContent.replace(/∞/g, '<br>');
 
-            // Construct a new renderable document
-            finalHtml = `<!DOCTYPE html>
-            <html>
-              <head>
-                <base href="${baseUrl || ''}">
-                <style>
-                  body {
-                    font-family: 'Google Sans', Roboto, sans-serif;
-                    line-height: 1.5;
-                    padding: 20px;
-                    color: #e3e3e3;
-                    background-color: #131314;
-                  }
-                  .gemini-separator {
-                    border: 0;
-                    border-top: 1px solid #444;
-                    margin: 24px 0;
-                  }
-                  .gemini-image {
-                    max-width: 100%;
-                    border-radius: 8px;
-                    margin: 12px 0;
-                    border: 1px solid #333;
-                  }
-                  a { color: #8ab4f8; }
-                  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
-                  th, td { border: 1px solid #444; padding: 8px; text-align: left; }
-                  th { background-color: #1f1f1f; }
-                </style>
-              </head>
-              <body>
-                ${extractedContent}
-              </body>
-            </html>`;
-          } catch (e) {
-            console.error('Failed to parse Gemini WIZ data', e);
-            // Fallback to original HTML if parsing fails
+              // Handle newlines
+              extractedContent = extractedContent.replace(/\n/g, '<br>');
+
+              // Construct a new renderable document
+              finalHtml = `<!DOCTYPE html>
+              <html>
+                <head>
+                  <base href="${baseUrl || ''}">
+                  <style>
+                    body {
+                      font-family: 'Google Sans', Roboto, sans-serif;
+                      line-height: 1.5;
+                      padding: 20px;
+                      color: #e3e3e3;
+                      background-color: #131314;
+                    }
+                    .gemini-separator {
+                      border: 0;
+                      border-top: 1px solid #444;
+                      margin: 24px 0;
+                    }
+                    .gemini-image {
+                      max-width: 100%;
+                      border-radius: 8px;
+                      margin: 12px 0;
+                      border: 1px solid #333;
+                    }
+                    a { color: #8ab4f8; }
+                    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+                    th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+                    th { background-color: #1f1f1f; }
+                  </style>
+                </head>
+                <body>
+                  ${extractedContent}
+                </body>
+              </html>`;
+            } catch (e) {
+              console.error('Failed to parse AI Overview WIZ data', e);
+              // Fallback to original HTML if parsing fails
+            }
           }
         }
 

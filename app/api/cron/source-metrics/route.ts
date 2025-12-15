@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sourceMetricsBatchProcessor } from '@/lib/source-metrics-batch-processor';
 import { logInfo, logError, logWarn } from '@/lib/logger';
+import { waitUntil } from '@vercel/functions';
 
 /**
  * Cron job endpoint for scheduled source metrics processing
@@ -15,8 +16,6 @@ const CRON_SECRET =
   process.env.CRON_SECRET || 'default-secret-change-in-production';
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
-
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
@@ -39,89 +38,79 @@ export async function POST(request: NextRequest) {
       endDate?: string;
     };
 
-    let stats;
+    waitUntil(
+      (async () => {
+        const startTime = Date.now();
+        let stats;
+        try {
+          if (startDate && endDate) {
+            // Process specific date range (useful for backfilling)
+            const start = new Date(startDate);
+            const end = new Date(endDate);
 
-    if (startDate && endDate) {
-      // Process specific date range (useful for backfilling)
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+              logError('SourceMetricsCron', 'Invalid date format provided');
+              return;
+            }
 
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return NextResponse.json(
-          { error: 'Invalid date format. Use ISO 8601 format (YYYY-MM-DD).' },
-          { status: 400 },
-        );
-      }
+            if (start > end) {
+              logError(
+                'SourceMetricsCron',
+                'Start date must be before end date',
+              );
+              return;
+            }
 
-      if (start > end) {
-        return NextResponse.json(
-          { error: 'Start date must be before end date.' },
-          { status: 400 },
-        );
-      }
+            logInfo('SourceMetricsCron', 'Processing date range', {
+              startDate: start.toISOString().split('T')[0],
+              endDate: end.toISOString().split('T')[0],
+            });
 
-      logInfo('SourceMetricsCron', 'Processing date range', {
-        startDate: start.toISOString().split('T')[0],
-        endDate: end.toISOString().split('T')[0],
-      });
+            stats = await sourceMetricsBatchProcessor.runBatchForDateRange(
+              start,
+              end,
+            );
+          } else {
+            // Default daily batch processing (runs once per day, processes previous day's data)
+            stats = await sourceMetricsBatchProcessor.runBatch();
+          }
 
-      stats = await sourceMetricsBatchProcessor.runBatchForDateRange(
-        start,
-        end,
-      );
-    } else {
-      // Default daily batch processing (runs once per day, processes previous day's data)
-      stats = await sourceMetricsBatchProcessor.runBatch();
-    }
+          const duration = Date.now() - startTime;
 
-    const duration = Date.now() - startTime;
-
-    logInfo('SourceMetricsCron', 'Cron job completed successfully', {
-      duration: `${duration}ms`,
-      stats: {
-        totalProcessed: stats.totalProcessed,
-        successful: stats.successful,
-        failed: stats.failed,
-        skipped: stats.skipped,
-        successRate:
-          stats.totalProcessed > 0
-            ? `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`
-            : '0%',
-      },
-    });
+          logInfo('SourceMetricsCron', 'Cron job completed successfully', {
+            duration: `${duration}ms`,
+            stats: {
+              totalProcessed: stats.totalProcessed,
+              successful: stats.successful,
+              failed: stats.failed,
+              skipped: stats.skipped,
+              successRate:
+                stats.totalProcessed > 0
+                  ? `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`
+                  : '0%',
+            },
+          });
+        } catch (error) {
+          const duration = Date.now() - startTime;
+          logError('SourceMetricsCron', 'Cron job failed', error, {
+            duration: `${duration}ms`,
+          });
+        }
+      })(),
+    );
 
     return NextResponse.json({
       success: true,
-      duration: `${duration}ms`,
-      stats: {
-        totalProcessed: stats.totalProcessed,
-        successful: stats.successful,
-        failed: stats.failed,
-        skipped: stats.skipped,
-        duration: `${stats.duration}ms`,
-        successRate:
-          stats.totalProcessed > 0
-            ? ((stats.successful / stats.totalProcessed) * 100).toFixed(2)
-            : '0',
-        processingRate:
-          stats.totalProcessed > 0 && stats.duration > 0
-            ? Math.round((stats.totalProcessed / stats.duration) * 1000 * 60)
-            : 0, // jobs per minute
-      },
+      message: 'Source metrics batch processing initiated',
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    const duration = Date.now() - startTime;
-
-    logError('SourceMetricsCron', 'Cron job failed', error, {
-      duration: `${duration}ms`,
-    });
+    logError('SourceMetricsCron', 'Failed to initiate cron job', error);
 
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        duration: `${duration}ms`,
         timestamp: new Date().toISOString(),
       },
       { status: 500 },
@@ -135,8 +124,6 @@ export async function POST(request: NextRequest) {
  * Executes the source metrics batch processing
  */
 export async function GET(request: NextRequest) {
-  const startTime = Date.now();
-
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
@@ -161,89 +148,83 @@ export async function GET(request: NextRequest) {
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
 
-    let stats;
+    waitUntil(
+      (async () => {
+        const startTime = Date.now();
+        let stats;
+        try {
+          if (startDate && endDate) {
+            // Process specific date range (useful for backfilling)
+            const start = new Date(startDate);
+            const end = new Date(endDate);
 
-    if (startDate && endDate) {
-      // Process specific date range (useful for backfilling)
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+              logError('SourceMetricsCron', 'Invalid date format provided');
+              return;
+            }
 
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return NextResponse.json(
-          { error: 'Invalid date format. Use ISO 8601 format (YYYY-MM-DD).' },
-          { status: 400 },
-        );
-      }
+            if (start > end) {
+              logError(
+                'SourceMetricsCron',
+                'Start date must be before end date',
+              );
+              return;
+            }
 
-      if (start > end) {
-        return NextResponse.json(
-          { error: 'Start date must be before end date.' },
-          { status: 400 },
-        );
-      }
+            logInfo('SourceMetricsCron', 'Processing date range via GET', {
+              startDate: start.toISOString().split('T')[0],
+              endDate: end.toISOString().split('T')[0],
+            });
 
-      logInfo('SourceMetricsCron', 'Processing date range via GET', {
-        startDate: start.toISOString().split('T')[0],
-        endDate: end.toISOString().split('T')[0],
-      });
+            stats = await sourceMetricsBatchProcessor.runBatchForDateRange(
+              start,
+              end,
+            );
+          } else {
+            // Default daily batch processing (runs once per day, processes previous day's data)
+            stats = await sourceMetricsBatchProcessor.runBatch();
+          }
 
-      stats = await sourceMetricsBatchProcessor.runBatchForDateRange(
-        start,
-        end,
-      );
-    } else {
-      // Default daily batch processing (runs once per day, processes previous day's data)
-      stats = await sourceMetricsBatchProcessor.runBatch();
-    }
+          const duration = Date.now() - startTime;
 
-    const duration = Date.now() - startTime;
-
-    logInfo('SourceMetricsCron', 'Cron job completed successfully via GET', {
-      duration: `${duration}ms`,
-      stats: {
-        totalProcessed: stats.totalProcessed,
-        successful: stats.successful,
-        failed: stats.failed,
-        skipped: stats.skipped,
-        successRate:
-          stats.totalProcessed > 0
-            ? `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`
-            : '0%',
-      },
-    });
+          logInfo(
+            'SourceMetricsCron',
+            'Cron job completed successfully via GET',
+            {
+              duration: `${duration}ms`,
+              stats: {
+                totalProcessed: stats.totalProcessed,
+                successful: stats.successful,
+                failed: stats.failed,
+                skipped: stats.skipped,
+                successRate:
+                  stats.totalProcessed > 0
+                    ? `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`
+                    : '0%',
+              },
+            },
+          );
+        } catch (error) {
+          const duration = Date.now() - startTime;
+          logError('SourceMetricsCron', 'Cron job failed via GET', error, {
+            duration: `${duration}ms`,
+          });
+        }
+      })(),
+    );
 
     return NextResponse.json({
       success: true,
-      duration: `${duration}ms`,
-      stats: {
-        totalProcessed: stats.totalProcessed,
-        successful: stats.successful,
-        failed: stats.failed,
-        skipped: stats.skipped,
-        duration: `${stats.duration}ms`,
-        successRate:
-          stats.totalProcessed > 0
-            ? ((stats.successful / stats.totalProcessed) * 100).toFixed(2)
-            : '0',
-        processingRate:
-          stats.totalProcessed > 0 && stats.duration > 0
-            ? Math.round((stats.totalProcessed / stats.duration) * 1000 * 60)
-            : 0, // jobs per minute
-      },
+      message: 'Source metrics batch processing initiated',
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    const duration = Date.now() - startTime;
-
-    logError('SourceMetricsCron', 'Cron job failed via GET', error, {
-      duration: `${duration}ms`,
-    });
+    logError('SourceMetricsCron', 'Failed to initiate cron job via GET', error);
 
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        duration: `${duration}ms`,
         timestamp: new Date().toISOString(),
       },
       { status: 500 },

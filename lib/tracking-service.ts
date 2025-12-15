@@ -4,66 +4,89 @@ import { ProviderModel, Result } from '@prisma/client';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 
 export async function trackAllPrompts(concurrency = 5) {
-  const prompts = await prisma.prompt.findMany({
-    where: {
-      status: 'ACTIVE',
-    },
-    include: {
-      brand: {
-        include: {
-          organizationBrands: {
-            include: {
-              organization: true,
+  const batchSize = 50;
+  let cursor: string | undefined;
+  let hasMore = true;
+
+  while (hasMore) {
+    const prompts = await prisma.prompt.findMany({
+      where: {
+        status: 'ACTIVE',
+      },
+      take: batchSize,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: cursor } : undefined,
+      orderBy: {
+        id: 'asc',
+      },
+      include: {
+        brand: {
+          include: {
+            organizationBrands: {
+              include: {
+                organization: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  // Create a flat queue of all model tasks to process
-  const taskQueue: any[] = [];
-  for (const prompt of prompts) {
-    // For each organization that has access to this brand, check AI models
-    for (const orgBrand of prompt.brand.organizationBrands) {
-      const enabledModels = (orgBrand.organization.aiModels as string[]) || [];
-      for (const modelString of enabledModels) {
-        taskQueue.push({
-          promptId: prompt.id,
-          model: modelString,
-          prompt,
-          organizationId: orgBrand.organizationId,
-        });
+    if (prompts.length < batchSize) {
+      hasMore = false;
+    } else {
+      cursor = prompts[prompts.length - 1].id;
+    }
+
+    if (prompts.length === 0) {
+      break;
+    }
+
+    // Create a flat queue of all model tasks to process for this batch
+    const taskQueue: any[] = [];
+    for (const prompt of prompts) {
+      // For each organization that has access to this brand, check AI models
+      for (const orgBrand of prompt.brand.organizationBrands) {
+        const enabledModels =
+          (orgBrand.organization.aiModels as string[]) || [];
+        for (const modelString of enabledModels) {
+          taskQueue.push({
+            promptId: prompt.id,
+            model: modelString,
+            prompt,
+            organizationId: orgBrand.organizationId,
+          });
+        }
       }
     }
-  }
 
-  let taskIndex = 0;
-  const results: any[] = [];
+    if (taskQueue.length > 0) {
+      let taskIndex = 0;
 
-  async function worker(workerId: number) {
-    while (taskIndex < taskQueue.length) {
-      const currentIndex = taskIndex++;
-      const task = taskQueue[currentIndex];
+      const worker = async () => {
+        while (true) {
+          const currentIndex = taskIndex++;
+          if (currentIndex >= taskQueue.length) {
+            break;
+          }
+          const task = taskQueue[currentIndex];
 
-      if (!task) {
-        break;
-      }
+          await trackSingleModel(
+            task.promptId,
+            task.model,
+            task.prompt,
+            task.organizationId,
+          );
+        }
+      };
 
-      const result = await trackSingleModel(
-        task.promptId,
-        task.model,
-        task.prompt,
-        task.organizationId,
-      );
-      results.push(result);
+      const workers = Array(concurrency)
+        .fill(0)
+        .map(() => worker());
+
+      await Promise.all(workers);
     }
   }
-
-  const workers = Array(concurrency)
-    .fill(0)
-    .map((_, i) => worker(i + 1));
-  await Promise.all(workers);
 }
 
 async function trackSingleModel(

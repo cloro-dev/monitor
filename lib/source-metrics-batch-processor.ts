@@ -423,10 +423,14 @@ export class UtilizationBatchProcessor {
     // Get unique dates and brands from results
     const dateBrandPairs = new Map<
       string,
-      { brandId: string; date: Date; organizationId: string }
+      { brandId: string; date: Date; organizationId?: string }
     >();
 
+    const brandIdsToCheck = new Set<string>();
+
     for (const result of results) {
+      brandIdsToCheck.add(result.prompt.brandId);
+
       const resultDate = new Date(
         result.createdAt.getFullYear(),
         result.createdAt.getMonth(),
@@ -435,24 +439,47 @@ export class UtilizationBatchProcessor {
       const key = `${result.prompt.brandId}-${resultDate.toISOString().split('T')[0]}`;
 
       if (!dateBrandPairs.has(key)) {
-        // Get organization for this brand
-        const organizationBrand = await prisma.organization_brand.findFirst({
-          where: { brandId: result.prompt.brandId },
-          include: { organization: true },
+        dateBrandPairs.set(key, {
+          brandId: result.prompt.brandId,
+          date: resultDate,
         });
+      }
+    }
 
-        if (organizationBrand) {
-          dateBrandPairs.set(key, {
-            brandId: result.prompt.brandId,
-            date: resultDate,
-            organizationId: organizationBrand.organizationId,
-          });
-        }
+    // Batch fetch organization brands
+    const organizationBrands = await prisma.organization_brand.findMany({
+      where: {
+        brandId: {
+          in: Array.from(brandIdsToCheck),
+        },
+      },
+      include: {
+        organization: true,
+      },
+    });
+
+    // Create a lookup map for brand -> organizationId
+    const brandOrgMap = new Map<string, string>();
+    for (const ob of organizationBrands) {
+      // Assuming one primary organization per brand or taking the first one found
+      if (!brandOrgMap.has(ob.brandId)) {
+        brandOrgMap.set(ob.brandId, ob.organizationId);
       }
     }
 
     // Recalculate utilization for each unique date-brand combination
-    for (const { brandId, date, organizationId } of dateBrandPairs.values()) {
+    for (const { brandId, date } of dateBrandPairs.values()) {
+      const organizationId = brandOrgMap.get(brandId);
+
+      if (!organizationId) {
+        logWarn(
+          'SourceMetricsCron',
+          'No organization found for brand, skipping utilization recalculation',
+          { brandId },
+        );
+        continue;
+      }
+
       try {
         await sourceMetricsService.recalculateDailyUtilization(
           brandId,

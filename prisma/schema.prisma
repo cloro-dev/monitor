@@ -259,6 +259,7 @@ model SourceMetrics {
   @@index([brandId, date(sort: Desc)])
   @@index([organizationId, date(sort: Desc)])
   @@index([sourceId, date(sort: Desc)])
+  @@index([brandId, organizationId, date])
   @@map("source_metrics")
 }
 

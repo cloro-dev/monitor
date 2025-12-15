@@ -281,6 +281,8 @@ export class SourceMetricsService {
         return; // No prompts to calculate utilization against
       }
 
+      const updateOperations = [];
+
       // Update utilization for each source
       for (const metric of dailySourceMetrics) {
         const utilization = (metric.uniquePrompts / totalDailyPrompts) * 100;
@@ -305,12 +307,19 @@ export class SourceMetricsService {
           );
         }
 
-        await prisma.sourceMetrics.update({
-          where: { id: metric.id },
-          data: {
-            utilization: Math.round(validatedUtilization * 100) / 100, // Round to 2 decimal places
-          },
-        });
+        updateOperations.push(
+          prisma.sourceMetrics.update({
+            where: { id: metric.id },
+            data: {
+              utilization: Math.round(validatedUtilization * 100) / 100, // Round to 2 decimal places
+            },
+          }),
+        );
+      }
+
+      // Execute all updates in a single transaction
+      if (updateOperations.length > 0) {
+        await prisma.$transaction(updateOperations);
       }
 
       logInfo('SourceMetricsProcessor', 'Recalculated daily utilization', {

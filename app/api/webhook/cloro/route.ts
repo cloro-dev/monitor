@@ -172,6 +172,133 @@ async function processHtmlContent(
 }
 
 /**
+ * Helper to process competitors in background
+ */
+async function processCompetitorBrands(
+  competitors: any[],
+  prompt: any,
+  resultId: string,
+) {
+  if (!competitors || competitors.length === 0) return;
+
+  // Process all competitors in parallel to avoid timeouts
+  await Promise.all(
+    competitors.map(async (competitorObj) => {
+      const competitorNameRaw = competitorObj.name;
+      try {
+        let competitorDomain: string | null = null;
+
+        // 1. Check if we already have a brand with this name
+        const existingBrandByName = await prisma.brand.findFirst({
+          where: {
+            name: {
+              equals: competitorNameRaw,
+              mode: 'insensitive',
+            },
+          },
+          select: { domain: true },
+        });
+
+        if (existingBrandByName) {
+          competitorDomain = existingBrandByName.domain;
+        } else {
+          // 2. Fallback: Resolve domain using LLM
+          competitorDomain = await getCompetitorDomain(
+            competitorNameRaw,
+            prompt.text,
+          );
+        }
+
+        if (competitorDomain) {
+          // 3. Find or Create the Competitor Brand
+          // Check if brand exists first to avoid race conditions in parallel creation
+          let competitorBrand = await prisma.brand.findUnique({
+            where: { domain: competitorDomain },
+          });
+
+          if (!competitorBrand) {
+            // Fetch domain info to get description and official name
+            // We catch errors to ensure one failed fetch doesn't break the whole webhook
+            let domainInfo;
+            try {
+              domainInfo = await fetchDomainInfo(competitorDomain);
+            } catch (e) {
+              logWarn(
+                'CompetitorCreation',
+                'Failed to fetch domain info for competitor during creation',
+                {
+                  competitorDomain,
+                  competitorName: competitorNameRaw,
+                  resultId,
+                  critical: false,
+                },
+              );
+              domainInfo = {
+                domain: competitorDomain,
+                name: competitorNameRaw,
+                description: null,
+              };
+            }
+
+            // Try to create. If it fails (race condition), fetch it again.
+            try {
+              competitorBrand = await prisma.brand.create({
+                data: {
+                  domain: domainInfo.domain,
+                  name: domainInfo.name || competitorNameRaw,
+                  description: domainInfo.description,
+                },
+              });
+            } catch (createError) {
+              // Likely a unique constraint violation from another parallel execution
+              competitorBrand = await prisma.brand.findUnique({
+                where: { domain: competitorDomain },
+              });
+            }
+          }
+
+          if (competitorBrand) {
+            // Prevent adding the brand itself as a competitor
+            if (competitorBrand.id === prompt.brandId) {
+              return;
+            }
+
+            // 2. Link it as a competitor to the current brand
+            await prisma.competitor.upsert({
+              where: {
+                brandId_competitorId: {
+                  brandId: prompt.brandId,
+                  competitorId: competitorBrand.id,
+                },
+              },
+              update: {
+                mentions: { increment: 1 },
+              },
+              create: {
+                brandId: prompt.brandId,
+                competitorId: competitorBrand.id,
+              },
+            });
+          }
+        }
+      } catch (err) {
+        // Competitor processing failure - log as warning but continue
+        logWarn(
+          'Webhook',
+          'Competitor processing failed, continuing with webhook',
+          {
+            resultId,
+            competitorName: competitorNameRaw,
+            critical: false,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        );
+      }
+    }),
+  );
+}
+
+/**
  * Extract retry count from result response metadata
  */
 function getRetryCount(resultResponse: any): number {
@@ -342,32 +469,27 @@ async function processWebhook(body: any) {
     let position: number | null = null;
     let competitors: any = null;
 
-    const processedResponseData = await processHtmlContent(
-      responseData,
-      resultId,
-    );
-
     // Extract text from different response formats based on the source
     let textForAnalysis = null;
 
     // Handle the new Google endpoint format: { result: { aioverview: { text/markdown: ... } } }
     // Prioritize markdown over text for cleaner content
-    if (processedResponseData?.result?.aioverview?.markdown) {
-      textForAnalysis = processedResponseData.result.aioverview.markdown;
-    } else if (processedResponseData?.result?.aioverview?.text) {
-      textForAnalysis = processedResponseData.result.aioverview.text;
+    if (responseData?.result?.aioverview?.markdown) {
+      textForAnalysis = responseData.result.aioverview.markdown;
+    } else if (responseData?.result?.aioverview?.text) {
+      textForAnalysis = responseData.result.aioverview.text;
     }
     // For direct aioverview format (fallback)
-    else if (processedResponseData?.aioverview?.markdown) {
-      textForAnalysis = processedResponseData.aioverview.markdown;
-    } else if (processedResponseData?.aioverview?.text) {
-      textForAnalysis = processedResponseData.aioverview.text;
+    else if (responseData?.aioverview?.markdown) {
+      textForAnalysis = responseData.aioverview.markdown;
+    } else if (responseData?.aioverview?.text) {
+      textForAnalysis = responseData.aioverview.text;
     }
     // For the old async task format, check for markdown first, then text directly
-    else if (processedResponseData?.markdown) {
-      textForAnalysis = processedResponseData.markdown;
-    } else if (processedResponseData?.text) {
-      textForAnalysis = processedResponseData.text;
+    else if (responseData?.markdown) {
+      textForAnalysis = responseData.markdown;
+    } else if (responseData?.text) {
+      textForAnalysis = responseData.text;
     }
 
     if (textForAnalysis) {
@@ -376,125 +498,6 @@ async function processWebhook(body: any) {
         sentiment = metrics.sentiment;
         position = metrics.position;
         competitors = metrics.competitors;
-
-        // Add new competitors to the Competitors table (as Brands)
-        if (metrics.competitors && metrics.competitors.length > 0) {
-          // Process all competitors in parallel to avoid timeouts
-          await Promise.all(
-            metrics.competitors.map(async (competitorObj) => {
-              const competitorNameRaw = competitorObj.name;
-              try {
-                let competitorDomain: string | null = null;
-
-                // 1. Check if we already have a brand with this name
-                const existingBrandByName = await prisma.brand.findFirst({
-                  where: {
-                    name: {
-                      equals: competitorNameRaw,
-                      mode: 'insensitive',
-                    },
-                  },
-                  select: { domain: true },
-                });
-
-                if (existingBrandByName) {
-                  competitorDomain = existingBrandByName.domain;
-                } else {
-                  // 2. Fallback: Resolve domain using LLM
-                  competitorDomain = await getCompetitorDomain(
-                    competitorNameRaw,
-                    prompt.text,
-                  );
-                }
-
-                if (competitorDomain) {
-                  // 3. Find or Create the Competitor Brand
-                  // Check if brand exists first to avoid race conditions in parallel creation
-                  let competitorBrand = await prisma.brand.findUnique({
-                    where: { domain: competitorDomain },
-                  });
-
-                  if (!competitorBrand) {
-                    // Fetch domain info to get description and official name
-                    // We catch errors to ensure one failed fetch doesn't break the whole webhook
-                    let domainInfo;
-                    try {
-                      domainInfo = await fetchDomainInfo(competitorDomain);
-                    } catch (e) {
-                      logWarn(
-                        'CompetitorCreation',
-                        'Failed to fetch domain info for competitor during creation',
-                        {
-                          competitorDomain,
-                          competitorName: competitorNameRaw,
-                          resultId,
-                          critical: false,
-                        },
-                      );
-                      domainInfo = {
-                        domain: competitorDomain,
-                        name: competitorNameRaw,
-                        description: null,
-                      };
-                    }
-
-                    // Try to create. If it fails (race condition), fetch it again.
-                    try {
-                      competitorBrand = await prisma.brand.create({
-                        data: {
-                          domain: domainInfo.domain,
-                          name: domainInfo.name || competitorNameRaw,
-                          description: domainInfo.description,
-                        },
-                      });
-                    } catch (createError) {
-                      // Likely a unique constraint violation from another parallel execution
-                      competitorBrand = await prisma.brand.findUnique({
-                        where: { domain: competitorDomain },
-                      });
-                    }
-                  }
-
-                  if (competitorBrand) {
-                    // Prevent adding the brand itself as a competitor
-                    if (competitorBrand.id === prompt.brandId) {
-                      return;
-                    }
-
-                    // 2. Link it as a competitor to the current brand
-                    await prisma.competitor.upsert({
-                      where: {
-                        brandId_competitorId: {
-                          brandId: prompt.brandId,
-                          competitorId: competitorBrand.id,
-                        },
-                      },
-                      update: {
-                        mentions: { increment: 1 },
-                      },
-                      create: {
-                        brandId: prompt.brandId,
-                        competitorId: competitorBrand.id,
-                      },
-                    });
-                  }
-                }
-              } catch (err) {
-                // Competitor processing failure - log as warning but continue
-                logWarn(
-                  'Webhook',
-                  'Competitor processing failed, continuing with webhook',
-                  {
-                    resultId,
-                    competitorName: competitorNameRaw,
-                    critical: false,
-                    error: err instanceof Error ? err.message : String(err),
-                  },
-                );
-              }
-            }),
-          );
-        }
       } catch (metricsError) {
         logWarn('Webhook', 'Metrics analysis failed, continuing with webhook', {
           resultId,
@@ -508,62 +511,107 @@ async function processWebhook(body: any) {
       }
     }
 
-    // Update the Result with success data - use processedResponseData which includes HTML content
+    // Update the Result with success data IMMEDIATELY
+    // Use original responseData initially (HTML will be fetched in background)
     await prisma.result.update({
       where: { id: resultId },
       data: {
         status: 'SUCCESS',
-        response: { result: processedResponseData } as any, // Use processed data with HTML content
+        response: { result: responseData } as any,
         sentiment,
         position,
         competitors: competitors as any,
       },
     });
 
-    // Process metrics in real-time after successful result storage
-    // Pass the complete result object (with relations from the initial fetch + new metrics)
-    // to avoid re-fetching and re-analyzing in the metrics service
+    // Prepare complete result for background processing
     const completeResult = {
       ...result,
       status: 'SUCCESS',
-      response: { result: processedResponseData }, // Use processed data with HTML content
+      response: { result: responseData },
       sentiment,
       position,
       competitors,
     };
 
+    // Offload heavy tasks to background
     waitUntil(
       Promise.all([
-        metricsService.processResult(resultId, completeResult).catch((err) => {
-          logError('Webhook', 'Metrics processing failed', err, {
-            resultId,
-            organizationId: orgId,
-            critical: false, // Continue even if metrics processing fails
-          });
-        }),
-        sourceMetricsService
-          .processResultSources(resultId, completeResult)
-          .then(() => {
-            logInfo(
-              'Webhook',
-              'Source metrics processing completed successfully',
-              {
-                resultId,
-                organizationId: orgId,
-              },
-            );
-          })
-          .catch((err) => {
-            logError('Webhook', 'Source metrics processing failed', err, {
+        // 1. Fetch HTML Content and Update Result
+        (async () => {
+          try {
+            const enrichedResponse = await processHtmlContent(
+              responseData,
               resultId,
-              organizationId: orgId,
-              critical: false, // Continue even if source metrics processing fails
+            );
+            // Only update if changes were made (simple check could be done but safe to just update)
+            if (enrichedResponse !== responseData) {
+              await prisma.result.update({
+                where: { id: resultId },
+                data: {
+                  response: { result: enrichedResponse } as any,
+                },
+              });
+            }
+          } catch (e) {
+            logError('Webhook', 'Background HTML processing failed', e, {
+              resultId,
             });
-          }),
+          }
+        })(),
 
-        // Extract and save sources asynchronously (non-blocking)
-        // Use processedResponseData which has the original sources (HTML content is stored in the response)
-        processAndSaveSources(resultId, processedResponseData).catch((err) => {
+        // 2. Process Competitors AND THEN Metrics
+        // MetricsService requires competitors to be created in DB first
+        (async () => {
+          try {
+            // Create competitor brands/relations
+            if (competitors && competitors.length > 0) {
+              await processCompetitorBrands(competitors, prompt, resultId);
+            }
+
+            // Run metrics service (depends on competitors)
+            await metricsService
+              .processResult(resultId, completeResult)
+              .catch((err) => {
+                logError('Webhook', 'Metrics processing failed', err, {
+                  resultId,
+                  organizationId: orgId,
+                  critical: false,
+                });
+              });
+
+            // Run source metrics service
+            await sourceMetricsService
+              .processResultSources(resultId, completeResult)
+              .then(() => {
+                logInfo(
+                  'Webhook',
+                  'Source metrics processing completed successfully',
+                  {
+                    resultId,
+                    organizationId: orgId,
+                  },
+                );
+              })
+              .catch((err) => {
+                logError('Webhook', 'Source metrics processing failed', err, {
+                  resultId,
+                  organizationId: orgId,
+                  critical: false,
+                });
+              });
+          } catch (e) {
+            logError(
+              'Webhook',
+              'Background competitor/metrics processing failed',
+              e,
+              { resultId },
+            );
+          }
+        })(),
+
+        // 3. Extract and save sources (Independent)
+        processAndSaveSources(resultId, responseData).catch((err) => {
           logError('Webhook', 'Source processing failed', err, {
             resultId,
             organizationId: orgId,

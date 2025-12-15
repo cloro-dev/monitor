@@ -436,7 +436,29 @@ function ResultsSheetInner({
           [role="banner"], .Fgvgjc, #hdtb, .hdtb-msb, /* Headers & Tools */
           footer, #footer, .fbar, /* Footers */
           .pdp-nav, [aria-label="Main menu"], .gb_Td, .gb_L, /* Misc UI */
-          
+
+          /* Gemini "About Gemini" footer/navigation block */
+          .gb_5a, .gb_5c, .gb_5d, .gb_5e, /* Gemini footer containers */
+          .gb_Uc, .gb_Vc, .gb_Wc, /* Gemini navigation items */
+          a[href*="about"], /* About links */
+          a[href*="subscriptions"], /* Subscriptions links */
+          a[href*="business"], /* Business links */
+          div[class*="gb_5"], /* Gemini footer divs */
+          .gb_Pd, .gb_Qd, .gb_Rd, /* More Gemini footer elements */
+
+          /* Additional Gemini footer hiding */
+          .gb_Sd, .gb_Td, .gb_Ud, .gb_Vd, /* Extended footer classes */
+          [aria-label*="About"], /* About accessibility labels */
+          [aria-label*="Gemini App"], /* Gemini App accessibility labels */
+          [aria-label*="Subscriptions"], /* Subscriptions accessibility labels */
+          [aria-label*="For Business"], /* Business accessibility labels */
+
+          /* Hide any element containing "About Gemini" text */
+          *:contains("About Gemini"),
+          *:contains("Gemini App"),
+          *:contains("Subscriptions"),
+          *:contains("For Business")
+
           /* Specific AI Mode Selectors found in analysis */
           .DZ13He, /* Main sticky top bar */
           .wYq63b, /* Accessibility links bar */

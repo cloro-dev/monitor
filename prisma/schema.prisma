@@ -118,6 +118,7 @@ model brand {
   sourceMetrics      SourceMetrics[]      @relation("SourceMetricsBrand")
 
   @@index([domain])
+  @@index([name])
 }
 
 model organization_brand {

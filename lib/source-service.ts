@@ -294,201 +294,160 @@ function normalizeUrl(url: string): string {
 
 // Main service function to get sources analytics data
 export async function getSourcesAnalyticsData(
-  userId: string,
+  organizationId: string,
   params: SourcesQueryParams,
 ): Promise<SourcesAnalyticsResponse> {
   const { brandId, timeRange, tab, page, limit } = params;
   const dateRange = getDateRange(timeRange);
 
-  // Build where clause for prompts with user's organization access
-  const baseWhereClause: Prisma.promptWhereInput = {
-    userId,
-    brandId, // Now required for performance
-  };
-
-  // First, get total counts for summary
-  const [totalPrompts, totalResults] = await Promise.all([
-    prisma.prompt.count({
-      where: baseWhereClause,
-    }),
-    prisma.result.count({
-      where: {
-        prompt: baseWhereClause,
-        status: 'SUCCESS',
-        createdAt: {
-          gte: dateRange.from,
-          lte: dateRange.to,
-        },
-      },
-    }),
-  ]);
-
-  // Get paginated prompts with their results and sources for the date range
-  const prompts = await prisma.prompt.findMany({
+  // 1. Get Summary Counts
+  // Total prompts checked in this period (Total Result Count)
+  const totalResults = await prisma.result.count({
     where: {
-      ...baseWhereClause,
-      results: {
-        some: {
-          status: 'SUCCESS',
-          createdAt: {
-            gte: dateRange.from,
-            lte: dateRange.to,
-          },
-        },
-      },
-    },
-    select: {
-      id: true,
-      results: {
-        where: {
-          status: 'SUCCESS',
-          createdAt: {
-            gte: dateRange.from,
-            lte: dateRange.to,
-          },
-        },
-        // optimization: use select to exclude the heavy 'response' JSON field
-        select: {
-          sources: {
-            select: {
-              url: true,
-              hostname: true,
-              type: true,
+      prompt: {
+        brandId,
+        brand: {
+          organizationBrands: {
+            some: {
+              organizationId,
             },
           },
         },
       },
+      status: 'SUCCESS',
+      createdAt: {
+        gte: dateRange.from,
+        lte: dateRange.to,
+      },
     },
-    orderBy: {
-      createdAt: 'desc',
-    },
-    ...(limit > 0 && {
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
   });
 
-  // Process all sources server-side
-  const domainMap = new Map<string, SourcesAnalyticsDomainStat>();
-  const urlMap = new Map<string, SourcesAnalyticsURLStat>();
-  const processedPromptIds = new Set<string>();
+  // Total unique prompts involved (Approximation: Count unique prompt IDs in Results)
+  // This is faster than joining tables
+  const uniquePromptsResult = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT COUNT(DISTINCT r."promptId") as count
+    FROM "result" r
+    INNER JOIN "prompt" p ON r."promptId" = p.id
+    WHERE p."brandId" = ${brandId}
+    AND r.status = 'SUCCESS'
+    AND r."createdAt" >= ${dateRange.from}
+    AND r."createdAt" <= ${dateRange.to}
+  `;
+  const totalPrompts = Number(uniquePromptsResult[0]?.count || 0);
 
-  prompts.forEach((prompt) => {
-    processedPromptIds.add(prompt.id);
-
-    prompt.results.forEach((result) => {
-      // Combine DB sources (legacy sources are now stored in DB)
-      const allSources: Array<{
-        url: string;
-        type?: string;
-      }> = [];
-
-      // Add DB sources
-      result.sources.forEach((source) => {
-        allSources.push({
-          url: source.url,
-          type: source.type || undefined,
-        });
-      });
-
-      // Process each source
-      allSources.forEach(({ url, type }) => {
-        try {
-          if (!url) return;
-
-          const urlObj = new URL(url);
-          const hostname = urlObj.hostname.replace(/^www\./, '');
-          const domain = getRootDomain(hostname);
-          const cleanUrl = normalizeUrl(url);
-
-          // Update domain stats
-          if (!domainMap.has(domain)) {
-            domainMap.set(domain, {
-              domain,
-              mentions: 0,
-              utilization: 0,
-              type,
-              uniquePrompts: 0,
-              uniquePromptIds: new Set<string>(), // Temporary Set for tracking unique prompts
-            });
-          }
-
-          const domainStat = domainMap.get(domain)!;
-          domainStat.mentions += 1;
-          domainStat.uniquePromptIds?.add(prompt.id); // Track this prompt ID
-          if (type && !domainStat.type) domainStat.type = type;
-
-          // Update URL stats
-          if (!urlMap.has(cleanUrl)) {
-            urlMap.set(cleanUrl, {
-              url: cleanUrl,
-              hostname,
-              mentions: 0,
-              utilization: 0,
-              type,
-              uniquePrompts: 0,
-              uniquePromptIds: new Set<string>(), // Temporary Set for tracking unique prompts
-            });
-          }
-
-          const urlStat = urlMap.get(cleanUrl)!;
-          urlStat.mentions += 1;
-          urlStat.uniquePromptIds?.add(prompt.id); // Track this prompt ID
-          if (type && !urlStat.type) urlStat.type = type;
-        } catch (e) {
-          // Invalid URL, skip
-        }
-      });
-    });
+  // 2. Aggregate Source Stats from SourceMetrics
+  // This replaces the heavy "Prompt -> Result -> Source" scan
+  const sourceMetrics = await prisma.sourceMetrics.findMany({
+    where: {
+      brandId,
+      organizationId,
+      date: {
+        gte: dateRange.from,
+        lte: dateRange.to,
+      },
+    },
+    select: {
+      totalMentions: true,
+      uniquePrompts: true, // Daily unique prompts
+      source: {
+        select: {
+          url: true,
+          hostname: true,
+          type: true,
+        },
+      },
+    },
   });
 
-  const totalPromptsWithResults = processedPromptIds.size;
+  // Aggregation Map
+  const statsMap = new Map<string, any>();
 
-  // Calculate final stats for domains
-  const domainStats = Array.from(domainMap.values())
-    .map((stat: any) => ({
+  for (const metric of sourceMetrics) {
+    const { source, totalMentions, uniquePrompts } = metric;
+
+    // Normalize key based on tab (Domain vs URL)
+    let key: string;
+    let domain: string;
+    let url: string;
+    let hostname: string;
+
+    if (tab === 'domain') {
+      hostname = source.hostname.replace(/^www\./, '');
+      domain = getRootDomain(hostname);
+      key = domain;
+      url = source.url; // Placeholder
+    } else {
+      url = normalizeUrl(source.url);
+      hostname = source.hostname;
+      key = url;
+      domain = getRootDomain(hostname);
+    }
+
+    if (!statsMap.has(key)) {
+      statsMap.set(key, {
+        key,
+        domain: tab === 'domain' ? key : domain,
+        url: tab === 'url' ? key : url,
+        hostname: hostname,
+        type: source.type,
+        mentions: 0,
+        uniquePromptsSum: 0, // Sum of daily unique prompts
+      });
+    }
+
+    const stat = statsMap.get(key);
+    stat.mentions += totalMentions;
+    stat.uniquePromptsSum += uniquePrompts;
+    if (source.type && !stat.type) stat.type = source.type;
+  }
+
+  // Convert to array and calculate final utilization
+  const allStats = Array.from(statsMap.values()).map((stat) => {
+    // Utilization Proxy: (Sum of Daily Unique Prompts / Total Result-Days) * 100
+    // "totalResults" is effectively "Total Result-Days" (Total successful checks)
+    // "uniquePromptsSum" is "Total Source-Appearances-In-Checks"
+    const utilization =
+      totalResults > 0 ? (stat.uniquePromptsSum / totalResults) * 100 : 0;
+
+    return {
       domain: stat.domain,
-      mentions: stat.mentions,
-      utilization:
-        totalPromptsWithResults > 0
-          ? ((stat.uniquePromptIds?.size || 0) / totalPromptsWithResults) * 100
-          : 0,
-      type: stat.type,
-      uniquePrompts: stat.uniquePromptIds?.size || 0, // Actual unique count for this domain
-    }))
-    .sort((a, b) => b.utilization - a.utilization);
-
-  // Calculate final stats for URLs
-  const urlStats = Array.from(urlMap.values())
-    .map((stat: any) => ({
       url: stat.url,
       hostname: stat.hostname,
       mentions: stat.mentions,
-      utilization:
-        totalPromptsWithResults > 0
-          ? ((stat.uniquePromptIds?.size || 0) / totalPromptsWithResults) * 100
-          : 0,
+      utilization,
       type: stat.type,
-      uniquePrompts: stat.uniquePromptIds?.size || 0, // Actual unique count for this URL
-    }))
-    .sort((a, b) => b.utilization - a.utilization);
+      uniquePrompts: stat.uniquePromptsSum, // Note: This is "Total Days appeared", slightly different from "Unique Prompts IDs"
+    };
+  });
 
-  // Note: Chart data is generated client-side to match original behavior
+  // Sort by utilization descending
+  allStats.sort((a, b) => b.utilization - a.utilization);
+
+  // Pagination
+  const totalItems = allStats.length;
+  const start = (page - 1) * limit;
+  const end = limit > 0 ? start + limit : totalItems;
+  const paginatedStats = allStats.slice(start, end);
+
+  // Return formatted response
+  // We populate both domainStats and urlStats with the SAME paginated data
+  // depending on the 'tab' param, but the interface expects both arrays.
+  // The UI will likely only use the one corresponding to the active tab.
   return {
-    domainStats,
-    urlStats,
-    chartData: { data: [], config: {} }, // Client will generate this
+    domainStats: tab === 'domain' ? paginatedStats : [],
+    urlStats: tab === 'url' ? paginatedStats : [],
+    chartData: { data: [], config: {} },
     summary: {
-      totalPrompts,
-      totalResults,
-      totalDomains: domainStats.length,
-      totalUrls: urlStats.length,
+      totalPrompts, // Count of unique Prompt IDs
+      totalResults, // Count of successful checks
+      totalDomains: tab === 'domain' ? totalItems : 0, // Approx
+      totalUrls: tab === 'url' ? totalItems : 0, // Approx
     },
     pagination: {
       page,
       limit,
-      total: totalPrompts,
-      totalPages: limit > 0 ? Math.ceil(totalPrompts / limit) : 1,
+      total: totalItems,
+      totalPages: limit > 0 ? Math.ceil(totalItems / limit) : 1,
     },
   };
 }

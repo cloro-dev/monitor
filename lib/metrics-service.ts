@@ -28,14 +28,29 @@ export class MetricsService {
       if (!result) {
         result = await prisma.result.findUnique({
           where: { id: resultId },
-          include: {
+          select: {
+            id: true,
+            status: true,
+            response: true,
+            createdAt: true,
+            sentiment: true,
+            position: true,
+            competitors: true,
+            model: true,
             prompt: {
-              include: {
+              select: {
                 brand: {
-                  include: {
+                  select: {
+                    id: true,
+                    name: true,
+                    domain: true,
                     organizationBrands: {
-                      include: {
-                        organization: true,
+                      select: {
+                        organization: {
+                          select: {
+                            id: true,
+                          },
+                        },
                       },
                     },
                   },

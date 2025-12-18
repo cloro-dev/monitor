@@ -51,7 +51,10 @@ export class SourceMetricsService {
       if (!result) {
         result = await prisma.result.findUnique({
           where: { id: resultId },
-          include: {
+          select: {
+            createdAt: true,
+            model: true,
+            status: true,
             sources: {
               select: {
                 url: true,
@@ -60,12 +63,17 @@ export class SourceMetricsService {
               },
             },
             prompt: {
-              include: {
+              select: {
                 brand: {
-                  include: {
+                  select: {
+                    id: true,
                     organizationBrands: {
-                      include: {
-                        organization: true,
+                      select: {
+                        organization: {
+                          select: {
+                            id: true,
+                          },
+                        },
                       },
                     },
                   },
@@ -249,18 +257,6 @@ export class SourceMetricsService {
         ),
       );
 
-      // Get all source metrics for the day
-      const dailySourceMetrics = await prisma.sourceMetrics.findMany({
-        where: {
-          brandId,
-          organizationId,
-          date: startDate,
-        },
-        include: {
-          source: true,
-        },
-      });
-
       // Get total number of unique prompts for the day by using a raw query
       // This is more accurate than counting prompts with successful results
       const uniquePromptsResult = await prisma.$queryRaw<
@@ -277,58 +273,30 @@ export class SourceMetricsService {
 
       const totalDailyPrompts = Number(uniquePromptsResult[0]?.count || 0);
 
-      if (totalDailyPrompts === 0) {
-        return; // No prompts to calculate utilization against
-      }
+      // Execute a single raw update to calculate utilization for all metrics for this day
+      // Utilization = (uniquePrompts / totalDailyPrompts) * 100
+      // We use a raw query because Prisma's updateMany doesn't support referencing columns in the SET clause
+      await prisma.$executeRaw`
+        UPDATE "source_metrics"
+        SET utilization = CASE 
+          WHEN ${totalDailyPrompts} = 0 THEN 0 
+          ELSE ("uniquePrompts"::float / ${totalDailyPrompts}) * 100 
+        END
+        WHERE "brandId" = ${brandId}
+        AND "organizationId" = ${organizationId}
+        AND date = ${startDate}
+      `;
 
-      const updateOperations = [];
-
-      // Update utilization for each source
-      for (const metric of dailySourceMetrics) {
-        const utilization = (metric.uniquePrompts / totalDailyPrompts) * 100;
-
-        // Validate utilization bounds (should be between 0-100)
-        const validatedUtilization = Math.max(0, Math.min(100, utilization));
-
-        if (utilization < 0 || utilization > 100) {
-          logWarn(
-            'SourceMetricsProcessor',
-            'Utilization calculation out of bounds',
-            {
-              brandId,
-              organizationId,
-              date: startDate.toISOString().split('T')[0],
-              sourceId: metric.sourceId,
-              uniquePrompts: metric.uniquePrompts,
-              totalDailyPrompts,
-              calculatedUtilization: utilization,
-              validatedUtilization,
-            },
-          );
-        }
-
-        updateOperations.push(
-          prisma.sourceMetrics.update({
-            where: { id: metric.id },
-            data: {
-              utilization: Math.round(validatedUtilization * 100) / 100, // Round to 2 decimal places
-            },
-          }),
-        );
-      }
-
-      // Execute all updates in a single transaction
-      if (updateOperations.length > 0) {
-        await prisma.$transaction(updateOperations);
-      }
-
-      logInfo('SourceMetricsProcessor', 'Recalculated daily utilization', {
-        brandId,
-        organizationId,
-        date: startDate.toISOString().split('T')[0],
-        totalSources: dailySourceMetrics.length,
-        totalPrompts: totalDailyPrompts,
-      });
+      logInfo(
+        'SourceMetricsProcessor',
+        'Recalculated daily utilization (bulk)',
+        {
+          brandId,
+          organizationId,
+          date: startDate.toISOString().split('T')[0],
+          totalPrompts: totalDailyPrompts,
+        },
+      );
     } catch (error) {
       logError(
         'SourceMetricsProcessor',
@@ -440,7 +408,17 @@ export class SourceMetricsService {
         organizationId,
         date: { gte: startDate },
       },
-      include: { source: true },
+      select: {
+        id: true,
+        date: true,
+        utilization: true,
+        source: {
+          select: {
+            hostname: true,
+            url: true,
+          },
+        },
+      },
       orderBy: { date: 'asc' },
     });
 
@@ -548,7 +526,20 @@ export class SourceMetricsService {
         organizationId,
         date: { gte: startDate },
       },
-      include: { source: true },
+      select: {
+        id: true,
+        totalMentions: true,
+        uniquePrompts: true,
+        sourceId: true,
+        source: {
+          select: {
+            id: true,
+            url: true,
+            hostname: true,
+            type: true,
+          },
+        },
+      },
     });
 
     // Get total unique prompts for the time period for accurate utilization calculation

@@ -19,12 +19,20 @@ export async function trackAllPrompts(concurrency = 5) {
       orderBy: {
         id: 'asc',
       },
-      include: {
+      select: {
+        id: true,
+        text: true,
+        country: true,
         brand: {
-          include: {
+          select: {
             organizationBrands: {
-              include: {
-                organization: true,
+              select: {
+                organizationId: true,
+                organization: {
+                  select: {
+                    aiModels: true,
+                  },
+                },
               },
             },
           },
@@ -100,19 +108,13 @@ async function trackSingleModel(
   let orgId: string | undefined;
 
   try {
-    // Create a Result for this model
+    // Create a Result for this model directly with PROCESSING status
     result = await prisma.result.create({
       data: {
         promptId: prompt.id,
         model,
-        status: 'PENDING',
+        status: 'PROCESSING',
       },
-    });
-
-    // Update to PROCESSING status
-    await prisma.result.update({
-      where: { id: result.id },
-      data: { status: 'PROCESSING' },
     });
 
     // Use country code directly
@@ -166,12 +168,23 @@ async function trackSingleModel(
 export async function trackPromptById(promptId: string) {
   const prompt = await prisma.prompt.findUnique({
     where: { id: promptId },
-    include: {
+    select: {
+      id: true,
+      text: true,
+      country: true,
       brand: {
-        include: {
+        select: {
+          id: true,
+          name: true,
           organizationBrands: {
-            include: {
-              organization: true,
+            select: {
+              organizationId: true,
+              organization: {
+                select: {
+                  name: true,
+                  aiModels: true,
+                },
+              },
             },
           },
         },

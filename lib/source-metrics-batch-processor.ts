@@ -371,7 +371,11 @@ export class UtilizationBatchProcessor {
           id: { in: resultIds },
           status: 'SUCCESS',
         },
-        include: {
+        select: {
+          id: true,
+          createdAt: true,
+          status: true,
+          model: true,
           sources: {
             select: {
               url: true,
@@ -380,12 +384,20 @@ export class UtilizationBatchProcessor {
             },
           },
           prompt: {
-            include: {
+            select: {
+              id: true,
+              brandId: true,
               brand: {
-                include: {
+                select: {
+                  id: true,
                   organizationBrands: {
-                    include: {
-                      organization: true,
+                    select: {
+                      organizationId: true,
+                      organization: {
+                        select: {
+                          id: true,
+                        },
+                      },
                     },
                   },
                 },
@@ -452,9 +464,6 @@ export class UtilizationBatchProcessor {
         brandId: {
           in: Array.from(brandIdsToCheck),
         },
-      },
-      include: {
-        organization: true,
       },
     });
 

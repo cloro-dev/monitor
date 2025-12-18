@@ -332,14 +332,29 @@ async function processWebhook(body: any) {
 
     const result = await prisma.result.findUnique({
       where: { id: resultId },
-      include: {
+      select: {
+        id: true,
+        model: true,
+        createdAt: true,
         prompt: {
-          include: {
+          select: {
+            id: true,
+            text: true,
+            country: true,
+            brandId: true,
             brand: {
-              include: {
+              select: {
+                id: true,
+                name: true,
+                domain: true,
                 organizationBrands: {
-                  include: {
-                    organization: true,
+                  select: {
+                    organizationId: true,
+                    organization: {
+                      select: {
+                        id: true,
+                      },
+                    },
                   },
                 },
               },

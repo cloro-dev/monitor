@@ -36,94 +36,75 @@ export async function GET(request: NextRequest) {
       params: validatedParams,
     });
 
-    // Get sources analytics data from service
-    const analyticsData = await getSourcesAnalyticsData(
-      session.user.id,
-      validatedParams,
-    );
-
-    // Get user's active organization from session
-    logInfo('SourcesAPI', 'Fetching user session', {
-      userId: session.user.id,
-    });
-
+    // Get user's active organization first
     const userSession = await prisma.session.findFirst({
       where: {
         userId: session.user.id,
       },
-      include: {
-        user: {
-          include: {
-            members: {
-              include: {
-                organization: true,
-              },
-            },
-          },
-        },
+      select: {
+        activeOrganizationId: true,
       },
     });
 
-    logInfo('SourcesAPI', 'User session fetched', {
-      userId: session.user.id,
-      userSessionId: userSession?.id,
-      activeOrganizationId: userSession?.activeOrganizationId,
-      hasUser: !!userSession?.user,
-      membersCount: userSession?.user?.members?.length || 0,
-    });
+    const organizationId = userSession?.activeOrganizationId;
 
-    if (!userSession?.activeOrganizationId) {
+    if (!organizationId) {
       logWarn('SourcesAPI', 'No active organization found', {
         userId: session.user.id,
-        hasUserSession: !!userSession,
-        userSessionId: userSession?.id,
-        membersCount: userSession?.user?.members?.length || 0,
       });
-      // Continue with empty chart data
+      // Return empty data structure if no org
+      return NextResponse.json({
+        success: true,
+        data: {
+          domainStats: [],
+          urlStats: [],
+          chartData: { data: [], config: {} },
+          summary: {
+            totalPrompts: 0,
+            totalResults: 0,
+            totalDomains: 0,
+            totalUrls: 0,
+          },
+          pagination: {
+            page: validatedParams.page,
+            limit: validatedParams.limit,
+            total: 0,
+            totalPages: 0,
+          },
+        },
+      });
     }
+
+    // Get sources analytics data from service (now using organizationId)
+    const analyticsData = await getSourcesAnalyticsData(
+      organizationId,
+      validatedParams,
+    );
 
     // Get time-series chart data from source metrics service
     let chartData: { data: any[]; config: any } = { data: [], config: {} };
 
     try {
-      if (userSession?.activeOrganizationId) {
-        logInfo('SourcesAPI', 'Calling source metrics service', {
-          brandId: validatedParams.brandId,
-          organizationId: userSession.activeOrganizationId,
-          timeRange: validatedParams.timeRange,
-          tab: validatedParams.tab,
-        });
+      logInfo('SourcesAPI', 'Calling source metrics service', {
+        brandId: validatedParams.brandId,
+        organizationId,
+        timeRange: validatedParams.timeRange,
+        tab: validatedParams.tab,
+      });
 
-        chartData = await sourceMetricsService.getSourceUtilizationChart(
-          validatedParams.brandId,
-          userSession.activeOrganizationId,
-          validatedParams.timeRange,
-          validatedParams.tab,
-          5, // top 5 sources for chart
-        );
-
-        logInfo('SourcesAPI', 'Chart data retrieved successfully', {
-          brandId: validatedParams.brandId,
-          organizationId: userSession.activeOrganizationId,
-          dataPoints: chartData.data.length,
-          configKeys: Object.keys(chartData.config).length,
-          firstDataPoint: chartData.data[0],
-          configEntries: Object.keys(chartData.config),
-        });
-      } else {
-        logWarn(
-          'SourcesAPI',
-          'Skipping chart data generation due to missing organization ID',
-        );
-      }
+      chartData = await sourceMetricsService.getSourceUtilizationChart(
+        validatedParams.brandId,
+        organizationId,
+        validatedParams.timeRange,
+        validatedParams.tab,
+        5, // top 5 sources for chart
+      );
     } catch (chartError) {
       logWarn('SourcesAPI', 'Chart data fetch failed, using empty data', {
-        userId: session.user.id,
         brandId: validatedParams.brandId,
         error:
           chartError instanceof Error ? chartError.message : String(chartError),
       });
-      // Continue with empty chart data
     }
 
     // Combine analytics data with chart data

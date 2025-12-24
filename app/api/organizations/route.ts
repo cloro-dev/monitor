@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logError } from '@/lib/logger';
 import { withAuth, apiSuccess, handleApiError } from '@/lib/api-middleware';
+import { z } from 'zod';
 
 // GET: Fetch user's organizations
 export async function GET(request: NextRequest) {
@@ -122,6 +123,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Validation schema for organization update
+const updateOrganizationSchema = z.object({
+  organizationId: z.string().min(1, 'Organization ID is required'),
+  name: z
+    .string()
+    .min(1, 'Organization name is required')
+    .refine((val) => val.trim().length > 0, {
+      message: 'Organization name cannot be empty or just whitespace',
+    })
+    .optional(),
+  slug: z.string().optional(),
+  logo: z.string().optional(),
+  aiModels: z.array(z.string()).optional(),
+});
+
 // PATCH: Update an existing organization
 export async function PATCH(request: NextRequest) {
   try {
@@ -132,14 +148,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { organizationId, name, slug, logo, aiModels } = body;
 
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: 'Organization ID is required' },
-        { status: 400 },
-      );
-    }
+    // Validate with zod
+    const validatedData = updateOrganizationSchema.parse(body);
+    const { organizationId, name, slug, logo, aiModels } = validatedData;
 
     // Verify user is a member of the organization
     const membership = await prisma.member.findFirst({
@@ -178,7 +190,7 @@ export async function PATCH(request: NextRequest) {
     const updatedOrganization = await prisma.organization.update({
       where: { id: organizationId },
       data: {
-        ...(name && { name }),
+        ...(name && { name: name.trim() }),
         ...(slug && { slug }),
         ...(logo !== undefined && { logo }),
         ...(aiModels !== undefined && { aiModels }),
@@ -187,6 +199,12 @@ export async function PATCH(request: NextRequest) {
 
     return apiSuccess({ organization: updatedOrganization });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 },
+      );
+    }
     return handleApiError(error, 'Organization', 'Update');
   }
 }

@@ -49,10 +49,17 @@ export default function SettingsPage() {
 
     if (!activeOrganization) return;
 
+    // Validate organization name is not empty or just whitespace
+    if (!name || !name.trim()) {
+      setError('Organization name is required');
+      setSaving(false);
+      return;
+    }
+
     try {
       await updateOrganization({
         organizationId: activeOrganization.id,
-        name,
+        name: name.trim(),
         logo,
       });
 
@@ -90,10 +97,18 @@ export default function SettingsPage() {
                   <Input
                     id="name"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      // Clear error when user starts typing
+                      if (error) setError('');
+                    }}
                     placeholder="Enter organization name"
                     required
+                    className={
+                      error ? 'border-red-500 focus:border-red-500' : ''
+                    }
                   />
+                  {error && <p className="text-sm text-red-500">{error}</p>}
                 </div>
 
                 <div className="space-y-2">

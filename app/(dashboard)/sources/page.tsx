@@ -30,6 +30,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePagePreferences } from '@/hooks/use-page-preferences';
 import { defaultSourcesPreferences } from '@/lib/preference-defaults';
+import { Button } from '@/components/ui/button';
 
 // Custom legend component with text wrapping
 const CustomChartLegend = ({
@@ -233,13 +234,13 @@ export default function SourcesPage() {
               value={preferences.brandId}
               onChange={handleBrandChange}
             />
-            <button
+            <Button
               onClick={() => mutate()}
               disabled={isLoading}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              size="default"
             >
               {isLoading ? 'Refreshing...' : 'Refresh'}
-            </button>
+            </Button>
           </div>
         </div>
 

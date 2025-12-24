@@ -9,6 +9,8 @@ import { logError, logInfo } from '@/lib/logger';
 const createPromptSchema = z.object({
   text: z
     .string()
+    .trim()
+    .min(1, 'Prompt cannot be empty or just spaces')
     .min(10, 'Prompt must be at least 10 characters')
     .max(200, 'Prompt must be at most 200 characters'),
   country: z.string().optional(),

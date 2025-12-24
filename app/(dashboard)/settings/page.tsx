@@ -49,10 +49,17 @@ export default function SettingsPage() {
 
     if (!activeOrganization) return;
 
+    // Validate organization name is not empty or just whitespace
+    if (!name || !name.trim()) {
+      setError('Organization name is required');
+      setSaving(false);
+      return;
+    }
+
     try {
       await updateOrganization({
         organizationId: activeOrganization.id,
-        name,
+        name: name.trim(),
         logo,
       });
 

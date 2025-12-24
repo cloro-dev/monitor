@@ -106,6 +106,15 @@ export function PromptDialog({
       // Only update country if it's not already set or if we're creating a new prompt
       ...(isEditing ? {} : { country: formData.country || defaultCountry }),
     });
+
+    // Clear error when user selects a brand
+    if (errors.brandId) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.brandId;
+        return newErrors;
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -181,9 +190,17 @@ export function PromptDialog({
             <Textarea
               id="text"
               value={formData.text}
-              onChange={(e) =>
-                setFormData({ ...formData, text: e.target.value })
-              }
+              onChange={(e) => {
+                setFormData({ ...formData, text: e.target.value });
+                // Clear error when user starts typing
+                if (errors.text) {
+                  setErrors((prev) => {
+                    const newErrors = { ...prev };
+                    delete newErrors.text;
+                    return newErrors;
+                  });
+                }
+              }}
               placeholder="Enter your prompt (10-200 characters)"
               className={`min-h-[100px] resize-none ${
                 !isCharacterCountValid && formData.text.length > 0
@@ -210,9 +227,17 @@ export function PromptDialog({
               <Label htmlFor="country">Country</Label>
               <Select
                 value={formData.country}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, country: value })
-                }
+                onValueChange={(value) => {
+                  setFormData({ ...formData, country: value });
+                  // Clear error when user selects a country
+                  if (errors.country) {
+                    setErrors((prev) => {
+                      const newErrors = { ...prev };
+                      delete newErrors.country;
+                      return newErrors;
+                    });
+                  }
+                }}
                 disabled={isLoading}
               >
                 <SelectTrigger

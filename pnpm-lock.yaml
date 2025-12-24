@@ -13,6 +13,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^2.0.68
         version: 2.0.80(zod@3.25.76)
+      '@cloro-dev/response-parser':
+        specifier: 0.1.2
+        version: 0.1.2(react@19.2.0)
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -134,8 +137,8 @@ importers:
         specifier: ^7.66.0
         version: 7.68.0(react@19.2.0)
       recharts:
-        specifier: ^2.15.1
-        version: 2.15.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: 2.15.0
+        version: 2.15.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       sonner:
         specifier: ^2.0.1
         version: 2.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -222,7 +225,7 @@ importers:
         specifier: ^4.19.3
         version: 4.21.0
       typescript:
-        specifier: ^5.8.2
+        specifier: ^5.9.3
         version: 5.9.3
 
 packages:
@@ -428,6 +431,17 @@ packages:
       {
         integrity: sha512-rEFOE1MYIsBmoMJtQbl32PGHHXuG2hDxvEd7rUHE0vCBoFQVSDqaVs9hkZEtHCxRoY+CljXKFCOuJ8uxqw1LcA==,
       }
+
+  '@cloro-dev/response-parser@0.1.2':
+    resolution:
+      {
+        integrity: sha512-zd47+vI9SILrTcXhBPCWlBYjRe6F0LtFShMaUY/ubdTwHLoyxGQy+UFZomsToGOmL2dV9QS1b4Wo/yMNTTEPLw==,
+      }
+    peerDependencies:
+      react: '>=16.8.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@discoveryjs/json-ext@0.5.7':
     resolution:
@@ -5562,10 +5576,10 @@ packages:
         integrity: sha512-kivNFO+0OcUNu7jQquLXAxz1FIwZj8nrj+YkOKc5694NbjCvcT6aSZiIzNzd2Kul4o4rTto8QVR9lMNtxD4G1w==,
       }
 
-  recharts@2.15.4:
+  recharts@2.15.0:
     resolution:
       {
-        integrity: sha512-UT/q6fwS3c1dHbXv2uFgYJ9BMFHu3fwnd7AYZaEQhXuYQ4hgsxLvsUXzGdKeZrW5xopzDCvuA2N41WJ88I7zIw==,
+        integrity: sha512-cIvMxDfpAmqAmVgc4yb7pgm/O1tmmkl/CjrvXuW+62/+7jj/iF9Ykm+hb/UJt42TREHMyd3gb+pkgoa2MxgDIw==,
       }
     engines: { node: '>=14' }
     peerDependencies:
@@ -6579,6 +6593,10 @@ snapshots:
   '@better-auth/utils@0.3.0': {}
 
   '@better-fetch/fetch@1.1.18': {}
+
+  '@cloro-dev/response-parser@0.1.2(react@19.2.0)':
+    optionalDependencies:
+      react: 19.2.0
 
   '@discoveryjs/json-ext@0.5.7': {}
 
@@ -9780,7 +9798,7 @@ snapshots:
     dependencies:
       decimal.js-light: 2.5.1
 
-  recharts@2.15.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  recharts@2.15.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       clsx: 2.1.1
       eventemitter3: 4.0.7

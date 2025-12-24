@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -114,10 +115,12 @@ export function PromptDialog({
 
     // Validation
     const newErrors: Record<string, string> = {};
-    if (formData.text.length < 10) {
+    const trimmedText = formData.text.trim();
+    if (!trimmedText || trimmedText.length === 0) {
+      newErrors.text = 'Prompt cannot be empty or just spaces';
+    } else if (trimmedText.length < 10) {
       newErrors.text = 'Prompt must be at least 10 characters';
-    }
-    if (formData.text.length > 200) {
+    } else if (trimmedText.length > 200) {
       newErrors.text = 'Prompt must be at most 200 characters';
     }
     if (!formData.country) {
@@ -135,10 +138,10 @@ export function PromptDialog({
 
     try {
       if (isEditing && prompt) {
-        await updatePrompt(prompt.id, formData);
+        await updatePrompt(prompt.id, { ...formData, text: trimmedText });
         toast.success('Prompt updated successfully');
       } else {
-        await createPrompt(formData);
+        await createPrompt({ ...formData, text: trimmedText });
         toast.success('Prompt created successfully');
       }
 
@@ -247,30 +250,50 @@ export function PromptDialog({
 
             <div className="space-y-2">
               <Label htmlFor="brand">Brand</Label>
-              <Select
-                value={formData.brandId}
-                onValueChange={handleBrandChange}
-                disabled={isLoading || isLoadingBrands}
-              >
-                <SelectTrigger
-                  className={`${errors.brandId ? 'border-red-500 focus:border-red-500' : ''}`}
-                >
-                  <SelectValue placeholder="Select a brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="max-h-[200px] overflow-y-auto">
-                    {brands?.map((brand) => (
-                      <SelectItem key={brand.id} value={brand.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{brand.name || brand.domain}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+              {brands && brands.length === 0 ? (
+                <div className="space-y-2">
+                  <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3">
+                    <p className="text-sm text-yellow-800">
+                      No brands found. Please create a brand first before
+                      creating prompts.
+                    </p>
+                    <Link
+                      href="/settings"
+                      className="mt-2 inline-block text-sm font-medium text-yellow-900 underline hover:text-yellow-950"
+                      onClick={() => handleOpenChange(false)}
+                    >
+                      Go to Settings to create a brand
+                    </Link>
                   </div>
-                </SelectContent>
-              </Select>
-              {errors.brandId && (
-                <p className="text-sm text-red-500">{errors.brandId}</p>
+                </div>
+              ) : (
+                <>
+                  <Select
+                    value={formData.brandId}
+                    onValueChange={handleBrandChange}
+                    disabled={isLoading || isLoadingBrands}
+                  >
+                    <SelectTrigger
+                      className={`${errors.brandId ? 'border-red-500 focus:border-red-500' : ''}`}
+                    >
+                      <SelectValue placeholder="Select a brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        {brands?.map((brand) => (
+                          <SelectItem key={brand.id} value={brand.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{brand.name || brand.domain}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </div>
+                    </SelectContent>
+                  </Select>
+                  {errors.brandId && (
+                    <p className="text-sm text-red-500">{errors.brandId}</p>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -296,7 +319,8 @@ export function PromptDialog({
                 isLoading ||
                 !isCharacterCountValid ||
                 !formData.country ||
-                !formData.brandId
+                !formData.brandId ||
+                (brands && brands.length === 0)
               }
             >
               {isLoading ? (

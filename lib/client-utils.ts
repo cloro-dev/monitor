@@ -1,4 +1,10 @@
 /**
+ * Error message for domain validation
+ */
+export const DOMAIN_VALIDATION_ERROR =
+  'Please enter a valid domain name with TLD suffix (e.g., example.com, example.es, example.pt)';
+
+/**
  * Normalize a domain string
  */
 function normalizeDomain(domain: string): string {

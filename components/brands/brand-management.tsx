@@ -22,7 +22,7 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import Image from 'next/image';
-import { isValidDomain } from '@/lib/client-utils';
+import { isValidDomain, DOMAIN_VALIDATION_ERROR } from '@/lib/client-utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,8 +39,7 @@ import { getCountriesForSelect } from '@/lib/countries';
 
 const addBrandSchema = z.object({
   domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
-    message:
-      'Please enter a valid domain name with TLD suffix (e.g., example.com, example.es, example.pt)',
+    message: DOMAIN_VALIDATION_ERROR,
   }),
   defaultCountry: z.string().optional(),
 });
@@ -279,11 +278,11 @@ export function BrandManagement() {
           </Button>
         </div>
         {errors.domain ? (
-          <p className="mt-1 text-sm text-destructive">
+          <p className="mt-2 text-sm text-destructive">
             {errors.domain.message}
           </p>
         ) : (
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground">
             Enter a domain name and select a default country for prompt
             generation
           </p>

@@ -39,7 +39,8 @@ import { getCountriesForSelect } from '@/lib/countries';
 
 const addBrandSchema = z.object({
   domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
-    message: 'Please enter a valid domain name (e.g., example.com)',
+    message:
+      'Please enter a valid domain name with TLD suffix (e.g., example.com, example.es, example.pt)',
   }),
   defaultCountry: z.string().optional(),
 });

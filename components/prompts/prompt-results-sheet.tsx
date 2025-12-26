@@ -25,7 +25,7 @@ import { CopilotLogo } from '@/components/ai-models/logos/copilot-logo';
 import { AIModeLogo } from '@/components/ai-models/logos/ai-mode-logo';
 import { AIOverviewLogo } from '@/components/ai-models/logos/ai-overview-logo';
 import { GeminiLogo } from '@/components/ai-models/logos/gemini-logo';
-import { AiResponseRenderer } from '@cloro-dev/response-parser/react';
+import { ResponseRenderer } from '@cloro-dev/response-parser/react';
 
 interface PromptResultsSheetProps {
   open: boolean;
@@ -313,9 +313,10 @@ function ResultsSheetInner({
                   {currentResult ? (
                     <LoadingBoundary isLoading={false} hasData={true}>
                       <div className="h-full">
-                        <AiResponseRenderer
+                        <ResponseRenderer
                           response={currentResult.response}
-                          theme="dark"
+                          removeLinks={currentResult.model === 'PERPLEXITY'}
+                          invertColors={currentResult.model === 'PERPLEXITY'}
                           className="h-full w-full"
                         />
                       </div>

@@ -196,6 +196,7 @@ model Result {
   @@index([promptId])
   @@index([model])
   @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt], name: "result_createdAt_idx")
   @@map("result")
 }
 
@@ -261,6 +262,7 @@ model SourceMetrics {
   @@index([organizationId, date(sort: Desc)])
   @@index([sourceId, date(sort: Desc)])
   @@index([brandId, organizationId, date])
+  @@index([date], name: "source_metrics_date_idx")
   @@map("source_metrics")
 }
 
@@ -290,5 +292,6 @@ model BrandMetrics {
   @@index([brandId, date(sort: Desc)])
   @@index([organizationId, date(sort: Desc)])
   @@index([competitorId, date(sort: Desc)])
+  @@index([date], name: "brand_metrics_date_idx")
   @@map("brand_metrics")
 }

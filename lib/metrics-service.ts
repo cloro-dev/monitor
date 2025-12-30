@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { analyzeBrandMetrics } from '@/lib/ai-service';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 import { ProviderModel } from '@prisma/client';
+import { brandsCache } from '@/lib/cache';
 
 interface MetricsData {
   brandId: string;
@@ -153,30 +154,53 @@ export class MetricsService {
         }
       }
 
-      // Find competitor brands once to avoid duplicate lookups
+      // Find competitor brands in a single query to avoid N+1 problem
+      // Use cache to reduce repeated lookups
       const competitorBrands = new Map();
       if (competitors && competitors.length > 0) {
-        for (const competitorObj of competitors) {
-          try {
-            const competitorBrand = await prisma.brand.findFirst({
-              where: {
-                name: {
-                  equals: competitorObj.name,
-                  mode: 'insensitive',
-                },
+        const competitorNames = competitors.map((c: any) => c.name);
+
+        try {
+          // Check cache first
+          const cachedBrands = brandsCache.get('allBrands');
+          let brands: any[] = [];
+
+          if (cachedBrands) {
+            brands = Array.from(cachedBrands.values()).filter((b: any) =>
+              competitorNames.some(
+                (name: string) => name.toLowerCase() === b.name.toLowerCase(),
+              ),
+            );
+          } else {
+            // Single query to fetch all competitor brands at once
+            brands = await prisma.brand.findMany({
+              select: {
+                id: true,
+                name: true,
               },
             });
 
-            if (competitorBrand && competitorBrand.id !== brand.id) {
-              competitorBrands.set(competitorObj.name, competitorBrand);
-            }
-          } catch (error) {
-            logWarn('MetricsProcessor', 'Failed to find competitor brand', {
-              resultId,
-              competitorName: competitorObj.name,
-              error: error instanceof Error ? error.message : String(error),
-            });
+            // Cache all brands for future lookups
+            const brandsMap = new Map(
+              brands.map((b) => [b.name.toLowerCase(), b]),
+            );
+            brandsCache.set('allBrands', brandsMap, 10 * 60 * 1000); // 10 minutes
           }
+
+          // Create a map for O(1) lookup
+          for (const brandRecord of brands) {
+            competitorBrands.set(brandRecord.name.toLowerCase(), brandRecord);
+          }
+        } catch (error) {
+          logError(
+            'MetricsProcessor',
+            'Failed to fetch competitor brands',
+            error,
+            {
+              resultId,
+              competitorNames,
+            },
+          );
         }
       }
 
@@ -200,7 +224,10 @@ export class MetricsService {
         if (competitors && competitors.length > 0) {
           for (const competitorObj of competitors) {
             try {
-              const competitorBrand = competitorBrands.get(competitorObj.name);
+              // Use case-insensitive lookup
+              const competitorBrand = competitorBrands.get(
+                competitorObj.name.toLowerCase(),
+              );
 
               if (!competitorBrand) {
                 // Skip if we can't identify the competitor brand

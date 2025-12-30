@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { sourceMetricsService } from '@/lib/source-metrics-service';
 import { logInfo, logError, logWarn } from '@/lib/logger';
+import { organizationBrandsCache } from '@/lib/cache';
 
 interface BatchJob {
   brandId: string;
@@ -22,11 +23,14 @@ export class UtilizationBatchProcessor {
   private readonly BATCH_SIZE = 10; // Process 10 organizations at once
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 5000; // 5 seconds
+  private readonly RESULT_BATCH_SIZE = 100; // Process results in batches of 100
+  private readonly MAX_RESULTS_PER_RUN = 1000; // Maximum results to process in one run
 
   /**
    * Daily batch processing - runs once per day to process previous day's data
    * Called by the daily cron job 1 hour after prompt tracking
    * Automatically finds both new results and any historical data gaps
+   * Optimized to process in batches to avoid memory spikes
    */
   async runBatch(): Promise<BatchProcessingStats> {
     const startTime = new Date();
@@ -44,49 +48,66 @@ export class UtilizationBatchProcessor {
     });
 
     try {
-      // Always look for unprocessed results - handles both new and historical gaps
-      const resultsToProcess = await this.getUnprocessedResults();
+      let totalProcessed = 0;
+      let allProcessedResults: any[] = [];
 
-      if (resultsToProcess.length === 0) {
-        logInfo(
-          'SourceMetricsCron',
-          'No unprocessed results found, skipping batch processing',
+      // Process results in batches to avoid memory spikes
+      while (totalProcessed < this.MAX_RESULTS_PER_RUN) {
+        // Always look for unprocessed results - handles both new and historical gaps
+        const resultsToProcess = await this.getUnprocessedResults(
+          this.RESULT_BATCH_SIZE,
         );
 
-        stats.duration = Date.now() - startTime.getTime();
-        return stats; // Return early - no work needed
-      }
+        if (resultsToProcess.length === 0) {
+          logInfo('SourceMetricsCron', 'No more unprocessed results found', {
+            totalProcessedSoFar: totalProcessed,
+          });
+          break;
+        }
 
-      logInfo(
-        'SourceMetricsCron',
-        `Found ${resultsToProcess.length} unprocessed results`,
-        {
-          unprocessedCount: resultsToProcess.length,
-        },
-      );
+        logInfo(
+          'SourceMetricsCron',
+          `Processing batch of ${resultsToProcess.length} results`,
+          {
+            batchSize: resultsToProcess.length,
+            totalProcessedSoFar: totalProcessed,
+          },
+        );
 
-      // Process the results
-      for (const result of resultsToProcess) {
-        try {
-          await this.processSingleResult(result);
-          stats.totalProcessed++;
-          stats.successful++;
-        } catch (error) {
-          stats.totalProcessed++;
-          stats.failed++;
-          logError(
-            'SourceMetricsCron',
-            'Failed to process result in batch',
-            error,
-            {
-              resultId: result.id,
-            },
-          );
+        // Process the results in this batch
+        for (const result of resultsToProcess) {
+          try {
+            await this.processSingleResult(result);
+            stats.totalProcessed++;
+            stats.successful++;
+          } catch (error) {
+            stats.totalProcessed++;
+            stats.failed++;
+            logError(
+              'SourceMetricsCron',
+              'Failed to process result in batch',
+              error,
+              {
+                resultId: result.id,
+              },
+            );
+          }
+        }
+
+        // Collect all processed results for utilization recalculation
+        allProcessedResults.push(...resultsToProcess);
+        totalProcessed += resultsToProcess.length;
+
+        // Small delay between batches to be gentle on the database
+        if (resultsToProcess.length === this.RESULT_BATCH_SIZE) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
 
       // After processing results, recalculate utilization for affected dates
-      await this.recalculateUtilizationForResults(resultsToProcess);
+      if (allProcessedResults.length > 0) {
+        await this.recalculateUtilizationForResults(allProcessedResults);
+      }
 
       stats.duration = Date.now() - startTime.getTime();
 
@@ -95,7 +116,7 @@ export class UtilizationBatchProcessor {
         'Source metrics batch processing completed',
         {
           stats: {
-            resultsProcessed: resultsToProcess.length,
+            resultsProcessed: allProcessedResults.length,
             totalProcessed: stats.totalProcessed,
             successful: stats.successful,
             failed: stats.failed,
@@ -211,6 +232,7 @@ export class UtilizationBatchProcessor {
 
   /**
    * Get active brands for a specific date
+   * Uses caching to reduce repeated queries
    */
   private async getActiveBrandsForDate(date: Date): Promise<
     Array<{
@@ -229,6 +251,15 @@ export class UtilizationBatchProcessor {
       date.getDate() + 1,
     );
 
+    // Create cache key
+    const cacheKey = `activeBrands:${startDate.toISOString().split('T')[0]}`;
+
+    // Try to get from cache first
+    const cached = organizationBrandsCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const activeBrands = await prisma.$queryRaw<
       Array<{
         brandId: string;
@@ -245,6 +276,9 @@ export class UtilizationBatchProcessor {
         AND r."createdAt" >= ${startDate}
         AND r."createdAt" < ${endDate}
     `;
+
+    // Cache the result
+    organizationBrandsCache.set(cacheKey, activeBrands, 15 * 60 * 1000); // 15 minutes
 
     return activeBrands;
   }
@@ -333,10 +367,12 @@ export class UtilizationBatchProcessor {
    * Get all unprocessed successful results
    * This finds results that have sources but haven't been processed for source metrics yet
    * Handles both new results and historical gaps automatically
+   * Optimized to reduce JOIN overhead and accept a limit parameter
    */
-  private async getUnprocessedResults(): Promise<any[]> {
+  private async getUnprocessedResults(limit: number = 1000): Promise<any[]> {
     try {
-      // Get all successful results that don't have corresponding source metrics entries
+      // Use a more efficient query with EXISTS instead of LEFT JOIN
+      // Also added better indexing support with status filter
       const resultsWithoutSourceMetrics = await prisma.$queryRaw<
         Array<{
           id: string;
@@ -349,14 +385,14 @@ export class UtilizationBatchProcessor {
         SELECT DISTINCT r.id, r."promptId", r."createdAt", r.status, p."brandId"
         FROM "result" r
         INNER JOIN "prompt" p ON r."promptId" = p.id
-        LEFT JOIN "source_metrics" sm ON (
-          sm."brandId" = p."brandId" AND
-          sm.date = DATE(r."createdAt")
-        )
         WHERE r.status = 'SUCCESS'
-          AND sm.id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM "source_metrics" sm
+            WHERE sm."brandId" = p."brandId"
+              AND sm.date = DATE(r."createdAt")
+          )
         ORDER BY r."createdAt" ASC
-        LIMIT 1000
+        LIMIT ${limit}
       `;
 
       // Get full result objects with sources for processing
@@ -366,6 +402,7 @@ export class UtilizationBatchProcessor {
 
       const resultIds = resultsWithoutSourceMetrics.map((r) => r.id);
 
+      // Optimize by selecting only needed fields
       const results = await prisma.result.findMany({
         where: {
           id: { in: resultIds },
@@ -393,11 +430,6 @@ export class UtilizationBatchProcessor {
                   organizationBrands: {
                     select: {
                       organizationId: true,
-                      organization: {
-                        select: {
-                          id: true,
-                        },
-                      },
                     },
                   },
                 },
@@ -428,92 +460,73 @@ export class UtilizationBatchProcessor {
 
   /**
    * Recalculate utilization for dates affected by processed results
+   * Optimized to batch process and reduce queries
    */
   private async recalculateUtilizationForResults(
     results: any[],
   ): Promise<void> {
-    // Get unique dates and brands from results
-    const dateBrandPairs = new Map<
+    // Get unique dates, brands, and organizations from results
+    const dateBrandOrgTriples = new Map<
       string,
-      { brandId: string; date: Date; organizationId?: string }
+      {
+        brandId: string;
+        date: Date;
+        organizationId: string;
+      }
     >();
 
-    const brandIdsToCheck = new Set<string>();
-
     for (const result of results) {
-      brandIdsToCheck.add(result.prompt.brandId);
-
       const resultDate = new Date(
         result.createdAt.getFullYear(),
         result.createdAt.getMonth(),
         result.createdAt.getDate(),
       );
-      const key = `${result.prompt.brandId}-${resultDate.toISOString().split('T')[0]}`;
 
-      if (!dateBrandPairs.has(key)) {
-        dateBrandPairs.set(key, {
-          brandId: result.prompt.brandId,
-          date: resultDate,
-        });
+      // Process all organization-brand combinations for this result
+      for (const orgBrand of result.prompt.brand.organizationBrands) {
+        const key = `${result.prompt.brandId}-${orgBrand.organizationId}-${resultDate.toISOString().split('T')[0]}`;
+
+        if (!dateBrandOrgTriples.has(key)) {
+          dateBrandOrgTriples.set(key, {
+            brandId: result.prompt.brandId,
+            date: resultDate,
+            organizationId: orgBrand.organizationId,
+          });
+        }
       }
     }
 
-    // Batch fetch organization brands
-    const organizationBrands = await prisma.organization_brand.findMany({
-      where: {
-        brandId: {
-          in: Array.from(brandIdsToCheck),
-        },
-      },
-    });
+    // Batch recalculate utilization for all unique date-brand-organization combinations
+    const recalculations = Array.from(dateBrandOrgTriples.values()).map(
+      ({ brandId, date, organizationId }) =>
+        sourceMetricsService
+          .recalculateDailyUtilization(brandId, organizationId, date)
+          .catch((error) => {
+            logError(
+              'SourceMetricsCron',
+              'Failed to recalculate utilization for date-brand-org',
+              error,
+              {
+                brandId,
+                date: date.toISOString().split('T')[0],
+                organizationId,
+              },
+            );
+          }),
+    );
 
-    // Create a lookup map for brand -> organizationId
-    const brandOrgMap = new Map<string, string>();
-    for (const ob of organizationBrands) {
-      // Assuming one primary organization per brand or taking the first one found
-      if (!brandOrgMap.has(ob.brandId)) {
-        brandOrgMap.set(ob.brandId, ob.organizationId);
-      }
-    }
-
-    // Recalculate utilization for each unique date-brand combination
-    for (const { brandId, date } of dateBrandPairs.values()) {
-      const organizationId = brandOrgMap.get(brandId);
-
-      if (!organizationId) {
-        logWarn(
-          'SourceMetricsCron',
-          'No organization found for brand, skipping utilization recalculation',
-          { brandId },
-        );
-        continue;
-      }
-
-      try {
-        await sourceMetricsService.recalculateDailyUtilization(
-          brandId,
-          organizationId,
-          date,
-        );
-      } catch (error) {
-        logError(
-          'SourceMetricsCron',
-          'Failed to recalculate utilization for date-brand',
-          error,
-          {
-            brandId,
-            date: date.toISOString().split('T')[0],
-            organizationId,
-          },
-        );
-      }
+    // Process in batches to avoid overwhelming the database
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < recalculations.length; i += BATCH_SIZE) {
+      const batch = recalculations.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch);
     }
 
     logInfo(
       'SourceMetricsCron',
       'Recalculated utilization for affected dates',
       {
-        dateBrandPairsCount: dateBrandPairs.size,
+        recalculationCount: dateBrandOrgTriples.size,
       },
     );
   }

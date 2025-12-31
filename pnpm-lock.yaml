@@ -14,8 +14,8 @@ importers:
         specifier: ^2.0.68
         version: 2.0.80(zod@3.25.76)
       '@cloro-dev/response-parser':
-        specifier: file:../response-parser
-        version: file:../response-parser(react@19.2.0)
+        specifier: 0.1.4
+        version: 0.1.4(react@19.2.0)
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -432,8 +432,11 @@ packages:
         integrity: sha512-rEFOE1MYIsBmoMJtQbl32PGHHXuG2hDxvEd7rUHE0vCBoFQVSDqaVs9hkZEtHCxRoY+CljXKFCOuJ8uxqw1LcA==,
       }
 
-  '@cloro-dev/response-parser@file:../response-parser':
-    resolution: { directory: ../response-parser, type: directory }
+  '@cloro-dev/response-parser@0.1.4':
+    resolution:
+      {
+        integrity: sha512-a/PDBWYu0jeVQZY2050gz4A3boBhtYHTnKdKuKEsmwjs3dHyAyOUB0BSK8DmY2Bq7cWQazEcsD0ByRGG6yWALw==,
+      }
     peerDependencies:
       react: '>=16.8.0'
     peerDependenciesMeta:
@@ -6591,7 +6594,7 @@ snapshots:
 
   '@better-fetch/fetch@1.1.18': {}
 
-  '@cloro-dev/response-parser@file:../response-parser(react@19.2.0)':
+  '@cloro-dev/response-parser@0.1.4(react@19.2.0)':
     optionalDependencies:
       react: 19.2.0
 

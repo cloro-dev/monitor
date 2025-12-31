@@ -315,8 +315,11 @@ function ResultsSheetInner({
                       <div className="h-full">
                         <ResponseRenderer
                           response={currentResult.response}
-                          removeLinks={currentResult.model === 'PERPLEXITY'}
-                          invertColors={currentResult.model === 'PERPLEXITY'}
+                          removeLinks
+                          invertColors
+                          removeHeader
+                          removeFooter
+                          removeSidebar
                           className="h-full w-full"
                         />
                       </div>

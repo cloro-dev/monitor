@@ -50,7 +50,7 @@ export function isValidDomain(domain: string): boolean {
   const hasTLDSuffix =
     normalizedDomain.includes('.') &&
     normalizedDomain.split('.').length >= 2 &&
-    normalizedDomain.split('.').pop()?.length >= 2; // TLD must be at least 2 characters
+    (normalizedDomain.split('.').pop()?.length ?? 0) >= 2; // TLD must be at least 2 characters
 
   return (
     domainRegex.test(normalizedDomain) &&

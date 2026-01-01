@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { fetchDomainInfo } from '@/lib/domain-fetcher';
-import { isValidDomain } from '@/lib/client-utils';
+import { isValidDomain, DOMAIN_VALIDATION_ERROR } from '@/lib/client-utils';
 import { generateBrandPrompts } from '@/lib/ai-service';
 import { COUNTRY_NAME_MAP } from '@/lib/countries';
 import { z } from 'zod';
@@ -11,7 +11,7 @@ import { logInfo, logError, logWarn } from '@/lib/logger';
 // Validation schema
 const createBrandSchema = z.object({
   domain: z.string().min(1, 'Domain is required').refine(isValidDomain, {
-    message: 'Please enter a valid domain name (e.g., example.com)',
+    message: DOMAIN_VALIDATION_ERROR,
   }),
   defaultCountry: z
     .string()

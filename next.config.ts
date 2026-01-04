@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
@@ -21,7 +22,9 @@ const nextConfig: NextConfig = {
   },
   // Compression
   compress: true,
-  turbopack: {},
+  turbopack: {
+    root: path.join(__dirname),
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Exclude Node.js modules from client bundle

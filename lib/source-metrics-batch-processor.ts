@@ -413,13 +413,6 @@ export class UtilizationBatchProcessor {
           createdAt: true,
           status: true,
           model: true,
-          sources: {
-            select: {
-              url: true,
-              hostname: true,
-              type: true,
-            },
-          },
           prompt: {
             select: {
               id: true,
@@ -427,13 +420,27 @@ export class UtilizationBatchProcessor {
               brand: {
                 select: {
                   id: true,
+                  name: true,
+                  domain: true,
                   organizationBrands: {
                     select: {
                       organizationId: true,
+                      organization: {
+                        select: {
+                          id: true,
+                        },
+                      },
                     },
                   },
                 },
               },
+            },
+          },
+          sources: {
+            select: {
+              url: true,
+              hostname: true,
+              type: true,
             },
           },
         },

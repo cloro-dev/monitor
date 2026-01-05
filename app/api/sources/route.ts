@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSourcesAnalyticsData } from '@/lib/source-service';
-import { sourceMetricsService } from '@/lib/source-metrics-service';
+import { chartComputationService } from '@/lib/chart-computation-service';
 import { logError, logInfo, logWarn } from '@/lib/logger';
 
 import { getCachedAuthAndOrgSession } from '@/lib/session-cache';
@@ -71,23 +71,22 @@ export async function GET(request: NextRequest) {
       validatedParams,
     );
 
-    // Get time-series chart data from source metrics service
+    // Get time-series chart data from chart computation service (checks cache first)
     let chartData: { data: any[]; config: any } = { data: [], config: {} };
 
     try {
-      logInfo('SourcesAPI', 'Calling source metrics service', {
+      logInfo('SourcesAPI', 'Calling chart computation service', {
         brandId: validatedParams.brandId,
         organizationId,
         timeRange: validatedParams.timeRange,
         tab: validatedParams.tab,
       });
 
-      chartData = await sourceMetricsService.getSourceUtilizationChart(
+      chartData = await chartComputationService.getSourceChart(
         validatedParams.brandId,
         organizationId,
         validatedParams.timeRange,
         validatedParams.tab,
-        5, // top 5 sources for chart
       );
     } catch (chartError) {
       logWarn('SourcesAPI', 'Chart data fetch failed, using empty data', {

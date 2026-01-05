@@ -45,7 +45,7 @@ export class SourceMetricsService {
     });
 
     try {
-      // Get the result with all necessary relationships
+      // Get result with all necessary relationships
       let result = preLoadedResult;
 
       if (!result) {
@@ -89,6 +89,32 @@ export class SourceMetricsService {
           resultId,
           status: result?.status,
         });
+        return;
+      }
+
+      if (preLoadedResult) {
+        logInfo('SourceMetricsProcessor', 'Pre-loaded result structure', {
+          resultId,
+          resultKeys: Object.keys(result),
+          hasPrompt: !!result.prompt,
+          promptKeys: result.prompt ? Object.keys(result.prompt) : [],
+          hasBrand: !!result.prompt?.brand,
+        });
+      }
+
+      if (!result.prompt || !result.prompt.brand) {
+        logError(
+          'SourceMetricsProcessor',
+          'Missing prompt or brand in result',
+          undefined,
+          {
+            resultId,
+            hasPrompt: !!result.prompt,
+            hasBrand: !!result.prompt?.brand,
+            resultKeys: Object.keys(result),
+            promptKeys: result.prompt ? Object.keys(result.prompt) : [],
+          },
+        );
         return;
       }
 

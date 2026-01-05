@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sourceMetricsBatchProcessor } from '@/lib/source-metrics-batch-processor';
+import { chartComputationService } from '@/lib/chart-computation-service';
 import { logInfo, logError, logWarn } from '@/lib/logger';
 import { waitUntil } from '@vercel/functions';
 
@@ -88,6 +89,22 @@ export async function POST(request: NextRequest) {
                 stats.totalProcessed > 0
                   ? `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`
                   : '0%',
+            },
+          });
+
+          // Precompute charts after source metrics processing
+          const chartStartTime = Date.now();
+          const chartStats =
+            await chartComputationService.precomputeChartsForAllBrands();
+          const chartDuration = Date.now() - chartStartTime;
+
+          logInfo('SourceMetricsCron', 'Chart precomputation completed', {
+            duration: `${chartDuration}ms`,
+            chartStats: {
+              totalProcessed: chartStats.totalProcessed,
+              successful: chartStats.successful,
+              failed: chartStats.failed,
+              skipped: chartStats.skipped,
             },
           });
         } catch (error) {
@@ -201,6 +218,26 @@ export async function GET(request: NextRequest) {
                   stats.totalProcessed > 0
                     ? `${((stats.successful / stats.totalProcessed) * 100).toFixed(2)}%`
                     : '0%',
+              },
+            },
+          );
+
+          // Precompute charts after source metrics processing
+          const chartStartTime = Date.now();
+          const chartStats =
+            await chartComputationService.precomputeChartsForAllBrands();
+          const chartDuration = Date.now() - chartStartTime;
+
+          logInfo(
+            'SourceMetricsCron',
+            'Chart precomputation completed via GET',
+            {
+              duration: `${chartDuration}ms`,
+              chartStats: {
+                totalProcessed: chartStats.totalProcessed,
+                successful: chartStats.successful,
+                failed: chartStats.failed,
+                skipped: chartStats.skipped,
               },
             },
           );

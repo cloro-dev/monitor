@@ -295,3 +295,38 @@ model BrandMetrics {
   @@index([date], name: "brand_metrics_date_idx")
   @@map("brand_metrics")
 }
+
+model PrecomputedSourceChart {
+  id              String   @id @default(cuid())
+  brandId         String
+  organizationId  String
+  timeRange       String // '7d', '30d', '90d'
+  tab             String // 'domain', 'url'
+  chartData       Json // Serialized chart data
+  chartConfig     Json // Top 5 sources + config
+  date            DateTime // Last computation date
+  updatedAt       DateTime @updatedAt
+
+  @@unique([brandId, organizationId, timeRange, tab])
+  @@index([brandId])
+  @@index([organizationId])
+  @@index([date(sort: Desc)])
+  @@map("precomputed_source_chart")
+}
+
+model PrecomputedCompetitorChart {
+  id              String   @id @default(cuid())
+  brandId         String
+  organizationId  String
+  lookbackDays    Int // 90
+  chartData       Json
+  chartConfig     Json
+  date            DateTime
+  updatedAt       DateTime @updatedAt
+
+  @@unique([brandId, organizationId])
+  @@index([brandId])
+  @@index([organizationId])
+  @@index([date(sort: Desc)])
+  @@map("precomputed_competitor_chart")
+}

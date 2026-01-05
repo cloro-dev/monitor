@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { eachDayOfInterval, subDays, format } from 'date-fns';
 import { z } from 'zod';
 import { getCachedAuthAndOrgSession } from '@/lib/session-cache';
+import { chartComputationService } from '@/lib/chart-computation-service';
 
 const competitorsQuerySchema = z.object({
   brandId: z.string().min(1, 'Brand ID is required'),
@@ -176,66 +177,18 @@ export async function GET(req: Request) {
         ...topCompetitors.map((comp) => ({ id: comp.id, name: comp.name })),
       ];
 
-      // Generate Chart Data (Daily Visibility for selected brand and top 5 competitors)
-      const chartMap = new Map<string, any>();
-
-      // Pre-fill chartMap with all dates in the lookback range using date-fns
-      const dates = eachDayOfInterval({
-        start: subDays(new Date(), LOOKBACK_DAYS),
-        end: new Date(),
-      });
-
-      dates.forEach((d) => {
-        const dateKey = format(d, 'yyyy-MM-dd');
-        const dailyEntry: { date: string; [key: string]: string | number } = {
-          date: dateKey,
-        };
-        brandsToChart.forEach((brand) => {
-          dailyEntry[brand.name] = 0;
-        });
-        chartMap.set(dateKey, dailyEntry);
-      });
-
-      // Get daily metrics for chart data
-      const dailyMetrics = await prisma.brandMetrics.findMany({
-        where: {
+      // Get precomputed chart data from chart computation service
+      const competitorChartData =
+        await chartComputationService.getCompetitorChart(
           brandId,
-          organizationId: activeOrganization.id,
-          date: { gte: startDate },
-          OR: [
-            { competitorId: null }, // Own brand
-            ...brandsToChart
-              .filter((b) => b.id !== brandId) // Exclude own brand from competitor filter
-              .map((b) => ({ competitorId: b.id })),
-          ],
-        },
-        include: { competitor: true },
-        orderBy: { date: 'asc' },
-      });
-
-      // Populate chart data
-      dailyMetrics.forEach((metric) => {
-        const dateKey = format(metric.date, 'yyyy-MM-dd');
-        const entry = chartMap.get(dateKey);
-        const brandName =
-          metric.competitor?.name || brandsById.get(brandId)?.name;
-
-        if (
-          entry &&
-          brandName &&
-          brandsToChart.some((b) => b.name === brandName)
-        ) {
-          entry[brandName] = metric.visibilityScore || 0;
-        }
-      });
-
-      const chartData = Array.from(chartMap.values());
+          activeOrganization.id,
+        );
 
       return NextResponse.json({
         selectedBrandName,
         competitors: formattedCompetitors,
         brandsToChart,
-        chartData,
+        chartData: competitorChartData.data,
       });
     }
 

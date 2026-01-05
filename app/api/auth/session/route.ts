@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
+import { clearAuthAndOrgCache } from '@/lib/session-cache';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -30,6 +31,9 @@ export async function PATCH(request: NextRequest) {
         activeOrganizationId,
       },
     });
+
+    // Clear cache so next request gets updated organization
+    clearAuthAndOrgCache(await headers());
 
     return NextResponse.json({ success: true });
   } catch (error) {

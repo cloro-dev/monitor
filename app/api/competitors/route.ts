@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { eachDayOfInterval, subDays, format } from 'date-fns';
 import { z } from 'zod';
+import { getCachedAuthAndOrgSession } from '@/lib/session-cache';
 
 const competitorsQuerySchema = z.object({
   brandId: z.string().min(1, 'Brand ID is required'),
@@ -14,9 +15,14 @@ const competitorsQuerySchema = z.object({
 
 export async function GET(req: Request) {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
-    if (!session?.user.id) {
+    const authData = await getCachedAuthAndOrgSession(req.headers);
+
+    if (!authData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!authData.activeOrganization) {
+      return NextResponse.json([]);
     }
 
     // Parse and validate query parameters
@@ -25,40 +31,7 @@ export async function GET(req: Request) {
     const validatedParams = competitorsQuerySchema.parse(queryParams);
     const { brandId, includeStats } = validatedParams;
 
-    // Get user's active organization from session
-    const userSession = await prisma.session.findFirst({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        user: {
-          include: {
-            members: {
-              include: {
-                organization: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!userSession?.user.members.length) {
-      return NextResponse.json([]);
-    }
-
-    // Require active organization to be set
-    if (!userSession.activeOrganizationId) {
-      return NextResponse.json([]);
-    }
-
-    const activeOrganization = userSession.user.members.find(
-      (m: any) => m.organizationId === userSession.activeOrganizationId,
-    )?.organization;
-
-    if (!activeOrganization) {
-      return NextResponse.json([]);
-    }
+    const activeOrganization = authData.activeOrganization;
 
     // 1. Get all brands for the organization through the join table to create a lookup map
     const brands = await prisma.brand.findMany({

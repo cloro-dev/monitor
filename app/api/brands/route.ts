@@ -7,6 +7,7 @@ import { generateBrandPrompts } from '@/lib/ai-service';
 import { COUNTRY_NAME_MAP } from '@/lib/countries';
 import { z } from 'zod';
 import { logInfo, logError, logWarn } from '@/lib/logger';
+import { getCachedAuthAndOrgSession } from '@/lib/session-cache';
 
 // Validation schema
 const createBrandSchema = z.object({
@@ -37,46 +38,13 @@ const updateBrandSchema = z.object({
 // GET: Fetch brands for user's active organization
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const authData = await getCachedAuthAndOrgSession(request.headers);
 
-    if (!session?.user) {
+    if (!authData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's active organization from session (same approach as competitors API)
-    const userSession = await prisma.session.findFirst({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        user: {
-          include: {
-            members: {
-              include: {
-                organization: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!userSession?.user.members.length) {
-      return NextResponse.json({ brands: [] });
-    }
-
-    // Require active organization to be set
-    if (!userSession.activeOrganizationId) {
-      return NextResponse.json({ brands: [] });
-    }
-
-    const activeOrganization = userSession.user.members.find(
-      (m: any) => m.organizationId === userSession.activeOrganizationId,
-    )?.organization;
-
-    if (!activeOrganization) {
+    if (!authData.activeOrganization) {
       return NextResponse.json({ brands: [] });
     }
 
@@ -85,7 +53,7 @@ export async function GET(request: NextRequest) {
       where: {
         organizationBrands: {
           some: {
-            organizationId: activeOrganization.id,
+            organizationId: authData.activeOrganization.id,
           },
         },
       },
@@ -107,57 +75,18 @@ export async function GET(request: NextRequest) {
 // POST: Create a new brand
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const authData = await getCachedAuthAndOrgSession(request.headers);
 
-    if (!session?.user) {
+    if (!authData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { domain, defaultCountry } = createBrandSchema.parse(body);
 
-    // Get user's active organization from session
-    const userSession = await prisma.session.findFirst({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        user: {
-          include: {
-            members: {
-              include: {
-                organization: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!userSession?.user.members.length) {
-      return NextResponse.json(
-        { error: "You don't have any organizations" },
-        { status: 403 },
-      );
-    }
-
-    // Require active organization to be set
-    if (!userSession.activeOrganizationId) {
+    if (!authData.activeOrganization) {
       return NextResponse.json(
         { error: 'No active organization selected' },
-        { status: 403 },
-      );
-    }
-
-    const activeOrganization = userSession.user.members.find(
-      (m: any) => m.organizationId === userSession.activeOrganizationId,
-    )?.organization;
-
-    if (!activeOrganization) {
-      return NextResponse.json(
-        { error: 'Active organization not found' },
         { status: 403 },
       );
     }
@@ -174,7 +103,7 @@ export async function POST(request: NextRequest) {
       const existingAssociation = await prisma.organization_brand.findUnique({
         where: {
           organizationId_brandId: {
-            organizationId: activeOrganization.id,
+            organizationId: authData.activeOrganization.id,
             brandId: brand.id,
           },
         },
@@ -193,7 +122,10 @@ export async function POST(request: NextRequest) {
 
     // Create new brand if it doesn't exist
     if (!brand) {
-      const domainInfo = await fetchDomainInfo(domain, activeOrganization.id);
+      const domainInfo = await fetchDomainInfo(
+        domain,
+        authData.activeOrganization.id,
+      );
 
       brand = await prisma.brand.create({
         data: {
@@ -205,7 +137,7 @@ export async function POST(request: NextRequest) {
       });
 
       logInfo('BrandCreate', 'Brand created', {
-        organizationId: activeOrganization.id,
+        organizationId: authData.activeOrganization.id,
         domain: brand.domain,
         name: brand.name || '',
         brandId: brand.id,
@@ -226,7 +158,7 @@ export async function POST(request: NextRequest) {
     // Create organization-brand relationship
     await prisma.organization_brand.create({
       data: {
-        organizationId: activeOrganization.id,
+        organizationId: authData.activeOrganization.id,
         brandId: brand.id,
         role: isNewBrand ? 'admin' : 'member', // Brand creator gets admin role for new brands
       },
@@ -248,7 +180,7 @@ export async function POST(request: NextRequest) {
                 country:
                   defaultCountry?.toUpperCase() || brand.defaultCountry || 'US',
                 status: 'SUGGESTED',
-                userId: session.user.id,
+                userId: authData.user.id,
                 brandId: brand.id,
               })),
             });

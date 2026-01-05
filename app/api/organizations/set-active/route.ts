@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { logError, logInfo } from '@/lib/logger';
+import { clearAuthAndOrgCache } from '@/lib/session-cache';
 
 /**
  * API route to set the active organization for the current user's session.
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
         activeOrganizationId: organizationId,
       },
     });
+
+    // Clear cache so next request gets updated organization
+    clearAuthAndOrgCache(request.headers);
 
     logInfo('OrganizationSetActive', 'Active organization set successfully', {
       userId: session.user.id,

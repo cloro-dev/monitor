@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { trackPromptById } from '@/lib/tracking-service';
 import { waitUntil } from '@vercel/functions';
 import { logError, logInfo } from '@/lib/logger';
+import { getCachedAuthAndOrgSession } from '@/lib/session-cache';
 
 const createPromptSchema = z.object({
   text: z
@@ -184,54 +185,27 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let session: any = null;
+  let authData: any = null;
   let body: any = null;
 
   try {
-    session = await auth.api.getSession({ headers: request.headers });
+    authData = await getCachedAuthAndOrgSession(request.headers);
 
-    if (!session?.user?.id) {
+    if (!authData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     body = await request.json();
     const validatedData = createPromptSchema.parse(body);
 
-    // Get user's active organization from session
-    const userSession = await prisma.session.findFirst({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        user: {
-          include: {
-            members: {
-              include: {
-                organization: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!userSession?.activeOrganizationId) {
+    if (!authData.activeOrganization) {
       return NextResponse.json(
         { error: 'No active organization selected' },
         { status: 400 },
       );
     }
 
-    const activeOrganization = userSession.user.members.find(
-      (m: any) => m.organizationId === userSession.activeOrganizationId,
-    )?.organization;
-
-    if (!activeOrganization) {
-      return NextResponse.json(
-        { error: 'Active organization not found' },
-        { status: 400 },
-      );
-    }
+    const activeOrganization = authData.activeOrganization;
 
     // Check if user has access to the brand through organization-brand relationship
     const organizationBrand = await prisma.organization_brand.findFirst({
@@ -282,7 +256,7 @@ export async function POST(request: NextRequest) {
         text: validatedData.text,
         country: country.toUpperCase(),
         brandId: validatedData.brandId,
-        userId: session.user.id,
+        userId: authData.user.id,
       },
       select: {
         id: true,
@@ -298,7 +272,7 @@ export async function POST(request: NextRequest) {
 
     logInfo('PromptsCreate', 'Prompt created successfully', {
       promptId: newPrompt.id,
-      userId: session.user.id,
+      userId: authData.user.id,
       organizationId: activeOrganization.id,
       brandId: validatedData.brandId,
       country: newPrompt.country,
@@ -314,7 +288,7 @@ export async function POST(request: NextRequest) {
     }
 
     logError('PromptsCreate', 'Error creating prompt', error, {
-      userId: session?.user?.id,
+      userId: authData?.user?.id,
       brandId: body?.brandId,
       country: body?.country,
     });
@@ -331,15 +305,15 @@ const bulkUpdateSchema = z.object({
 });
 
 export async function PUT(request: NextRequest) {
-  let session: any = null;
+  let authData: any = null;
   let body: any = null;
   let ids: string[] = [];
   let status: 'ACTIVE' | 'SUGGESTED' | 'ARCHIVED' = 'SUGGESTED';
 
   try {
-    session = await auth.api.getSession({ headers: request.headers });
+    authData = await getCachedAuthAndOrgSession(request.headers);
 
-    if (!session?.user?.id) {
+    if (!authData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -348,13 +322,7 @@ export async function PUT(request: NextRequest) {
     ids = validatedData.ids;
     status = validatedData.status;
 
-    // Fetch user session to get active org
-    const userSession = await prisma.session.findFirst({
-      where: { userId: session.user.id },
-      select: { activeOrganizationId: true },
-    });
-
-    if (!userSession?.activeOrganizationId) {
+    if (!authData.session.activeOrganizationId) {
       return NextResponse.json(
         { error: 'No active organization' },
         { status: 403 },
@@ -363,7 +331,7 @@ export async function PUT(request: NextRequest) {
 
     // Get all brands for this organization
     const orgBrands = await prisma.organization_brand.findMany({
-      where: { organizationId: userSession.activeOrganizationId },
+      where: { organizationId: authData.session.activeOrganizationId },
       select: { brandId: true },
     });
     const allowedBrandIds = orgBrands.map((ob) => ob.brandId);
@@ -398,8 +366,8 @@ export async function PUT(request: NextRequest) {
     }
 
     logInfo('PromptsBulkUpdate', 'Prompts bulk updated successfully', {
-      userId: session.user.id,
-      organizationId: userSession.activeOrganizationId,
+      userId: authData.user.id,
+      organizationId: authData.session.activeOrganizationId,
       updatedCount: result.count,
       requestedCount: ids.length,
       status,
@@ -414,7 +382,7 @@ export async function PUT(request: NextRequest) {
       );
     }
     logError('PromptsBulkUpdate', 'Error bulk updating prompts', error, {
-      userId: session?.user?.id,
+      userId: authData?.user?.id,
       requestedIds: body?.ids,
       requestedStatus: body?.status,
     });

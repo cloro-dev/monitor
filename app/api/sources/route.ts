@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { z } from 'zod';
 import { getSourcesAnalyticsData } from '@/lib/source-service';
 import { sourceMetricsService } from '@/lib/source-metrics-service';
 import { logError, logInfo, logWarn } from '@/lib/logger';
-import prisma from '@/lib/prisma';
+
+import { getCachedAuthAndOrgSession } from '@/lib/session-cache';
 
 const sourcesQuerySchema = z.object({
   brandId: z.string().min(1, 'Brand ID is required'),
@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Authentication
-    const session = await auth.api.getSession({ headers: request.headers });
+    const authData = await getCachedAuthAndOrgSession(request.headers);
 
-    if (!session?.user?.id) {
+    if (!authData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -32,25 +32,15 @@ export async function GET(request: NextRequest) {
     const validatedParams = sourcesQuerySchema.parse(queryParams);
 
     logInfo('SourcesAPI', 'Fetching sources data', {
-      userId: session.user.id,
+      userId: authData.user.id,
       params: validatedParams,
     });
 
-    // Get user's active organization first
-    const userSession = await prisma.session.findFirst({
-      where: {
-        userId: session.user.id,
-      },
-      select: {
-        activeOrganizationId: true,
-      },
-    });
-
-    const organizationId = userSession?.activeOrganizationId;
+    const organizationId = authData.session.activeOrganizationId;
 
     if (!organizationId) {
       logWarn('SourcesAPI', 'No active organization found', {
-        userId: session.user.id,
+        userId: authData.user.id,
       });
       // Return empty data structure if no org
       return NextResponse.json({
@@ -116,7 +106,7 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime;
 
     logInfo('SourcesAPI', 'Successfully fetched sources data', {
-      userId: session.user.id,
+      userId: authData.user.id,
       duration: `${duration}ms`,
       domainStatsCount: data.domainStats.length,
       urlStatsCount: data.urlStats.length,
@@ -136,7 +126,7 @@ export async function GET(request: NextRequest) {
     };
 
     logInfo('SourcesAPI', 'Returning response', {
-      userId: session.user.id,
+      userId: authData.user.id,
       responseKeys: Object.keys(responseData),
       hasChartData: responseData.data.chartData?.data?.length > 0,
       chartDataLength: responseData.data.chartData?.data?.length || 0,

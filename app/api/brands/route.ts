@@ -7,7 +7,6 @@ import { generateBrandPrompts } from '@/lib/ai-service';
 import { COUNTRY_NAME_MAP } from '@/lib/countries';
 import { z } from 'zod';
 import { logInfo, logError, logWarn } from '@/lib/logger';
-import { getSessionWithOrganization } from '@/lib/session-cache';
 
 // Validation schema
 const createBrandSchema = z.object({
@@ -35,29 +34,58 @@ const updateBrandSchema = z.object({
     .optional(),
 });
 
-// Cache control header for GET requests
-const CACHE_HEADERS = {
-  'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
-};
-
 // GET: Fetch brands for user's active organization
 export async function GET(request: NextRequest) {
   try {
-    // Use unified session + organization helper (single optimized query)
-    const sessionData = await getSessionWithOrganization(request.headers);
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
 
-    if (!sessionData) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { activeOrganizationId } = sessionData;
+    // Get user's active organization from session (same approach as competitors API)
+    const userSession = await prisma.session.findFirst({
+      where: {
+        userId: session.user.id,
+      },
+      include: {
+        user: {
+          include: {
+            members: {
+              include: {
+                organization: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!userSession?.user.members.length) {
+      return NextResponse.json({ brands: [] });
+    }
+
+    // Require active organization to be set
+    if (!userSession.activeOrganizationId) {
+      return NextResponse.json({ brands: [] });
+    }
+
+    const activeOrganization = userSession.user.members.find(
+      (m: any) => m.organizationId === userSession.activeOrganizationId,
+    )?.organization;
+
+    if (!activeOrganization) {
+      return NextResponse.json({ brands: [] });
+    }
 
     // Fetch brands for the organization through the join table
     const brands = await prisma.brand.findMany({
       where: {
         organizationBrands: {
           some: {
-            organizationId: activeOrganizationId,
+            organizationId: activeOrganization.id,
           },
         },
       },
@@ -66,7 +94,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ brands }, { headers: CACHE_HEADERS });
+    return NextResponse.json({ brands });
   } catch (error) {
     logError('BrandsGET', 'Error fetching brands', error);
     return NextResponse.json(
@@ -79,17 +107,60 @@ export async function GET(request: NextRequest) {
 // POST: Create a new brand
 export async function POST(request: NextRequest) {
   try {
-    // Use unified session + organization helper (single optimized query)
-    const sessionData = await getSessionWithOrganization(request.headers);
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
 
-    if (!sessionData) {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { session, activeOrganizationId, organization } = sessionData;
-
     const body = await request.json();
     const { domain, defaultCountry } = createBrandSchema.parse(body);
+
+    // Get user's active organization from session
+    const userSession = await prisma.session.findFirst({
+      where: {
+        userId: session.user.id,
+      },
+      include: {
+        user: {
+          include: {
+            members: {
+              include: {
+                organization: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!userSession?.user.members.length) {
+      return NextResponse.json(
+        { error: "You don't have any organizations" },
+        { status: 403 },
+      );
+    }
+
+    // Require active organization to be set
+    if (!userSession.activeOrganizationId) {
+      return NextResponse.json(
+        { error: 'No active organization selected' },
+        { status: 403 },
+      );
+    }
+
+    const activeOrganization = userSession.user.members.find(
+      (m: any) => m.organizationId === userSession.activeOrganizationId,
+    )?.organization;
+
+    if (!activeOrganization) {
+      return NextResponse.json(
+        { error: 'Active organization not found' },
+        { status: 403 },
+      );
+    }
 
     // Check if domain already exists globally
     let brand = await prisma.brand.findUnique({
@@ -103,7 +174,7 @@ export async function POST(request: NextRequest) {
       const existingAssociation = await prisma.organization_brand.findUnique({
         where: {
           organizationId_brandId: {
-            organizationId: activeOrganizationId,
+            organizationId: activeOrganization.id,
             brandId: brand.id,
           },
         },
@@ -122,7 +193,7 @@ export async function POST(request: NextRequest) {
 
     // Create new brand if it doesn't exist
     if (!brand) {
-      const domainInfo = await fetchDomainInfo(domain, activeOrganizationId);
+      const domainInfo = await fetchDomainInfo(domain, activeOrganization.id);
 
       brand = await prisma.brand.create({
         data: {
@@ -134,7 +205,7 @@ export async function POST(request: NextRequest) {
       });
 
       logInfo('BrandCreate', 'Brand created', {
-        organizationId: activeOrganizationId,
+        organizationId: activeOrganization.id,
         domain: brand.domain,
         name: brand.name || '',
         brandId: brand.id,
@@ -155,7 +226,7 @@ export async function POST(request: NextRequest) {
     // Create organization-brand relationship
     await prisma.organization_brand.create({
       data: {
-        organizationId: activeOrganizationId,
+        organizationId: activeOrganization.id,
         brandId: brand.id,
         role: isNewBrand ? 'admin' : 'member', // Brand creator gets admin role for new brands
       },

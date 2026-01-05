@@ -1,9 +1,8 @@
 import { auth } from '@/lib/auth';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { eachDayOfInterval, subDays, format } from 'date-fns';
 import { z } from 'zod';
-import { getSessionWithOrganization } from '@/lib/session-cache';
 
 const competitorsQuerySchema = z.object({
   brandId: z.string().min(1, 'Brand ID is required'),
@@ -13,21 +12,12 @@ const competitorsQuerySchema = z.object({
     .transform((val) => val === 'true'),
 });
 
-// Cache control headers for GET requests
-const CACHE_HEADERS = {
-  'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
-};
-
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
-    // Use unified session + organization helper (single optimized query)
-    const sessionData = await getSessionWithOrganization(req.headers);
-
-    if (!sessionData) {
+    const session = await auth.api.getSession({ headers: req.headers });
+    if (!session?.user.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { activeOrganizationId, organization } = sessionData;
 
     // Parse and validate query parameters
     const { searchParams } = new URL(req.url);
@@ -35,12 +25,47 @@ export async function GET(req: NextRequest) {
     const validatedParams = competitorsQuerySchema.parse(queryParams);
     const { brandId, includeStats } = validatedParams;
 
+    // Get user's active organization from session
+    const userSession = await prisma.session.findFirst({
+      where: {
+        userId: session.user.id,
+      },
+      include: {
+        user: {
+          include: {
+            members: {
+              include: {
+                organization: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!userSession?.user.members.length) {
+      return NextResponse.json([]);
+    }
+
+    // Require active organization to be set
+    if (!userSession.activeOrganizationId) {
+      return NextResponse.json([]);
+    }
+
+    const activeOrganization = userSession.user.members.find(
+      (m: any) => m.organizationId === userSession.activeOrganizationId,
+    )?.organization;
+
+    if (!activeOrganization) {
+      return NextResponse.json([]);
+    }
+
     // 1. Get all brands for the organization through the join table to create a lookup map
     const brands = await prisma.brand.findMany({
       where: {
         organizationBrands: {
           some: {
-            organizationId: activeOrganizationId,
+            organizationId: activeOrganization.id,
           },
         },
       },
@@ -70,7 +95,7 @@ export async function GET(req: NextRequest) {
       const brandMetricsData = await prisma.brandMetrics.findMany({
         where: {
           brandId: brandId,
-          organizationId: activeOrganizationId,
+          organizationId: activeOrganization.id,
           date: {
             gte: startDate,
           },
@@ -202,7 +227,7 @@ export async function GET(req: NextRequest) {
       const dailyMetrics = await prisma.brandMetrics.findMany({
         where: {
           brandId,
-          organizationId: activeOrganizationId,
+          organizationId: activeOrganization.id,
           date: { gte: startDate },
           OR: [
             { competitorId: null }, // Own brand
@@ -233,15 +258,12 @@ export async function GET(req: NextRequest) {
 
       const chartData = Array.from(chartMap.values());
 
-      return NextResponse.json(
-        {
-          selectedBrandName,
-          competitors: formattedCompetitors,
-          brandsToChart,
-          chartData,
-        },
-        { headers: CACHE_HEADERS },
-      );
+      return NextResponse.json({
+        selectedBrandName,
+        competitors: formattedCompetitors,
+        brandsToChart,
+        chartData,
+      });
     }
 
     // If no stats requested, return basic competitor list for the specified brand
@@ -272,7 +294,7 @@ export async function GET(req: NextRequest) {
       averageSentiment: null,
     }));
 
-    return NextResponse.json(formattedCompetitors, { headers: CACHE_HEADERS });
+    return NextResponse.json(formattedCompetitors);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

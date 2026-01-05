@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { trackPromptById } from '@/lib/tracking-service';
 import { waitUntil } from '@vercel/functions';
 import { logError, logInfo } from '@/lib/logger';
-import { getSessionWithOrganization } from '@/lib/session-cache';
 
 const createPromptSchema = z.object({
   text: z
@@ -17,11 +16,6 @@ const createPromptSchema = z.object({
   country: z.string().optional(),
   brandId: z.string().min(1, 'Brand is required'),
 });
-
-// Cache control headers for GET requests - shorter TTL for prompts as they change more frequently
-const CACHE_HEADERS = {
-  'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
-};
 
 export async function GET(request: NextRequest) {
   try {
@@ -170,19 +164,16 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(
-      {
-        prompts: promptsWithMetrics,
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
-        },
-        counts,
+    return NextResponse.json({
+      prompts: promptsWithMetrics,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
       },
-      { headers: CACHE_HEADERS },
-    );
+      counts,
+    });
   } catch (error) {
     logError('PromptsGET', 'Error fetching prompts', error);
     return NextResponse.json(
@@ -193,28 +184,67 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let sessionData: Awaited<ReturnType<typeof getSessionWithOrganization>> =
-    null;
+  let session: any = null;
   let body: any = null;
 
   try {
-    // Use unified session + organization helper (single optimized query)
-    sessionData = await getSessionWithOrganization(request.headers);
+    session = await auth.api.getSession({ headers: request.headers });
 
-    if (!sessionData) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { session, activeOrganizationId, organization } = sessionData;
-
     body = await request.json();
     const validatedData = createPromptSchema.parse(body);
+
+    // Get user's active organization from session
+    const userSession = await prisma.session.findFirst({
+      where: {
+        userId: session.user.id,
+      },
+      include: {
+        user: {
+          include: {
+            members: {
+              include: {
+                organization: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!userSession?.activeOrganizationId) {
+      return NextResponse.json(
+        { error: 'No active organization selected' },
+        { status: 400 },
+      );
+    }
+
+    const activeOrganization = userSession.user.members.find(
+      (m: any) => m.organizationId === userSession.activeOrganizationId,
+    )?.organization;
+
+    if (!activeOrganization) {
+      return NextResponse.json(
+        { error: 'Active organization not found' },
+        { status: 400 },
+      );
+    }
 
     // Check if user has access to the brand through organization-brand relationship
     const organizationBrand = await prisma.organization_brand.findFirst({
       where: {
         brandId: validatedData.brandId,
-        organizationId: activeOrganizationId,
+        organizationId: activeOrganization.id,
+      },
+      include: {
+        organization: {
+          select: {
+            aiModels: true,
+          },
+        },
       },
     });
 
@@ -225,8 +255,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if any AI models are enabled (from cached organization data)
-    const enabledModels = organization.aiModels || [];
+    // Check if any AI models are enabled
+    const enabledModels =
+      (organizationBrand.organization.aiModels as string[]) || [];
     if (enabledModels.length === 0) {
       return NextResponse.json(
         {
@@ -268,7 +299,7 @@ export async function POST(request: NextRequest) {
     logInfo('PromptsCreate', 'Prompt created successfully', {
       promptId: newPrompt.id,
       userId: session.user.id,
-      organizationId: activeOrganizationId,
+      organizationId: activeOrganization.id,
       brandId: validatedData.brandId,
       country: newPrompt.country,
     });
@@ -283,7 +314,7 @@ export async function POST(request: NextRequest) {
     }
 
     logError('PromptsCreate', 'Error creating prompt', error, {
-      userId: sessionData?.session?.user?.id,
+      userId: session?.user?.id,
       brandId: body?.brandId,
       country: body?.country,
     });
@@ -300,30 +331,39 @@ const bulkUpdateSchema = z.object({
 });
 
 export async function PUT(request: NextRequest) {
-  let sessionData: Awaited<ReturnType<typeof getSessionWithOrganization>> =
-    null;
+  let session: any = null;
   let body: any = null;
   let ids: string[] = [];
   let status: 'ACTIVE' | 'SUGGESTED' | 'ARCHIVED' = 'SUGGESTED';
 
   try {
-    // Use unified session + organization helper
-    sessionData = await getSessionWithOrganization(request.headers);
+    session = await auth.api.getSession({ headers: request.headers });
 
-    if (!sessionData) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { session, activeOrganizationId } = sessionData;
 
     body = await request.json();
     const validatedData = bulkUpdateSchema.parse(body);
     ids = validatedData.ids;
     status = validatedData.status;
 
+    // Fetch user session to get active org
+    const userSession = await prisma.session.findFirst({
+      where: { userId: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+
+    if (!userSession?.activeOrganizationId) {
+      return NextResponse.json(
+        { error: 'No active organization' },
+        { status: 403 },
+      );
+    }
+
     // Get all brands for this organization
     const orgBrands = await prisma.organization_brand.findMany({
-      where: { organizationId: activeOrganizationId },
+      where: { organizationId: userSession.activeOrganizationId },
       select: { brandId: true },
     });
     const allowedBrandIds = orgBrands.map((ob) => ob.brandId);
@@ -359,7 +399,7 @@ export async function PUT(request: NextRequest) {
 
     logInfo('PromptsBulkUpdate', 'Prompts bulk updated successfully', {
       userId: session.user.id,
-      organizationId: activeOrganizationId,
+      organizationId: userSession.activeOrganizationId,
       updatedCount: result.count,
       requestedCount: ids.length,
       status,
@@ -374,7 +414,7 @@ export async function PUT(request: NextRequest) {
       );
     }
     logError('PromptsBulkUpdate', 'Error bulk updating prompts', error, {
-      userId: sessionData?.session?.user?.id,
+      userId: session?.user?.id,
       requestedIds: body?.ids,
       requestedStatus: body?.status,
     });

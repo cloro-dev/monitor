@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { z } from 'zod';
 import { getSourcesAnalyticsData } from '@/lib/source-service';
 import { sourceMetricsService } from '@/lib/source-metrics-service';
 import { logError, logInfo, logWarn } from '@/lib/logger';
-import prisma from '@/lib/prisma';
+import { getSessionWithOrganization } from '@/lib/session-cache';
 
 const sourcesQuerySchema = z.object({
   brandId: z.string().min(1, 'Brand ID is required'),
@@ -14,16 +13,23 @@ const sourcesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50), // Require at least 1, max 100 for performance
 });
 
+// Cache control headers for GET requests
+const CACHE_HEADERS = {
+  'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
+};
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Authentication
-    const session = await auth.api.getSession({ headers: request.headers });
+    // Use unified session + organization helper (single optimized query)
+    const sessionData = await getSessionWithOrganization(request.headers);
 
-    if (!session?.user?.id) {
+    if (!sessionData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { session, activeOrganizationId: organizationId } = sessionData;
 
     // Parse and validate query parameters
     const { searchParams } = new URL(request.url);
@@ -35,45 +41,6 @@ export async function GET(request: NextRequest) {
       userId: session.user.id,
       params: validatedParams,
     });
-
-    // Get user's active organization first
-    const userSession = await prisma.session.findFirst({
-      where: {
-        userId: session.user.id,
-      },
-      select: {
-        activeOrganizationId: true,
-      },
-    });
-
-    const organizationId = userSession?.activeOrganizationId;
-
-    if (!organizationId) {
-      logWarn('SourcesAPI', 'No active organization found', {
-        userId: session.user.id,
-      });
-      // Return empty data structure if no org
-      return NextResponse.json({
-        success: true,
-        data: {
-          domainStats: [],
-          urlStats: [],
-          chartData: { data: [], config: {} },
-          summary: {
-            totalPrompts: 0,
-            totalResults: 0,
-            totalDomains: 0,
-            totalUrls: 0,
-          },
-          pagination: {
-            page: validatedParams.page,
-            limit: validatedParams.limit,
-            total: 0,
-            totalPages: 0,
-          },
-        },
-      });
-    }
 
     // Get sources analytics data from service (now using organizationId)
     const analyticsData = await getSourcesAnalyticsData(
@@ -142,7 +109,7 @@ export async function GET(request: NextRequest) {
       chartDataLength: responseData.data.chartData?.data?.length || 0,
     });
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, { headers: CACHE_HEADERS });
   } catch (error) {
     const duration = Date.now() - startTime;
 

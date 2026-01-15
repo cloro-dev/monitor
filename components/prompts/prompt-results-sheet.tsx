@@ -25,6 +25,7 @@ import { CopilotLogo } from '@/components/ai-models/logos/copilot-logo';
 import { AIModeLogo } from '@/components/ai-models/logos/ai-mode-logo';
 import { AIOverviewLogo } from '@/components/ai-models/logos/ai-overview-logo';
 import { GeminiLogo } from '@/components/ai-models/logos/gemini-logo';
+import { GrokLogo } from '@/components/ai-models/logos/grok-logo';
 import { ResponseRenderer } from '@cloro-dev/response-parser/react';
 
 interface PromptResultsSheetProps {
@@ -73,6 +74,11 @@ const AI_MODELS: AIModel[] = [
     id: 'AIOVERVIEW',
     name: 'Google AI Overview',
     icon: AIOverviewLogo,
+  },
+  {
+    id: 'GROK',
+    name: 'Grok',
+    icon: GrokLogo,
   },
 ];
 

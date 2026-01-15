@@ -177,6 +177,7 @@ enum ProviderModel {
   GEMINI
   AIMODE
   AIOVERVIEW
+  GROK
 }
 
 model Result {

@@ -14,6 +14,7 @@ import { CopilotLogo } from './logos/copilot-logo';
 import { AIModeLogo } from './logos/ai-mode-logo';
 import { AIOverviewLogo } from './logos/ai-overview-logo';
 import { GeminiLogo } from './logos/gemini-logo';
+import { GrokLogo } from './logos/grok-logo';
 
 interface AIModel {
   id: string;
@@ -52,6 +53,11 @@ const AI_MODELS: AIModel[] = [
     name: 'Google AI Overview',
     icon: AIOverviewLogo,
   },
+  {
+    id: 'GROK',
+    name: 'Grok',
+    icon: GrokLogo,
+  },
 ];
 
 export function AIModelsSettings() {
@@ -71,6 +77,7 @@ export function AIModelsSettings() {
         'GEMINI',
         'AIMODE',
         'AIOVERVIEW',
+        'GROK',
       ];
       setEnabledModels(models);
     }

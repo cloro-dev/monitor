@@ -153,4 +153,4 @@ Copy `.env.example` to `.env` and configure:
 
 - `DATABASE_URL` - PostgreSQL connection string
 - `BETTER_AUTH_SECRET` - Authentication secret key
-- `BETTER_AUTH_URL` - Base URL for auth callbacks
+- `NEXT_PUBLIC_APP_URL` - Base URL for the application (used for auth callbacks and webhooks)

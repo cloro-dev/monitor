@@ -7,7 +7,7 @@
   </p>
 
   <p align="center">
-    <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcloro%2Fmonitor&env=DATABASE_URL,BETTER_AUTH_SECRET,BETTER_AUTH_URL,CRON_SECRET,OPENAI_API_KEY,GOOGLE_GENERATIVE_AI_API_KEY">
+    <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcloro%2Fmonitor&env=DATABASE_URL,BETTER_AUTH_SECRET,NEXT_PUBLIC_APP_URL,CRON_SECRET,OPENAI_API_KEY,GOOGLE_GENERATIVE_AI_API_KEY">
       <img src="https://vercel.com/button" alt="Deploy with Vercel" />
     </a>
   </p>
@@ -68,7 +68,7 @@ Follow these steps to run Monitor locally.
     **Required Variables:**
     - `DATABASE_URL`: Your PostgreSQL connection string.
     - `BETTER_AUTH_SECRET`: A random secret key for authentication.
-    - `BETTER_AUTH_URL`: Your app's URL (e.g., `http://localhost:3000`).
+    - `NEXT_PUBLIC_APP_URL`: Your app's URL (e.g., `http://localhost:3000`).
     - `CRON_SECRET`: Secret key for securing cron jobs.
     - `OPENAI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`: For AI analysis.
 

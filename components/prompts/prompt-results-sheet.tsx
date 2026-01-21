@@ -26,7 +26,7 @@ import { AIModeLogo } from '@/components/ai-models/logos/ai-mode-logo';
 import { AIOverviewLogo } from '@/components/ai-models/logos/ai-overview-logo';
 import { GeminiLogo } from '@/components/ai-models/logos/gemini-logo';
 import { GrokLogo } from '@/components/ai-models/logos/grok-logo';
-import { ResponseRenderer } from '@cloro-dev/response-parser/react';
+import { parseAiResponse } from '@cloro-dev/response-parser';
 
 interface PromptResultsSheetProps {
   open: boolean;
@@ -319,15 +319,35 @@ function ResultsSheetInner({
                   {currentResult ? (
                     <LoadingBoundary isLoading={false} hasData={true}>
                       <div className="h-full">
-                        <ResponseRenderer
-                          response={currentResult.response}
-                          removeLinks
-                          invertColors
-                          removeHeader
-                          removeFooter
-                          removeSidebar
-                          className="h-full w-full"
-                        />
+                        {(() => {
+                          const parsed = parseAiResponse(
+                            currentResult.response,
+                            {
+                              removeLinks: true,
+                              invertColors: true,
+                              removeHeader: true,
+                              removeFooter: true,
+                              removeSidebar: true,
+                            },
+                          );
+
+                          if (!parsed) {
+                            return (
+                              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                Unable to parse response
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <iframe
+                              className="h-full w-full border-0"
+                              srcDoc={parsed.html}
+                              sandbox="allow-same-origin allow-scripts"
+                              title="AI Response"
+                            />
+                          );
+                        })()}
                       </div>
                     </LoadingBoundary>
                   ) : (

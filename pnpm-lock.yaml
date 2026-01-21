@@ -14,8 +14,8 @@ importers:
         specifier: ^2.0.68
         version: 2.0.80(zod@3.25.76)
       '@cloro-dev/response-parser':
-        specifier: 0.1.6
-        version: 0.1.6(react@19.2.0)
+        specifier: 0.2.0
+        version: 0.2.0
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -432,16 +432,11 @@ packages:
         integrity: sha512-rEFOE1MYIsBmoMJtQbl32PGHHXuG2hDxvEd7rUHE0vCBoFQVSDqaVs9hkZEtHCxRoY+CljXKFCOuJ8uxqw1LcA==,
       }
 
-  '@cloro-dev/response-parser@0.1.6':
+  '@cloro-dev/response-parser@0.2.0':
     resolution:
       {
-        integrity: sha512-9UGzELL5rg8WzuaAu8yNwk6xtQfUmjWygrgDne9PZ8l9jtUe2mzzi9+PGPXBlHCea7NWnWwIKoeon9D/FGbJqg==,
+        integrity: sha512-MV001aEIlOFE0hIuFEAfYu6bpLrjB1d8Q5243WhWrepqVTFCOe7PxTQPGQSCDG/DGduzPg16Anzl6oKjO44fvw==,
       }
-    peerDependencies:
-      react: '>=16.8.0'
-    peerDependenciesMeta:
-      react:
-        optional: true
 
   '@discoveryjs/json-ext@0.5.7':
     resolution:
@@ -6306,6 +6301,7 @@ packages:
         integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==,
       }
     engines: { node: '>=18' }
+    deprecated: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
   whatwg-mimetype@4.0.0:
     resolution:
@@ -6594,9 +6590,7 @@ snapshots:
 
   '@better-fetch/fetch@1.1.18': {}
 
-  '@cloro-dev/response-parser@0.1.6(react@19.2.0)':
-    optionalDependencies:
-      react: 19.2.0
+  '@cloro-dev/response-parser@0.2.0': {}
 
   '@discoveryjs/json-ext@0.5.7': {}
 

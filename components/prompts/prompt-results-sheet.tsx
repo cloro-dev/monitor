@@ -324,7 +324,6 @@ function ResultsSheetInner({
                             currentResult.response,
                             {
                               removeLinks: true,
-                              invertColors: true,
                               removeHeader: true,
                               removeFooter: true,
                               removeSidebar: true,

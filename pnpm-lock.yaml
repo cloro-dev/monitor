@@ -14,8 +14,8 @@ importers:
         specifier: ^2.0.68
         version: 2.0.80(zod@3.25.76)
       '@cloro-dev/response-parser':
-        specifier: 0.2.0
-        version: 0.2.0
+        specifier: 0.3.1
+        version: 0.3.1
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -432,10 +432,10 @@ packages:
         integrity: sha512-rEFOE1MYIsBmoMJtQbl32PGHHXuG2hDxvEd7rUHE0vCBoFQVSDqaVs9hkZEtHCxRoY+CljXKFCOuJ8uxqw1LcA==,
       }
 
-  '@cloro-dev/response-parser@0.2.0':
+  '@cloro-dev/response-parser@0.3.1':
     resolution:
       {
-        integrity: sha512-MV001aEIlOFE0hIuFEAfYu6bpLrjB1d8Q5243WhWrepqVTFCOe7PxTQPGQSCDG/DGduzPg16Anzl6oKjO44fvw==,
+        integrity: sha512-RcMpmvqRQ4nW5VdIdfR2SiEzdWOV2U6RM3k7kJG9kPDB2F2dvDkEWjln7RiVO++N6iBPmUdT3pIXAISTEQdnZg==,
       }
 
   '@discoveryjs/json-ext@0.5.7':
@@ -6590,7 +6590,7 @@ snapshots:
 
   '@better-fetch/fetch@1.1.18': {}
 
-  '@cloro-dev/response-parser@0.2.0': {}
+  '@cloro-dev/response-parser@0.3.1': {}
 
   '@discoveryjs/json-ext@0.5.7': {}
 
@@ -8695,7 +8695,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.49.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@1.21.7)))(eslint@9.39.1(jiti@1.21.7)):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.49.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.1(jiti@1.21.7)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -8717,7 +8717,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.1(jiti@1.21.7)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.49.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@1.21.7)))(eslint@9.39.1(jiti@1.21.7))
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.49.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.1(jiti@1.21.7))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
